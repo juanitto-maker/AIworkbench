@@ -21,13 +21,14 @@ The magic of AIWB is its unique feedback loop. It mimics a professional develope
 ```mermaid
 graph TD
     subgraph AIWB Workflow
-        A[💡 User Prompt] --> B{🤖 Gemini (Generator)};
-        B -- Drafts --> C[📄 Code/Text Draft];
-        C --> D{🧐 Claude (Verifier)};
-        D -- Critiques --> E[📝 Feedback & Revisions];
-        E --> F{🧠 AIWB Refines Prompt};
+        A[User Prompt] --> B{Generator};
+        B -- Drafts --> C[Draft Output];
+        C --> D{Verifier};
+        D -- Critiques --> E[Feedback];
+        E --> F{AIWB Refines Prompt};
         F -- Instructs --> B;
     end
+
 
 
 
