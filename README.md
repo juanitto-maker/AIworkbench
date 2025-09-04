@@ -25,16 +25,19 @@ graph TD
         B -- Drafts --> C[📄 Code/Text Draft];
         C --> D{🧐 Claude (Verifier)};
         D -- Critiques --> E[📝 Feedback & Revisions];
-        E --> F{🧠 AIWB (Refines Prompt)};
+        E --> F{🧠 AIWB Refines Prompt};
         F -- Instructs --> B;
     end
+```
+
 
 ✨ Features at a Glance
 | Feature | Description |
-|---|---|
-| Hybrid AI Engine | Go beyond single-model prompting. Our unique Generator-Verifier loop uses multiple AIs to create, critique, and improve work autonomously. |
-| Smart Cost Control | Never get a surprise API bill again. The gpre and quote commands provide detailed, tiered cost estimates before you run anything. |
-| Streamlined Workflow | A full suite of CLI tools (pset, tnew, tedit) lets you manage your projects and tasks without ever leaving the terminal. |
+| :--- | :--- |
+| **Hybrid AI Engine** | Go beyond single-model prompting. Our unique Generator-Verifier loop uses multiple AIs to create, critique, and improve work autonomously. |
+| **Smart Cost Control** | Never get a surprise API bill again. The `gpre` and `quote` commands provide detailed, tiered cost estimates *before* you run anything. |
+| **Streamlined Workflow** | A full suite of CLI tools (`pset`, `tnew`, `tedit`) lets you manage your projects and tasks without ever leaving the terminal. |
+
 | Built for the Command Line | A fast, keyboard-driven interface designed for power users on Linux and Termux. |
 | Open & Extensible | Easily add new models, including your own local LLMs running on Ollama or other servers. |
 🎬 See It in Action
