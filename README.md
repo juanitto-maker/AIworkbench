@@ -18,17 +18,14 @@ AIWB is a command-line toolkit for developers who want to elevate their AI-drive
 
 The magic of AIWB is its unique feedback loop. It mimics a professional developer and code reviewer team, resulting in higher-quality, refined output.
 
-```mermaid
 graph TD
-    subgraph AIWB Workflow
-        A[User Prompt] --> B{Gemini (Generator)};
-        B -- Drafts --> C[Code/Text Draft];
-        C --> D{Claude (Verifier)};
-        D -- Critiques --> E[Feedback & Revisions];
-        E --> F{AIWB Refines Prompt};
-        F -- Instructs --> B;
-    end
-```
+    A[User Prompt] --> B(AI-Driven Workflow);
+    B --> C[Generator];
+    C --> D{Verifier};
+    D -- Yes --> E(Refined Prompt);
+    D -- No --> C;
+    E --> F[Output];
+
 
 ---
 
