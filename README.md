@@ -59,6 +59,7 @@ Get up and running in minutes.
 git clone https://github.com/juanitto-maker/AIworkbench-core.git
 cd AIworkbench-core
 bash bin-edit/binpush.sh --all
+```
 
 ### 2\. Configure Your Keys
 
