@@ -6,10 +6,9 @@ AIWB is a command-line toolkit for developers who want to elevate their AI-drive
 
 <div align="center">
 
-[![License: MIT]([[[https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge](https://github.com/juanitto-maker/AIworkbench-core/blob/37ae644e0375d27e177939f1a4f0f3f52e4b2caf/LICENSE.md)](https://github.com/juanitto-maker/AIworkbench-core/blob/37ae644e0375d27e177939f1a4f0f3f52e4b2caf/LICENSE.md)](https://github.com/juanitto-maker/AIworkbench-core/blob/37ae644e0375d27e177939f1a4f0f3f52e4b2caf/LICENSE.md))](https://opensource.org/licenses/MIT)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Issues](https://img.shields.io/github/issues/juanitto-maker/AIworkbench-core?style=for-the-badge&color=brightgreen)](https://github.com/juanitto-maker/AIworkbench-core/issues)
 [![Last Commit](https://img.shields.io/github/last-commit/juanitto-maker/AIworkbench-core?style=for-the-badge)](https://github.com/juanitto-maker/AIworkbench-core/commits/main)
-
 </div>
 
 ---
