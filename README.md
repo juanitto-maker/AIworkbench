@@ -53,13 +53,12 @@ A quick look at the AIWB workflow, from creating a task to generating the first 
 
 Get up and running in minutes.
 
-### 1\. Clone the Repo
+### 1. Clone the Repo
 
 ```bash
 git clone https://github.com/juanitto-maker/AIworkbench-core.git
 cd AIworkbench-core
 bash bin-edit/binpush.sh --all
-'''
 
 ### 2\. Configure Your Keys
 
