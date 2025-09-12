@@ -6,9 +6,10 @@ AIWB is a command-line toolkit for developers who want to elevate their AI-drive
 
 <div align="center">
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Issues](https://img.shields.io/github/issues/juanitto-maker/AIworkbench-core?style=for-the-badge&color=brightgreen)](https://github.com/juanitto-maker/AIworkbench-core/issues)
 [![Last Commit](https://img.shields.io/github/last-commit/juanitto-maker/AIworkbench-core?style=for-the-badge)](https://github.com/juanitto-maker/AIworkbench-core/commits/main)
+
 </div>
 
 ---
@@ -19,12 +20,14 @@ The magic of AIWB is its unique feedback loop. It mimics a professional develope
 
 ```mermaid
 graph TD
-    A[User Prompt] --> B(AI-Driven Workflow);
-    B --> C[Generator];
-    C --> D{Verifier};
-    D -- "Yes" --> E(Refined Prompt);
-    D -- "No" --> C;
-    E --> F[Output];
+    subgraph AIWB Workflow
+        A[User Prompt] --> B{Gemini (Generator)};
+        B -- Drafts --> C[Code/Text Draft];
+        C --> D{Claude (Verifier)};
+        D -- Critiques --> E[Feedback & Revisions];
+        E --> F{AIWB Refines Prompt};
+        F -- Instructs --> B;
+    end
 ```
 
 ---
@@ -53,12 +56,11 @@ A quick look at the AIWB workflow, from creating a task to generating the first 
 
 Get up and running in minutes.
 
-### 1. Clone the Repo
+### 1\. Clone the Repo
 
 ```bash
-git clone https://github.com/juanitto-maker/AIworkbench-core.git
+git clone [https://github.com/juanitto-maker/AIworkbench-core.git](https://github.com/juanitto-maker/AIworkbench-core.git)
 cd AIworkbench-core
-bash bin-edit/binpush.sh --all
 ```
 
 ### 2\. Configure Your Keys
