@@ -36,7 +36,7 @@ graph TD
 
 | Feature | Description |
 | :--- | :--- |
-| **Direct Repo Integration** | **NEW!** Set AIWB's context to an existing Git repository to have the AI edit, debug, and refactor your files directly. |
+| **Direct Repo Integration** | Set AIWB's context to an existing Git repository to have the AI edit, debug, and refactor your files directly. |
 | **Hybrid AI Engine** | Go beyond single-model prompting. Our unique Generator-Verifier loop uses multiple AIs to create, critique, and improve work autonomously. |
 | **Smart Cost Control** | Never get a surprise API bill again. The `gpre` and `quote` commands provide detailed, tiered cost estimates *before* you run anything. |
 | **Streamlined Workflow** | A full suite of CLI tools (`pset`, `tnew`, `tedit`) lets you manage your projects and tasks without ever leaving the terminal. |
@@ -78,11 +78,7 @@ source ~/.bashrc
 
 We're on a mission to build the ultimate command-line AI assistant. Join us!
 
-* **Phase 1:** Consolidate core scripts, create a robust installer, and implement direct file editing within project contexts.
-* **Phase 2:** Add support for more models (OpenAI, Ollama), integrate Git for auto-commits, and build an interactive TUI.
-* **Phase 3:** Launch the "Autonomous Agent" that can run the refinement loop independently and perform file system operations.
-
-For more details, see the [ROADMAP.md](docs/ROADMAP.md) file.
+For a detailed breakdown of our future plans, see the [docs/ROADMAP.md](docs/ROADMAP.md) file.
 
 ---
 
@@ -93,10 +89,10 @@ This is an open-source project built by and for the community. Please consider c
 <a href="https://github.com/sponsors/juanitto-maker">
 <img src="https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86" alt="Sponsor">
 </a>
-<a href="https://ko-fi.com/YOUR_KOFI_USERNAME">
+<a href="https://ko-fi.com/guardos">
 <img src="https://img.shields.io/static/v1?label=Ko-fi&message=%E2%98%95&logo=ko-fi&color=%2329abe0" alt="Ko-fi">
 </a>
 
 ---
 
-This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GPL-3.0 License** - see the [LICENSE](LICENSE) file for details.
