@@ -1,58 +1,34 @@
 #!/usr/bin/env bash
 # chat-runner.sh — Agent runner for AIworkbench
 #
-# Purpose:
-#   Take a free-form chat message, ask Gemini/Claude for a JSON "plan",
-#   show the plan, and (on confirmation) execute the appropriate helpers:
-#   - estimate → gpre.sh/cpre.sh
-#   - generate/tweak → ggo.sh/cgo.sh
-#   - debug → cout.sh/gout.sh
-#
-# Strict JSON contract expected from model:
-#   {
-#     "intent": "estimate" | "generate" | "tweak" | "debug" | "chat",
-#     "tier": "Basic" | "Medium" | "Best" | "",  // optional except for actions
-#     "reason": "short explanation",
-#     "task_update": "optional text to append into the task prompt",
-#     "assistant": "optional plain assistant reply when intent == 'chat'"
-#   }
-#
-# Notes:
-# - If API keys are missing, we fall back to a simple heuristic plan.
-# - We always ask for confirmation before any mutating action.
-# - Safe to run in Termux and standard Linux/macOS.
-#
-# Usage (called by aiwb):
-#   chat-runner.sh --provider gemini|claude --model <name> \
-#                  --message "your message" \
-#                  [--project <project_path>] [--taskfile <task_prompt_path>]
-#
+# Reads a free-form message, asks Gemini/Claude for a JSON plan, shows it,
+# and (on confirmation) runs your helpers:
+#   estimate    → gpre.sh / cpre.sh
+#   generate    → ggo.sh  / cgo.sh
+#   tweak       → ggo.sh  / cgo.sh
+#   debug       → cout.sh / gout.sh
+# If API keys are missing it falls back to a safe heuristic plan.
+
 set -euo pipefail
 
-# ----------------------------- utilities --------------------------------------
 have() { command -v "$1" >/dev/null 2>&1; }
 err()  { printf "\033[1;31mEE\033[0m %s\n" "$*" >&2; }
 warn() { printf "\033[1;33m!!\033[0m %s\n" "$*" >&2; }
 msg()  { printf "\033[1;32m==>\033[0m %s\n" "$*"; }
 
 gum_confirm() {
-  if have gum; then
-    gum confirm --prompt "$1" && return 0 || return 1
-  else
-    read -rp "$1 [y/N] " yn
-    [[ "$yn" =~ ^[Yy]$ ]]
+  if have gum; then gum confirm --prompt "$1" && return 0 || return 1
+  else read -rp "$1 [y/N] " yn; [[ "$yn" =~ ^[Yy]$ ]]
   fi
 }
 
 json_get() { jq -r "$1" 2>/dev/null; }
 
+# Remove ``` fences (and ```json) — awk-free for Termux/BusyBox/Toybox
 strip_fences() {
-  # remove ```...``` fences if present, keep inner content
-  awk '
-    BEGIN{in=0}
-    /^```/ { if (in==0) {in=1; next} else {in=0; next} }
-    { if (in==0 && NR==1 && $0 ~ /^```/) next; if(in==1 || $0 !~ /^```/) print }
-  '
+  sed -e '1s/^\xEF\xBB\xBF//' \
+      -e 's/^[[:space:]]*```json[[:space:]]*$//g' \
+      -e 's/^[[:space:]]*```[[:space:]]*$//g'
 }
 
 # ----------------------------- args -------------------------------------------
@@ -78,36 +54,24 @@ done
 
 # ----------------------------- system prompt ----------------------------------
 read -r -d '' SYSTEM_PROMPT <<'SYS' || true
-You are AIworkbench Orchestrator. You must reply with PURE JSON (no markdown, no prose).
-Infer a plan from the user's message and the development context. Fields:
-
-- intent: one of "estimate", "generate", "tweak", "debug", "chat".
-- tier: "Basic" | "Medium" | "Best" | "" (empty when not applicable).
-- reason: short justification (one sentence).
-- task_update: optional text to append to the current task prompt if the user described requirements.
-- assistant: optional friendly reply to show in chat when intent == "chat".
-
-Never output anything except a single JSON object.
+You are AIworkbench Orchestrator. Reply with a single JSON object and nothing else.
+Fields:
+  intent: "estimate" | "generate" | "tweak" | "debug" | "chat"
+  tier: "Basic" | "Medium" | "Best" | "" (empty when not applicable)
+  reason: short one-sentence justification
+  task_update: optional text to append to the current task prompt
+  assistant: optional friendly reply when intent == "chat"
+No markdown fences. No prose. JSON only.
 SYS
 
-# ----------------------------- body builders ----------------------------------
+# ----------------------------- bodies -----------------------------------------
 make_body_gemini() {
   jq -n --arg sys "$SYSTEM_PROMPT" --arg u "$MESSAGE" '
-  {
-    contents: [
-      { role: "user", parts: [ {text: ($sys + "\n\nUSER:\n" + $u)} ] }
-    ]
-  }'
+  { contents: [ { role:"user", parts:[ {text:($sys + "\n\nUSER:\n" + $u)} ] } ] }'
 }
-
 make_body_claude() {
   jq -n --arg sys "$SYSTEM_PROMPT" --arg u "$MESSAGE" --arg m "${MODEL:-sonnet-3.5}" '
-  {
-    model: $m,
-    max_tokens: 512,
-    system: $sys,
-    messages: [ { role:"user", content: $u } ]
-  }'
+  { model:$m, max_tokens:512, system:$sys, messages:[ {role:"user", content:$u} ] }'
 }
 
 # ----------------------------- model call -------------------------------------
@@ -136,37 +100,35 @@ call_model() {
   esac
 }
 
-# ----------------------------- heuristics -------------------------------------
+# ----------------------------- heuristic fallback -----------------------------
 heuristic_plan() {
-  # crude intent detection if no API keys or network
   local lc; lc="$(printf '%s' "$MESSAGE" | tr '[:upper:]' '[:lower:]')"
-  if   grep -Eq '\b(estimate|cost|price|quote)\b' <<<"$lc";   then echo '{"intent":"estimate","tier":"Medium","reason":"User asks for estimation."}'
-  elif grep -Eq '\b(generate|build|create|scaffold|implement)\b' <<<"$lc"; then echo '{"intent":"generate","tier":"Medium","reason":"User asks to generate."}'
-  elif grep -Eq '\b(tweak|modify|update|change|refactor|improve)\b' <<<"$lc"; then echo '{"intent":"tweak","tier":"Medium","reason":"User asks to tweak."}'
-  elif grep -Eq '\b(debug|error|fix|bug|issue|trace)\b' <<<"$lc"; then echo '{"intent":"debug","tier":"Medium","reason":"User asks to debug."}'
+  if   grep -Eq '\b(estimate|cost|price|quote)\b' <<<"$lc"; then
+    echo '{"intent":"estimate","tier":"Medium","reason":"Asked to estimate."}'
+  elif grep -Eq '\b(generate|build|create|scaffold|implement)\b' <<<"$lc"; then
+    echo '{"intent":"generate","tier":"Medium","reason":"Asked to generate."}'
+  elif grep -Eq '\b(tweak|modify|update|change|refactor|improve)\b' <<<"$lc"; then
+    echo '{"intent":"tweak","tier":"Medium","reason":"Asked to tweak."}'
+  elif grep -Eq '\b(debug|error|fix|bug|issue|trace)\b' <<<"$lc"; then
+    echo '{"intent":"debug","tier":"Medium","reason":"Asked to debug."}'
   else
     printf '{"intent":"chat","assistant":%s,"reason":"General conversation."}' \
       "$(printf '%s' "$MESSAGE" | jq -Rs .)"
   fi
 }
 
-# ----------------------------- plan creation ----------------------------------
+# ----------------------------- build plan -------------------------------------
 RAW="$(call_model 2>/dev/null || true)"
-if [[ -z "${RAW:-}" ]]; then
-  RAW="$(heuristic_plan)"
-fi
+[[ -z "${RAW:-}" ]] && RAW="$(heuristic_plan)"
 
-# try to get a clean JSON object
-CLEAN="$(printf '%s' "$RAW" | strip_fences | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' )"
+CLEAN="$(printf '%s' "$RAW" | strip_fences | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
 
-# If not valid JSON, wrap into {"intent":"chat","assistant":"..."}
 if ! echo "$CLEAN" | jq -e . >/dev/null 2>&1; then
   CLEAN="$(printf '{"intent":"chat","assistant":%s}' "$(printf '%s' "$RAW" | jq -Rs .)")"
 fi
-
 PLAN="$(echo "$CLEAN" | jq -c '.')"
 
-# ----------------------------- display plan -----------------------------------
+# ----------------------------- show plan --------------------------------------
 print_plan() {
   local plan="$1"
   local intent tier reason
@@ -185,10 +147,10 @@ TIER="$(echo   "$PLAN" | json_get '.tier   // ""')"
 ASSIST="$(echo "$PLAN" | json_get '.assistant // ""')"
 TASK_UPDATE="$(echo "$PLAN" | json_get '.task_update // ""')"
 
-# ----------------------------- task update ------------------------------------
+# ----------------------------- update task ------------------------------------
 if [[ -n "$TASK_UPDATE" && -n "${TASK_FILE:-}" ]]; then
   mkdir -p "$(dirname "$TASK_FILE")"
-  { [[ -f "$TASK_FILE" ]] || echo -e "# $(basename "$TASK_FILE")\n" ; } >> "$TASK_FILE"
+  { [[ -f "$TASK_FILE" ]] || echo -e "# $(basename "$TASK_FILE")\n"; } >> "$TASK_FILE"
   {
     echo
     echo "## Chat update ($(date -Iseconds))"
@@ -197,19 +159,16 @@ if [[ -n "$TASK_UPDATE" && -n "${TASK_FILE:-}" ]]; then
   echo "Updated task file: $TASK_FILE"
 fi
 
-# ----------------------------- execute plan -----------------------------------
+# ----------------------------- execute ----------------------------------------
 case "$INTENT" in
   chat|"")
-    if [[ -n "$ASSIST" ]]; then
-      echo; echo "$ASSIST"; echo
-    else
-      echo; echo "(chat) $MESSAGE"; echo
+    if [[ -n "$ASSIST" ]]; then echo; echo "$ASSIST"; echo
+    else echo; echo "(chat) $MESSAGE"; echo
     fi
     exit 0
     ;;
 
   estimate|generate|tweak|debug)
-    # Select helpers by provider
     if [[ "$PROVIDER" == "gemini" ]]; then PRE="gpre.sh"; GO="ggo.sh"
     else PRE="cpre.sh"; GO="cgo.sh"; fi
 
@@ -217,8 +176,7 @@ case "$INTENT" in
 
     TASK_ID="t0000"
     if [[ -n "${TASK_FILE:-}" ]]; then
-      base="$(basename "$TASK_FILE")"
-      TASK_ID="${base%%.prompt.md}"
+      base="$(basename "$TASK_FILE")"; TASK_ID="${base%%.prompt.md}"
     fi
 
     echo
@@ -227,7 +185,6 @@ case "$INTENT" in
 
     if [[ "$INTENT" == "estimate" ]]; then exit 0; fi
 
-    # Confirm mutating action
     gum_confirm "Proceed to ${INTENT^^} with tier ${TIER:-Medium}?" || { echo "Aborted."; exit 0; }
 
     case "$INTENT" in
@@ -243,7 +200,6 @@ case "$INTENT" in
         ;;
     esac
     ;;
-
   *)
     echo "Unknown intent: $INTENT"
     ;;
