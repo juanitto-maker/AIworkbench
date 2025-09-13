@@ -1,225 +1,249 @@
-#!/data/data/com.termux/files/usr/bin/bash
-# cpre.sh — Claude pre-cost estimator (quote-style) + optional generation
-# Works on Termux. No extra repo/bin hop; install to ~/.local/bin.
+#!/usr/bin/env bash
+# cpre.sh — Pre-estimate for Claude (AIworkbench)
+# - Universal: Linux/macOS/Termux (shebang gets fixed by binpush on Termux)
+# - Chat-first flow support: prints human table by default, --json for machine output
+# - Tier menu FIRST (Abort/Basic/Medium/Best) when interactive; or pass --tier=
+# - Reads workspace/config from ~/.aiwb/config.json with sane fallbacks
+# - Finds prompt at ~/.aiwb/workspace/tasks/<TASK_ID>.prompt.md
+# - Heuristic token estimate, transparent multipliers per tier
+# - Configurable pricing (override in ~/.aiwb/pricing.json or via env)
+#
+# Usage:
+#   cpre.sh <TASK_ID> [--json] [--tier=Basic|Medium|Best|Abort] [--model=<claude-model>] [--show-config]
+#
+# JSON output shape:
+# {
+#   "task": "t0001",
+#   "model": "sonnet-3.5",
+#   "tokens": { "in": 850, "out_est": 1400 },
+#   "tiers": [
+#     {"name":"Basic","out_tokens":900,"usd_total":0.42,"eur_total":0.39},
+#     {"name":"Medium","out_tokens":1400,"usd_total":0.63,"eur_total":0.58},
+#     {"name":"Best","out_tokens":2200,"usd_total":0.96,"eur_total":0.88}
+#   ],
+#   "chosen_tier": "Medium"
+# }
+
 set -euo pipefail
 
-# ---------- locations & env ----------
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
-AIWB_CODE_ROOT="${AIWB_CODE_ROOT:-$HOME/storage/shared/0code}"
-[ -f "$HOME/.aiwb.env" ] && . "$HOME/.aiwb.env" || true
+# ---------- utils ----------
+have() { command -v "$1" >/dev/null 2>&1; }
+err()  { printf "\033[1;31mEE\033[0m %s\n" "$*" >&2; }
+warn() { printf "\033[1;33m!!\033[0m %s\n" "$*" >&2; }
+msg()  { printf "\033[1;32m==>\033[0m %s\n" "$*"; }
 
-CLAUDE_MODEL="${CLAUDE_MODEL:-claude-3-5-sonnet-latest}"
-PRICING_JSON="${PRICING_JSON:-$AIWB/pricing.json}"
-FX="${FX_USD_EUR:-0.91}"
+AIWB_HOME="${HOME}/.aiwb"
+CONFIG_JSON="${AIWB_HOME}/config.json"
+PRICING_JSON_USER="${AIWB_HOME}/pricing.json"
 
-RUNNER_PREF="${CLAUDE_RUNNER:-}"
-RUNNERS=()
-[ -n "$RUNNER_PREF" ] && RUNNERS+=("$RUNNER_PREF")
-RUNNERS+=("cgo.sh" "c.sh" "$AIWB/bin-edit/cgo.sh" "$AIWB/bin-edit/c.sh")
+# ---------- defaults ----------
+WS_ROOT_DEFAULT="${AIWB_HOME}/workspace"
+TASKS_DIR_DEFAULT="${WS_ROOT_DEFAULT}/tasks"
 
-# ---------- helpers ----------
-die(){ printf '❌ %s\n' "$*" >&2; exit 1; }
-has(){ command -v "$1" >/dev/null 2>&1; }
-need(){ has "$1" || die "Missing dependency: $1"; }
-need curl; need jq; need awk; need sed
+PROVIDER_DEFAULT="claude"
+MODEL_DEFAULT_CLAUDE="sonnet-3.5"
 
-trim_cr_ws(){ local v="${!1-}"; printf '%s' "$v" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'; }
-jsons(){ jq -Rs . <<<"$1"; }
-approx_in_tokens(){ awk -v s="$1" 'BEGIN{print int(length(s)/4)+1}'; }
-find_runner(){
-  local r
-  for r in "${RUNNERS[@]}"; do
-    if command -v "$r" >/dev/null 2>&1; then echo "$r"; return; fi
-    [ -x "$r" ] && { echo "$r"; return; }
-  done; echo ""
-}
-norm_tier(){ case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in 1|b|basic)echo basic;;2|m|med|medium)echo medium;;3|t|top)echo top;;*)echo "";;esac; }
-price_or_default(){
-  local model="$1" field="$2" def="$3"
-  if [ -f "$PRICING_JSON" ]; then
-    local k; k="$(jq -r --arg m "$model" --arg f "$field" '
-      to_entries[] | select(.key==$m) | .value |
-      if $f=="input_per_k" then .input_per_k
-      elif $f=="output_per_k" then .output_per_k else empty end
-    ' "$PRICING_JSON" 2>/dev/null || true)"
-    if [ -n "$k" ] && [ "$k" != "null" ]; then
-      awk -v kk="$k" 'BEGIN{printf "%.6f", kk*1000}'
-      return
-    fi
-  fi
-  printf '%s' "$def"
-}
-
-# ---------- CLI ----------
-CONFIRM=0
-OUT_JSON=0
-SELECT_TIER=""
-PROMPT_INLINE=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --confirm) CONFIRM=1;;
-    --json) OUT_JSON=1;;
-    --tier) shift; SELECT_TIER="${1:-}";;
-    --model) shift; CLAUDE_MODEL="${1:-$CLAUDE_MODEL}";;
-    --help|-h)
-      cat <<'HLP'
-Usage: cpre.sh [--tier basic|medium|top|1|2|3] [--confirm] [--json] [--model NAME] [prompt...]
-- Estimates token/cost for 3 tiers (BASIC, MEDIUM, TOP). Optionally proceeds to generation.
-- Prompt source priority:
-    1) inline args after options
-    2) 0code/<project>/temp/<task>.prompt.md
-    3) 0ai-workbench/temp/<task>.prompt.md
-HLP
-      exit 0;;
-    *) PROMPT_INLINE+="${PROMPT_INLINE:+ }$1";;
-  esac; shift
-done
-
-# ---------- prompt discovery ----------
-PROJECT="$(cat "$AIWB/current.project" 2>/dev/null || true)"
-TASK="$(cat "$AIWB/current.task" 2>/dev/null || true)"
-
-PROMPT=""
-PROMPT_PATH=""
-if [ -n "$PROMPT_INLINE" ]; then
-  PROMPT="$PROMPT_INLINE"
-  PROMPT_PATH="(inline)"
-else
-  [ -z "$TASK" ] && die "No current.task set (use tnew.sh/tset.sh) or pass prompt inline."
-  if [ -n "$PROJECT" ] && [ -f "$AIWB_CODE_ROOT/$PROJECT/temp/$TASK.prompt.md" ]; then
-    PROMPT_PATH="$AIWB_CODE_ROOT/$PROJECT/temp/$TASK.prompt.md"
-    PROMPT="$(cat "$PROMPT_PATH")"
-  elif [ -f "$AIWB/temp/$TASK.prompt.md" ]; then
-    PROMPT_PATH="$AIWB/temp/$TASK.prompt.md"
-    PROMPT="$(cat "$PROMPT_PATH")"
-  else
-    die "Prompt file not found. Checked:
-  - $AIWB_CODE_ROOT/$PROJECT/temp/$TASK.prompt.md
-  - $AIWB/temp/$TASK.prompt.md"
-  fi
-fi
-[ -n "$(printf '%s' "$PROMPT" | tr -d ' \n\r\t')" ] || die "Prompt is empty."
-
-# ---------- pricing ----------
-C_IN_PER_M="$(price_or_default "$CLAUDE_MODEL" input_per_k 3.000000)"
-C_OUT_PER_M="$(price_or_default "$CLAUDE_MODEL" output_per_k 15.000000)"
-
-# ---------- call Claude ----------
-ANTHROPIC_API_KEY="$(trim_cr_ws ANTHROPIC_API_KEY)"
-[ -n "$ANTHROPIC_API_KEY" ] || die "Missing ANTHROPIC_API_KEY in ~/.aiwb.env"
-
-SYS_MSG="You are a senior project estimator. Analyze the idea and produce a three-tier plan (BASIC, MEDIUM, TOP). For each tier: a feature list (name + est_out_tokens per feature) and a 'tier_out_tokens' total. Add 'analysis_tokens'. Respond as STRICT JSON ONLY with keys: analysis_tokens, tiers[], notes. No code fences."
-
-REQUEST="$(cat <<JSON
+# Pricing defaults (USD per 1K tokens) — override in ~/.aiwb/pricing.json
+# These are placeholders; adjust to your real pricing in your user pricing.json.
+read -r -d '' PRICING_DEFAULT <<'JSON' || true
 {
-  "model": "$CLAUDE_MODEL",
-  "max_tokens": 1200,
-  "system": $(jsons "$SYS_MSG"),
-  "messages": [
-    {
-      "role": "user",
-      "content": [
-        { "type": "text", "text": $(jsons "$PROMPT") }
-      ]
-    }
-  ]
+  "fx": { "EUR_per_USD": 0.92 },
+  "claude": {
+    "sonnet-3.5": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
+    "haiku-3.5":  { "in_per_1k": 0.80, "out_per_1k": 4.00 }
+  }
 }
 JSON
-)"
 
-RAW="$(curl -sS https://api.anthropic.com/v1/messages \
-  -H "x-api-key: ${ANTHROPIC_API_KEY}" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "content-type: application/json" \
-  -d "$REQUEST")"
+# Tier multipliers (on out tokens)
+declare -A TIER_MULT=(
+  ["Basic"]="0.65"
+  ["Medium"]="1.00"
+  ["Best"]="1.60"
+)
 
-TEXT="$(printf '%s' "$RAW" | jq -r '.content[0].text // empty' 2>/dev/null || true)"
-[ -n "$TEXT" ] || die "Empty response from Claude estimator
---- RAW ---
-$(echo "$RAW" | sed -n '1,160p')
------------"
+TIERS=("Basic" "Medium" "Best")
 
-JSON_EST="$(printf '%s\n' "$TEXT" | sed '/^```[a-zA-Z]*\s*$/d; /^```\s*$/d')"
-echo "$JSON_EST" | jq -e . >/dev/null 2>&1 || die "Estimator output is not valid JSON. Raw body:\n$TEXT"
+# ---------- parse args ----------
+TASK_ID="${1:-}"
+[[ -z "${TASK_ID}" ]] && { err "Usage: cpre.sh <TASK_ID> [--json] [--tier=...] [--model=...]"; exit 2; }
 
-# derive tier_out_tokens if missing
-JSON_EST="$(jq '
-  .tiers |= (map(
-    if has("tier_out_tokens") then .
-    else . + { tier_out_tokens:
-      ( (.features // [])
-        | map( (if type=="object" and has("est_out_tokens") then .est_out_tokens else 0 end) )
-        | add // 0
-      )
-    } end
-  ))
-' <<<"$JSON_EST")"
+OUTPUT_JSON="false"
+CHOSEN_TIER=""
+MODEL_NAME=""
+SHOW_CONFIG="false"
 
-if [ "$OUT_JSON" -eq 1 ]; then
-  echo "$JSON_EST"
+for a in "${@:2}"; do
+  case "$a" in
+    --json) OUTPUT_JSON="true" ;;
+    --tier=*) CHOSEN_TIER="${a#--tier=}" ;;
+    --model=*) MODEL_NAME="${a#--model=}" ;;
+    --show-config) SHOW_CONFIG="true" ;;
+    *) warn "Unknown arg: $a" ;;
+  esac
+done
+
+# ---------- config ----------
+jq_get() { jq -r "$1" "$CONFIG_JSON"; }
+
+TASKS_DIR="$TASKS_DIR_DEFAULT"
+MODEL_PROVIDER="$PROVIDER_DEFAULT"
+if [[ -f "$CONFIG_JSON" ]] && have jq; then
+  TASKS_DIR="$(jq_get '.workspace.tasks' 2>/dev/null || echo "$TASKS_DIR_DEFAULT")"
+  MODEL_PROVIDER="$(jq_get '.models.default_provider' 2>/dev/null || echo "$PROVIDER_DEFAULT")"
+  [[ -z "$MODEL_NAME" ]] && MODEL_NAME="$(jq_get '.models.claude_default' 2>/dev/null || echo "$MODEL_DEFAULT_CLAUDE")"
+fi
+[[ -z "$MODEL_NAME" ]] && MODEL_NAME="$MODEL_DEFAULT_CLAUDE"
+
+PROMPT_FILE="${TASKS_DIR}/${TASK_ID}.prompt.md"
+if [[ ! -f "$PROMPT_FILE" ]]; then
+  err "Prompt not found: $PROMPT_FILE"
+  err "Create it first (e.g., ~/.aiwb/workspace/tasks/${TASK_ID}.prompt.md)"
+  exit 3
+fi
+
+# ---------- pricing ----------
+load_pricing() {
+  local src_json="$PRICING_JSON_USER"
+  if [[ -f "$src_json" ]]; then
+    cat "$src_json"
+  else
+    printf "%s" "$PRICING_DEFAULT"
+  fi
+}
+
+if ! have jq; then
+  err "jq is required."
+  exit 4
+fi
+
+PRICING="$(load_pricing)"
+if [[ "$SHOW_CONFIG" == "true" ]]; then
+  echo "$PRICING" | jq .
   exit 0
 fi
 
-ANALYSIS_TOK="$(jq -r '.analysis_tokens // 0' <<<"$JSON_EST")"
-IN_TOK="$(approx_in_tokens "$PROMPT")"
+# Fetch per-1k token prices
+get_price() {
+  local provider="$1" model="$2" kind="$3" # kind=in_per_1k|out_per_1k
+  echo "$PRICING" | jq -r --arg p "$provider" --arg m "$model" --arg k "$kind" '.[$p][$m][$k] // empty'
+}
 
-printf ":: prompt: %s\n" "$PROMPT_PATH"
-printf "📁 Project: %s\n" "${PROJECT:-<none>}"
-printf "🧩 Task:    %s\n" "${TASK:-<none>}"
-printf "🤖 Model:   %s\n" "$CLAUDE_MODEL"
-printf "📝 Prompt in-tokens (approx): %d\n" "$IN_TOK"
-printf "🔍 Estimator analysis tokens: %d\n" "$ANALYSIS_TOK"
-printf "💵 Pricing USD/1M: in=%s  out=%s\n" "$C_IN_PER_M" "$C_OUT_PER_M"
-printf "💱 FX USD→EUR: %s\n\n" "$FX"
+FX_EUR_PER_USD="$(echo "$PRICING" | jq -r '.fx.EUR_per_USD // 0.92')"
 
-echo "tier  label    out_tok(tier)  out_tok(cum)   usd_in     usd_out    usd_total   eur_total"
-echo "----  -------  -------------  ------------  --------   --------   ----------  ----------"
-
-cum=0
-idx=0
-while IFS= read -r row; do
-  idx=$((idx+1))
-  label="$(jq -r '.label // .tier // "?"' <<<"$row")"
-  t_tok="$(jq -r '.tier_out_tokens // 0' <<<"$row")"
-  cum=$((cum + t_tok))
-
-  usd_in=$(awk -v t=$((IN_TOK+ANALYSIS_TOK)) -v p="$C_IN_PER_M" 'BEGIN{printf "%.6f",(t/1000000.0)*p}')
-  usd_out=$(awk -v t="$cum" -v p="$C_OUT_PER_M" 'BEGIN{printf "%.6f",(t/1000000.0)*p}')
-  usd_tot=$(awk -v a="$usd_in" -v b="$usd_out" 'BEGIN{printf "%.6f",a+b}')
-  eur_tot=$(awk -v u="$usd_tot" -v fx="$FX" 'BEGIN{printf "%.6f",u*fx}')
-
-  printf "%-4s  %-7s  %13d  %12d  %8s   %8s    %10s   %10s\n" \
-    "$idx" "$label" "$t_tok" "$cum" "$usd_in" "$usd_out" "$usd_tot" "$eur_tot"
-done < <(jq -c '.tiers[]' <<<"$JSON_EST")
-
-echo; echo "Features by tier:"
-jq -r '
-  .tiers[]
-  | "— " + (.label // .tier) + " —\n" +
-    ( (.features // [])
-      | map( if type=="object"
-              then "  • " + (.name // "feature") + "  (~" + ((.est_out_tokens // 0)|tostring) + " out tok)"
-              else "  • " + (tostring)
-            end
-          )
-      | join("\n")
-    ) + "\n"
-' <<<"$JSON_EST"
-
-CHOSEN=""
-[ -n "$SELECT_TIER" ] && CHOSEN="$(norm_tier "$SELECT_TIER")"
-
-if [ "$CONFIRM" -eq 1 ]; then
-  echo
-  if [ -z "$CHOSEN" ]; then
-    printf "Proceed to generation? Pick tier [1=Basic, 2=Medium, 3=Top, n=No]: "
-    read -r ans
-    case "$ans" in 1|b|B) CHOSEN="basic";; 2|m|M) CHOSEN="medium";; 3|t|T) CHOSEN="top";; *) echo "Aborted."; exit 0;; esac
-  else
-    printf "Proceed with tier '%s'? [y/N]: " "$CHOSEN"; read -r yn; case "$yn" in y|Y) ;; *) echo "Aborted."; exit 0;; esac
-  fi
-
-  RUNNER="$(find_runner)"; [ -n "$RUNNER" ] || die "No Claude runner found (looked for: ${RUNNERS[*]})"
-  export AIWB_TIER="$CHOSEN"
-  if "$RUNNER" --help >/dev/null 2>&1; then "$RUNNER" --tier "$CHOSEN"; else "$RUNNER"; fi
+IN_PER_1K="$(get_price "claude" "$MODEL_NAME" "in_per_1k")"
+OUT_PER_1K="$(get_price "claude" "$MODEL_NAME" "out_per_1k")"
+if [[ -z "$IN_PER_1K" || -z "$OUT_PER_1K" || "$IN_PER_1K" == "null" || "$OUT_PER_1K" == "null" ]]; then
+  err "Pricing missing for claude/$MODEL_NAME. Add it to ~/.aiwb/pricing.json"
+  exit 5
 fi
+
+# ---------- estimate tokens ----------
+# Heuristics:
+# - input tokens ≈ ceil(chars/4)
+# - baseline out tokens ≈ ceil(input_tokens * 0.9), then tier multipliers
+chars=$(wc -c < "$PROMPT_FILE" | tr -d ' ')
+words=$(wc -w < "$PROMPT_FILE" | tr -d ' ')
+lines=$(wc -l < "$PROMPT_FILE" | tr -d ' ')
+
+inp_tokens=$(( (chars + 3) / 4 ))
+base_out=$(awk -v it="$inp_tokens" 'BEGIN{printf("%d", (it*0.9)+0.5)}')
+
+# ---------- interactive tier (if not provided and stdout is a tty) ----------
+choose_tier_interactive() {
+  if [[ -t 1 ]]; then
+    if have gum; then
+      local pick
+      pick="$(printf "Abort\nBasic\nMedium\nBest" | gum choose --header "Choose tier for ${TASK_ID} (model: ${MODEL_NAME})")" || pick=""
+      echo "$pick"
+      return
+    fi
+    echo "Choose tier: [a]bort [b]asic [m]edium [B]est"
+    read -r ans
+    case "$ans" in a|A) echo "Abort" ;; b|B) echo "Basic" ;; m|M) echo "Medium" ;; *) echo "Best" ;; esac
+  else
+    echo "Medium"
+  fi
+}
+
+if [[ -z "$CHOSEN_TIER" ]]; then
+  CHOSEN_TIER="$(choose_tier_interactive)"
+fi
+case "$CHOSEN_TIER" in
+  Abort|"") ;;
+  Basic|Medium|Best) ;;
+  *) warn "Unknown tier '$CHOSEN_TIER' → defaulting to Medium"; CHOSEN_TIER="Medium" ;;
+esac
+
+# ---------- compute costs ----------
+price_for() { # tokens, per1k
+  local toks="$1" per="$2"
+  awk -v t="$toks" -v p="$per" 'BEGIN{printf("%.6f", (t/1000.0)*p)}'
+}
+usd_to_eur() {
+  awk -v u="$1" -v r="$FX_EUR_PER_USD" 'BEGIN{printf("%.6f", u*r)}'
+}
+json_escape() { python - <<'PY' "$1"; exit 0
+import json,sys; print(json.dumps(sys.argv[1]))
+PY
+}
+
+declare -A tier_out
+declare -A tier_usd
+declare -A tier_eur
+for t in "${TIERS[@]}"; do
+  mult="${TIER_MULT[$t]}"
+  out=$(awk -v b="$base_out" -v m="$mult" 'BEGIN{printf("%d", b*m+0.5)}')
+  usd_in=$(price_for "$inp_tokens" "$IN_PER_1K")
+  usd_out=$(price_for "$out"        "$OUT_PER_1K")
+  usd_total=$(awk -v a="$usd_in" -v b="$usd_out" 'BEGIN{printf("%.6f", a+b)}')
+  eur_total=$(usd_to_eur "$usd_total")
+  tier_out["$t"]="$out"
+  tier_usd["$t"]="$usd_total"
+  tier_eur["$t"]="$eur_total"
+done
+
+# ---------- output ----------
+if [[ "$OUTPUT_JSON" == "true" ]]; then
+  printf '{'
+  printf '"task":%s,' "$(json_escape "$TASK_ID")"
+  printf '"model":%s,' "$(json_escape "$MODEL_NAME")"
+  printf '"tokens":{"in":%d,"out_est":%d},' "$inp_tokens" "$base_out"
+  printf '"tiers":['
+  first=1
+  for t in "${TIERS[@]}"; do
+    [[ $first -eq 0 ]] && printf ','
+    printf '{"name":%s,"out_tokens":%d,"usd_total":%.6f,"eur_total":%.6f}' \
+      "$(json_escape "$t")" "${tier_out[$t]}" "${tier_usd[$t]}" "${tier_eur[$t]}"
+    first=0
+  done
+  printf ']'
+  if [[ "$CHOSEN_TIER" != "Abort" && -n "$CHOSEN_TIER" ]]; then
+    printf ',"chosen_tier":%s' "$(json_escape "$CHOSEN_TIER")"
+  fi
+  printf '}\n'
+  exit 0
+fi
+
+echo
+echo "AIWB • Claude pre-estimate"
+echo " Task    : ${TASK_ID}"
+echo " Model   : ${MODEL_NAME}"
+echo " Prompt  : ${PROMPT_FILE}"
+echo " Size    : ${chars} chars, ${words} words, ${lines} lines"
+echo " Tokens  : in≈${inp_tokens}, out_base≈${base_out}"
+echo
+printf " %-8s | %-10s | %-12s | %-12s\n" "Tier" "Out tokens" "USD total" "EUR total"
+printf "-----------+------------+--------------+--------------\n"
+for t in "${TIERS[@]}"; do
+  printf " %-8s | %-10d | %-12.6f | %-12.6f\n" "$t" "${tier_out[$t]}" "${tier_usd[$t]}" "${tier_eur[$t]}"
+done
+echo
+
+if [[ "$CHOSEN_TIER" == "Abort" || -z "$CHOSEN_TIER" ]]; then
+  echo "Chosen tier: Abort"
+  exit 0
+fi
+
+echo "Chosen tier: ${CHOSEN_TIER}"
+echo "(Tip: pass --json for machine-readable output, or --tier= to skip the menu.)"
