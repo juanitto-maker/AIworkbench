@@ -81,6 +81,106 @@ We're on a mission to build the ultimate command-line AI assistant. Join us!
 For a detailed breakdown of our future plans, see the [docs/ROADMAP.md](docs/ROADMAP.md) file.
 
 ---
+# 🚀 Install & First Run
+
+Works on **Android (Termux)**, **Linux**, and **macOS**. Chat is the default interaction; no project/task required.
+
+---
+
+## 0) Dependencies
+
+- **Required:** `bash` (v4+), `curl`, `jq`
+- **Optional (recommended):** `gum` (pretty TUI), `git`, `fzf`
+- **Termux only:** run once → `termux-setup-storage`
+
+**Install packages**
+
+**Termux**
+~~~
+pkg update
+pkg install bash curl jq git sed coreutils
+pkg install gum          # optional but recommended
+termux-setup-storage     # allow access to /storage/shared
+~~~
+
+**Ubuntu/Debian**
+~~~
+sudo apt update
+sudo apt install bash curl jq git
+# gum (optional)
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo tee /etc/apt/keyrings/charm.gpg >/dev/null
+echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+sudo apt update && sudo apt install gum
+~~~
+
+**macOS (Homebrew)**
+~~~
+brew install bash curl jq git gum
+~~~
+
+---
+
+## 1) One-liner install
+
+~~~
+curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/install.sh | bash
+~~~
+
+This sets up `~/.aiwb`, installs tools into `~/.local/bin`, and creates a default config.
+
+**Ensure `~/.local/bin` is on PATH (persistently):**
+~~~
+printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> ~/.bashrc
+printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> ~/.profile 2>/dev/null || true
+. ~/.bashrc 2>/dev/null || true
+hash -r
+~~~
+
+**Verify:**
+~~~
+command -v aiwb && command -v chat-runner.sh
+~~~
+
+---
+
+## 2) Add your API keys (stored locally, not in repo)
+
+**Inside AIWB (nice UI):**
+~~~
+aiwb
+/keys     # paste GEMINI_API_KEY and/or ANTHROPIC_API_KEY
+/exit
+~~~
+
+**Or via shell:**
+~~~
+printf 'export GEMINI_API_KEY="%s"\n' "paste-your-gemini-key"    >> ~/.aiwb.env
+printf 'export ANTHROPIC_API_KEY="%s"\n' "paste-your-claude-key" >> ~/.aiwb.env
+chmod 600 ~/.aiwb.env
+. ~/.aiwb.env
+~~~
+
+---
+
+## 3) Create the default task (required once)
+
+Some helpers expect a default task file. Create it now:
+
+~~~
+mkdir -p ~/.aiwb/workspace/tasks
+printf "# inbox\n\n" > ~/.aiwb/workspace/tasks/inbox.prompt.md
+~~~
+
+---
+
+## 4) Run it 🎉
+
+~~~
+aiwb
+~~~
+
+Type something like:
 
 ## ❤️ Join the Crew & Support
 
