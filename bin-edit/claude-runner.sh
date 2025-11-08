@@ -1,9 +1,9 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Claude API runner — calls Anthropic chat model
 set -euo pipefail
 : "${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in ~/.bashrc}"
 
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 T="${1:-$( [ -f "$AIWB/current.task" ] && cat "$AIWB/current.task" || echo "" )}"
 [ -n "$T" ] || { echo "Usage: claude-runner.sh <TASK_ID>"; exit 1; }
 

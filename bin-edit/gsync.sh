@@ -1,8 +1,8 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Sync the current task's prompt into gemini-prompts folder
 set -euo pipefail
 
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 
 T="${1:-}"
 [ -z "$T" ] && [ -f "$AIWB/current.task" ] && T="$(cat "$AIWB/current.task")"

@@ -1,8 +1,8 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Common paths & defaults
 
 # Workbench home (tools live here)
-export AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+export AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 
 # Project root (every project gets its own folder here)
 export PROJ_ROOT="${PROJ_ROOT:-$HOME/storage/shared/0code}"

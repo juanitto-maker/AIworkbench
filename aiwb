@@ -1,0 +1,1004 @@
+#!/usr/bin/env bash
+# aiwb - AIworkbench: Multi-Model AI Orchestration Platform
+# Version: 2.0.0
+# Universal compatibility: Linux, macOS, Termux
+# License: GPL-3.0
+
+set -euo pipefail
+
+# ============================================================================
+# BOOTSTRAP
+# ============================================================================
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="${SCRIPT_DIR}/lib"
+
+# Load libraries
+for lib in common config ui api error security; do
+    lib_file="${LIB_DIR}/${lib}.sh"
+    if [[ -f "$lib_file" ]]; then
+        source "$lib_file"
+    else
+        echo "ERROR: Missing library: $lib_file" >&2
+        echo "Please reinstall AIWB or run from the repository directory." >&2
+        exit 1
+    fi
+done
+
+# ============================================================================
+# INITIALIZATION
+# ============================================================================
+
+# Check dependencies
+check_dependencies() {
+    local missing=()
+
+    for cmd in bash jq curl; do
+        have "$cmd" || missing+=("$cmd")
+    done
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        err "Missing required dependencies: ${missing[*]}"
+        echo ""
+        echo "Install with:"
+        if is_termux; then
+            echo "  pkg install ${missing[*]}"
+        elif is_macos; then
+            echo "  brew install ${missing[*]}"
+        else
+            echo "  sudo apt install ${missing[*]}  # Debian/Ubuntu"
+            echo "  sudo pacman -S ${missing[*]}    # Arch"
+            echo "  sudo dnf install ${missing[*]}  # Fedora"
+        fi
+        exit "$E_DEPENDENCY"
+    fi
+
+    # Optional but recommended
+    if ! have gum; then
+        debug "gum not installed - using fallback UI"
+    fi
+}
+
+# Initialize workspace and config
+initialize() {
+    debug "Initializing AIWB..."
+
+    check_dependencies
+    init_workspace
+    load_config
+    load_session
+    load_keys || true
+
+    # Auto-fix CRLF if on Termux
+    if is_termux && [[ -d "$HOME/.local/bin" ]]; then
+        fix_crlf_scripts
+    fi
+}
+
+# Fix CRLF line endings (Termux compatibility)
+fix_crlf_scripts() {
+    local bin_dir="$HOME/.local/bin"
+    local fixed=0
+
+    for script in "$bin_dir"/*.sh; do
+        [[ -f "$script" ]] || continue
+        if grep -q $'\r' "$script" 2>/dev/null; then
+            sed -i 's/\r$//' "$script"
+            ((fixed++))
+        fi
+    done
+
+    if ((fixed > 0)); then
+        debug "Fixed CRLF in $fixed scripts"
+        hash -r
+    fi
+}
+
+# ============================================================================
+# COMMANDS
+# ============================================================================
+
+# Show help
+cmd_help() {
+    ui_header "AIWB - AI Workbench v2.0"
+
+    cat <<'EOF'
+A multi-model AI orchestration platform for the command line.
+
+USAGE:
+  aiwb [command] [options]
+
+COMMANDS:
+  (no command)         Start interactive chat interface
+  chat                 Interactive chat mode
+  generate <task>      Generate code/content for a task
+  estimate <task>      Estimate cost before generating
+  verify <task>        Verify/review generated content
+  refine <task>        Automated Generator-Verifier loop
+
+MANAGEMENT:
+  task new <name>      Create a new task
+  task list            List all tasks
+  task edit <name>     Edit a task
+  task delete <name>   Delete a task
+
+  project set <name>   Set/create active project
+  project list         List all projects
+
+CONFIGURATION:
+  keys                 Manage API keys
+  settings             Configure AIWB
+  status               Show current status
+  doctor               Check system health
+
+ADVANCED:
+  template list        List available templates
+  template use <name>  Use a template
+  history              Show session history
+  costs                Show cost breakdown
+  security-audit       Run security audit
+
+OPTIONS:
+  --provider <name>    Use specific provider (gemini/claude/openai/ollama)
+  --model <name>       Use specific model
+  --debug              Enable debug output
+  --help, -h           Show this help
+  --version, -v        Show version
+
+EXAMPLES:
+  aiwb                             # Start interactive chat
+  aiwb generate api-endpoint       # Generate code for task
+  aiwb refine --iterations=3       # Auto-refine current task
+  aiwb keys                        # Set up API keys
+  aiwb estimate my-task --tier=Best  # Estimate costs
+
+Get started: aiwb keys
+Learn more: https://github.com/juanitto-maker/AIworkbench
+
+EOF
+}
+
+# Main interactive chat interface
+cmd_chat() {
+    clear
+    ui_header "AIWB Interactive Chat"
+
+    # Show status
+    ui_show_status
+    echo ""
+
+    # Check if keys are set
+    local provider
+    provider="$(config_get model_provider)"
+
+    if ! has_api_key "$provider"; then
+        ui_info_box "No API key found for $provider.
+Please set up your API keys to continue." "warning"
+        echo ""
+
+        if ui_confirm "Set up API keys now?"; then
+            cmd_keys
+        else
+            exit 0
+        fi
+    fi
+
+    # Start chat loop
+    chat_loop
+}
+
+# Chat loop
+chat_loop() {
+    local workspace logs_dir
+    workspace="$(get_workspace)"
+    logs_dir="$workspace/logs"
+    local chat_log="$logs_dir/chat_$(date +%Y%m%d_%H%M%S).log"
+
+    msg "Chat started. Type /help for commands or /exit to quit."
+    echo ""
+
+    while true; do
+        local input
+
+        # Get input
+        if $GUM_AVAILABLE; then
+            input=$(gum input --placeholder "Message or /command..." --width 80) || continue
+        else
+            echo -n "> "
+            read -r input || break
+        fi
+
+        [[ -z "$input" ]] && continue
+
+        # Log input
+        echo "[$(date -Iseconds)] USER: $input" >> "$chat_log"
+
+        # Handle commands
+        if [[ "$input" == /* ]]; then
+            handle_slash_command "$input"
+        else
+            # Send to AI
+            handle_chat_message "$input" | tee -a "$chat_log"
+        fi
+
+        echo ""
+    done
+}
+
+# Handle slash commands
+handle_slash_command() {
+    local cmd="$1"
+
+    case "$cmd" in
+        /help)
+            show_chat_help
+            ;;
+        /keys)
+            cmd_keys
+            ;;
+        /settings)
+            cmd_settings
+            ;;
+        /status)
+            ui_show_status
+            ;;
+        /estimate)
+            cmd_estimate
+            ;;
+        /generate)
+            cmd_generate
+            ;;
+        /verify)
+            cmd_verify
+            ;;
+        /refine)
+            cmd_refine
+            ;;
+        /history)
+            cmd_history
+            ;;
+        /costs)
+            cmd_costs
+            ;;
+        /clear)
+            clear
+            ui_header "AIWB Interactive Chat"
+            ;;
+        /exit|/quit)
+            msg "Goodbye!"
+            exit 0
+            ;;
+        *)
+            warn "Unknown command: $cmd"
+            echo "Type /help for available commands"
+            ;;
+    esac
+}
+
+# Show chat help
+show_chat_help() {
+    cat <<'EOF'
+CHAT COMMANDS:
+  /help       Show this help
+  /keys       Manage API keys
+  /settings   Configure provider/model
+  /status     Show current status
+  /estimate   Estimate cost for current task
+  /generate   Generate content for current task
+  /verify     Verify/review generated content
+  /refine     Auto-refine with Generator-Verifier loop
+  /history    Show chat history
+  /costs      Show cost breakdown
+  /clear      Clear screen
+  /exit       Quit
+
+Just type normally to chat with the AI!
+EOF
+}
+
+# Handle chat message
+handle_chat_message() {
+    local message="$1"
+    local provider model
+    provider="$(config_get model_provider)"
+    model="$(config_get model_name)"
+
+    # Show typing indicator
+    if $GUM_AVAILABLE; then
+        ui_spinner "Thinking..." &
+        local spinner_pid=$!
+        trap "kill $spinner_pid 2>/dev/null" RETURN
+    fi
+
+    # Call API
+    local response
+    response=$(call_api "$message" "$provider" "$model" 2>&1)
+    local exit_code=$?
+
+    # Kill spinner
+    if $GUM_AVAILABLE; then
+        kill $spinner_pid 2>/dev/null || true
+        wait $spinner_pid 2>/dev/null || true
+        echo -ne "\r\033[K"  # Clear line
+    fi
+
+    if [[ $exit_code -ne 0 ]]; then
+        err "Failed to get response"
+        return 1
+    fi
+
+    # Display response
+    echo ""
+    if $GUM_AVAILABLE; then
+        echo "$response" | gum style --border rounded --padding "1 2" --width 80
+    else
+        echo "${CYAN}┌─ Response ──────────────────────────────────────────┐${RESET}"
+        echo "$response" | fold -s -w 76 | sed 's/^/│ /' | sed "s/$/$(printf ' %.0s' {1..76})/" | cut -c1-78 | sed "s/$/│/"
+        echo "${CYAN}└─────────────────────────────────────────────────────┘${RESET}"
+    fi
+    echo ""
+
+    # Track cost
+    track_usage "$provider" "$model" "$message" "$response"
+}
+
+# Track API usage and costs
+track_usage() {
+    local provider="$1"
+    local model="$2"
+    local input="$3"
+    local output="$4"
+
+    local input_tokens output_tokens cost
+    input_tokens=$(estimate_tokens "$input")
+    output_tokens=$(estimate_tokens "$output")
+    cost=$(calculate_cost "$provider" "$model" "$input_tokens" "$output_tokens")
+
+    # Save to usage log
+    local workspace logs_dir
+    workspace="$(get_workspace)"
+    logs_dir="$workspace/logs"
+    local usage_log="$logs_dir/usage.jsonl"
+
+    local entry
+    entry=$(jq -n \
+        --arg provider "$provider" \
+        --arg model "$model" \
+        --arg in_tokens "$input_tokens" \
+        --arg out_tokens "$output_tokens" \
+        --arg cost "$cost" \
+        --arg timestamp "$(date -Iseconds)" \
+        '{provider: $provider, model: $model, input_tokens: ($in_tokens | tonumber), output_tokens: ($out_tokens | tonumber), cost: ($cost | tonumber), timestamp: $timestamp}')
+
+    echo "$entry" >> "$usage_log"
+
+    # Show cost if enabled
+    if [[ "$(config_get preferences.show_costs)" == "true" ]]; then
+        debug "Cost: \$${cost} USD (${input_tokens} in + ${output_tokens} out tokens)"
+    fi
+}
+
+# ============================================================================
+# TASK COMMANDS
+# ============================================================================
+
+# Generate content for task
+cmd_generate() {
+    local task="${1:-$(config_get current_task)}"
+    [[ -z "$task" ]] && task="inbox"
+
+    local workspace tasks_dir task_file
+    workspace="$(get_workspace)"
+    tasks_dir="$workspace/tasks"
+    task_file="$tasks_dir/${task}.prompt.md"
+
+    require_file "$task_file" "Task file"
+
+    msg "Generating content for task: $task"
+
+    # Read prompt
+    local prompt
+    prompt=$(cat "$task_file")
+
+    # Estimate first
+    if [[ "$(config_get preferences.auto_estimate)" == "true" ]]; then
+        estimate_task "$task" "$prompt"
+
+        if [[ "$(config_get preferences.confirm_before_generate)" == "true" ]]; then
+            if ! ui_confirm "Proceed with generation?"; then
+                msg "Cancelled"
+                return 0
+            fi
+        fi
+    fi
+
+    # Generate
+    local provider model
+    provider="$(config_get model_provider)"
+    model="$(config_get model_name)"
+
+    echo ""
+    msg "Generating with $provider ($model)..."
+
+    local output
+    output=$(call_api "$prompt" "$provider" "$model")
+
+    # Save output
+    local output_dir output_file
+    output_dir="$workspace/outputs"
+    ensure_dir "$output_dir"
+    output_file="$output_dir/${task}_$(date +%Y%m%d_%H%M%S).md"
+
+    echo "$output" > "$output_file"
+
+    success "Generated content saved to: $output_file"
+
+    # Show preview
+    echo ""
+    if $GUM_AVAILABLE; then
+        echo "$output" | head -20 | gum style --border rounded
+        if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
+            echo "... (truncated, see file for full output)"
+        fi
+    else
+        echo "Preview:"
+        echo "$output" | head -20
+    fi
+
+    # Track usage
+    track_usage "$provider" "$model" "$prompt" "$output"
+}
+
+# Estimate task cost
+cmd_estimate() {
+    local task="${1:-$(config_get current_task)}"
+    [[ -z "$task" ]] && task="inbox"
+
+    local workspace tasks_dir task_file
+    workspace="$(get_workspace)"
+    tasks_dir="$workspace/tasks"
+    task_file="$tasks_dir/${task}.prompt.md"
+
+    require_file "$task_file" "Task file"
+
+    local prompt
+    prompt=$(cat "$task_file")
+
+    estimate_task "$task" "$prompt"
+}
+
+# Estimate task (helper)
+estimate_task() {
+    local task="$1"
+    local prompt="$2"
+
+    local provider model
+    provider="$(config_get model_provider)"
+    model="$(config_get model_name)"
+
+    local input_tokens
+    input_tokens=$(estimate_tokens "$prompt")
+
+    # Estimate output tokens (rough: 2x input for generation tasks)
+    local output_tokens=$((input_tokens * 2))
+
+    # Calculate costs for different tiers
+    local tier_mult
+    declare -A tiers=(
+        ["Basic"]="0.65"
+        ["Medium"]="1.00"
+        ["Best"]="1.60"
+    )
+
+    ui_header "Cost Estimate for: $task"
+
+    echo "Provider: $provider"
+    echo "Model:    $model"
+    echo ""
+    echo "Input tokens:  $input_tokens"
+    echo ""
+
+    if $GUM_AVAILABLE; then
+        local rows=()
+        for tier in Basic Medium Best; do
+            mult="${tiers[$tier]}"
+            est_out=$(awk "BEGIN {printf \"%.0f\", $output_tokens * $mult}")
+            cost=$(calculate_cost "$provider" "$model" "$input_tokens" "$est_out")
+            rows+=("${tier}\t${est_out}\t\$${cost}")
+        done
+
+        {
+            echo "Tier\tOutput Tokens\tCost (USD)"
+            printf '%s\n' "${rows[@]}"
+        } | column -t -s $'\t'
+    else
+        printf "%-10s %-15s %s\n" "Tier" "Output Tokens" "Cost (USD)"
+        echo "───────────────────────────────────────"
+        for tier in Basic Medium Best; do
+            mult="${tiers[$tier]}"
+            est_out=$(awk "BEGIN {printf \"%.0f\", $output_tokens * $mult}")
+            cost=$(calculate_cost "$provider" "$model" "$input_tokens" "$est_out")
+            printf "%-10s %-15s \$%s\n" "$tier" "$est_out" "$cost"
+        done
+    fi
+    echo ""
+}
+
+# Verify/review generated content
+cmd_verify() {
+    local task="${1:-$(config_get current_task)}"
+    [[ -z "$task" ]] && task="inbox"
+
+    local workspace output_dir
+    workspace="$(get_workspace)"
+    output_dir="$workspace/outputs"
+
+    # Find latest output for task
+    local latest
+    latest=$(find "$output_dir" -name "${task}_*.md" -type f 2>/dev/null | sort -r | head -1)
+
+    if [[ -z "$latest" ]]; then
+        err "No generated output found for task: $task"
+        return 1
+    fi
+
+    msg "Verifying: $latest"
+
+    # Read output
+    local content prompt
+    content=$(cat "$latest")
+
+    # Create verification prompt
+    prompt="Review the following generated content and provide constructive feedback:
+
+=== CONTENT TO REVIEW ===
+$content
+
+=== INSTRUCTIONS ===
+Analyze for:
+1. Quality and correctness
+2. Completeness
+3. Best practices
+4. Potential improvements
+
+Provide specific, actionable feedback."
+
+    # Use different provider for verification if available
+    local gen_provider verify_provider
+    gen_provider="$(config_get model_provider)"
+
+    case "$gen_provider" in
+        gemini) verify_provider="claude" ;;
+        claude) verify_provider="gemini" ;;
+        *) verify_provider="$gen_provider" ;;
+    esac
+
+    if has_api_key "$verify_provider"; then
+        msg "Using $verify_provider for verification (cross-provider review)"
+    else
+        verify_provider="$gen_provider"
+        msg "Using $gen_provider for verification"
+    fi
+
+    # Get model
+    local verify_model
+    verify_model=$(get_default_model "$verify_provider")
+
+    # Call verifier
+    echo ""
+    local feedback
+    feedback=$(call_api "$prompt" "$verify_provider" "$verify_model")
+
+    # Display feedback
+    echo ""
+    ui_info_box "VERIFICATION FEEDBACK" "info"
+    echo ""
+    if $GUM_AVAILABLE; then
+        echo "$feedback" | gum style --border rounded --padding "1 2"
+    else
+        echo "$feedback"
+    fi
+    echo ""
+
+    # Save feedback
+    local feedback_file="${latest%.md}.feedback.md"
+    echo "$feedback" > "$feedback_file"
+    success "Feedback saved to: $feedback_file"
+}
+
+# Automated Generator-Verifier loop
+cmd_refine() {
+    local task="${1:-$(config_get current_task)}"
+    [[ -z "$task" ]] && task="inbox"
+
+    local iterations="${2:-3}"
+
+    ui_header "Auto-Refine: $task"
+
+    msg "Running Generator-Verifier loop for $iterations iterations..."
+    echo ""
+
+    for ((i=1; i<=iterations; i++)); do
+        msg "Iteration $i/$iterations"
+        echo ""
+
+        # Generate
+        ui_style "→ Generating..." "cyan"
+        cmd_generate "$task" || break
+
+        # Verify
+        echo ""
+        ui_style "→ Verifying..." "magenta"
+        cmd_verify "$task" || break
+
+        # If not last iteration, update prompt with feedback
+        if ((i < iterations)); then
+            echo ""
+            if ui_confirm "Continue to next iteration?"; then
+                # TODO: Incorporate feedback into prompt
+                sleep 1
+            else
+                break
+            fi
+        fi
+    done
+
+    echo ""
+    success "Refinement complete!"
+}
+
+# ============================================================================
+# CONFIGURATION COMMANDS
+# ============================================================================
+
+# Manage API keys
+cmd_keys() {
+    setup_keys_interactive
+}
+
+# Settings menu
+cmd_settings() {
+    while true; do
+        local provider model
+        provider="$(config_get model_provider)"
+        model="$(config_get model_name)"
+
+        local choice
+        choice=$(ui_choose "Settings Menu" \
+            "Provider: $provider" \
+            "Model: $model" \
+            "Preferences" \
+            "Cost Tracking" \
+            "Security" \
+            "Back")
+
+        case "$choice" in
+            "Provider:"*)
+                local new_provider
+                new_provider=$(ui_choose "Select Provider" "gemini" "claude" "openai" "ollama")
+                [[ -n "$new_provider" ]] && {
+                    config_set model_provider "$new_provider"
+                    config_set model_name "$(get_default_model "$new_provider")"
+                    success "Provider set to: $new_provider"
+                }
+                ;;
+            "Model:"*)
+                provider="$(config_get model_provider)"
+                local models available
+                available=$(get_available_models "$provider")
+                local new_model
+                new_model=$(ui_choose "Select Model" $available)
+                [[ -n "$new_model" ]] && {
+                    config_set model_name "$new_model"
+                    success "Model set to: $new_model"
+                }
+                ;;
+            "Preferences")
+                settings_preferences
+                ;;
+            "Cost Tracking")
+                settings_cost_tracking
+                ;;
+            "Security")
+                settings_security
+                ;;
+            "Back"|"")
+                break
+                ;;
+        esac
+    done
+
+    save_session
+}
+
+# Preferences settings
+settings_preferences() {
+    while true; do
+        local auto_estimate confirm_gen show_costs
+        auto_estimate="$(config_get preferences.auto_estimate)"
+        confirm_gen="$(config_get preferences.confirm_before_generate)"
+        show_costs="$(config_get preferences.show_costs)"
+
+        local choice
+        choice=$(ui_choose "Preferences" \
+            "Auto-estimate: $auto_estimate" \
+            "Confirm before generate: $confirm_gen" \
+            "Show costs: $show_costs" \
+            "Back")
+
+        case "$choice" in
+            "Auto-estimate:"*)
+                [[ "$auto_estimate" == "true" ]] && auto_estimate="false" || auto_estimate="true"
+                config_set preferences.auto_estimate "$auto_estimate"
+                ;;
+            "Confirm before generate:"*)
+                [[ "$confirm_gen" == "true" ]] && confirm_gen="false" || confirm_gen="true"
+                config_set preferences.confirm_before_generate "$confirm_gen"
+                ;;
+            "Show costs:"*)
+                [[ "$show_costs" == "true" ]] && show_costs="false" || show_costs="true"
+                config_set preferences.show_costs "$show_costs"
+                ;;
+            "Back"|"")
+                break
+                ;;
+        esac
+    done
+}
+
+# Cost tracking settings
+settings_cost_tracking() {
+    ui_info_box "Cost tracking helps you monitor API spending." "info"
+    echo ""
+
+    local budget
+    budget=$(ui_input "Monthly budget (USD, 0 for unlimited)" "$(config_get cost_tracking.monthly_budget)")
+
+    if [[ "$budget" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        config_set cost_tracking.monthly_budget "$budget"
+        config_set cost_tracking.enabled "true"
+        success "Budget set to \$$budget USD per month"
+    fi
+}
+
+# Security settings
+settings_security() {
+    local choice
+    choice=$(ui_choose "Security Settings" \
+        "Run security audit" \
+        "Encrypt API keys" \
+        "Test API keys" \
+        "Back")
+
+    case "$choice" in
+        "Run security audit")
+            security_audit
+            ;;
+        "Encrypt API keys")
+            encrypt_keys
+            ;;
+        "Test API keys")
+            test_all_keys
+            ;;
+    esac
+}
+
+# Test all configured API keys
+test_all_keys() {
+    msg "Testing configured API keys..."
+    echo ""
+
+    for provider in gemini claude openai; do
+        if has_api_key "$provider"; then
+            test_api_key "$provider"
+        else
+            debug "Skipping $provider (no key configured)"
+        fi
+    done
+
+    echo ""
+    success "Key testing complete"
+}
+
+# Show session history
+cmd_history() {
+    local workspace logs_dir
+    workspace="$(get_workspace)"
+    logs_dir="$workspace/logs"
+
+    if [[ ! -d "$logs_dir" ]] || [[ -z "$(ls -A "$logs_dir"/chat_*.log 2>/dev/null)" ]]; then
+        info "No chat history found"
+        return 0
+    fi
+
+    local logs
+    logs=($(ls -t "$logs_dir"/chat_*.log 2>/dev/null))
+
+    if have fzf; then
+        local selected
+        selected=$(printf '%s\n' "${logs[@]}" | fzf --preview 'cat {}')
+        [[ -n "$selected" ]] && less "$selected"
+    elif $GUM_AVAILABLE; then
+        local selected
+        selected=$(ui_filter "Select log to view" "${logs[@]}")
+        [[ -n "$selected" ]] && less "$selected"
+    else
+        echo "Recent chat sessions:"
+        ls -lht "$logs_dir"/chat_*.log | head -10
+    fi
+}
+
+# Show cost breakdown
+cmd_costs() {
+    local workspace logs_dir usage_log
+    workspace="$(get_workspace)"
+    logs_dir="$workspace/logs"
+    usage_log="$logs_dir/usage.jsonl"
+
+    if [[ ! -f "$usage_log" ]]; then
+        info "No usage data found"
+        return 0
+    fi
+
+    ui_header "Cost Breakdown"
+
+    # Total costs
+    local total
+    total=$(jq -s 'map(.cost) | add' "$usage_log" 2>/dev/null || echo "0")
+    echo "Total spent: \$${total} USD"
+    echo ""
+
+    # By provider
+    echo "By Provider:"
+    jq -s 'group_by(.provider) | map({provider: .[0].provider, cost: (map(.cost) | add)}) | .[]' "$usage_log" 2>/dev/null | \
+        jq -r '"\(.provider)\t\(.cost)"' | column -t
+
+    echo ""
+
+    # By date
+    echo "Recent activity:"
+    jq -s 'sort_by(.timestamp) | reverse | limit(10; .[]) | "\(.timestamp | split("T")[0])\t\(.provider)\t\(.cost)"' "$usage_log" 2>/dev/null | column -t
+}
+
+# System health check
+cmd_doctor() {
+    ui_header "System Health Check"
+
+    # Check dependencies
+    echo "Dependencies:"
+    for cmd in bash jq curl git gum fzf age; do
+        if have "$cmd"; then
+            success "✓ $cmd installed"
+        else
+            warn "○ $cmd not installed (optional)" 2>/dev/null || echo "○ $cmd not installed (optional)"
+        fi
+    done
+
+    echo ""
+
+    # Check API keys
+    echo "API Keys:"
+    for provider in gemini claude openai; do
+        if has_api_key "$provider"; then
+            success "✓ $provider key configured"
+        else
+            info "○ $provider key not configured"
+        fi
+    done
+
+    echo ""
+
+    # Check workspace
+    local workspace
+    workspace="$(get_workspace)"
+    echo "Workspace: $workspace"
+    if [[ -d "$workspace" ]]; then
+        success "✓ Workspace exists"
+    else
+        warn "⚠ Workspace not found"
+    fi
+
+    echo ""
+
+    # Platform info
+    echo "Platform:"
+    echo "  OS: $(get_platform)"
+    echo "  Arch: $(uname -m)"
+    echo "  Shell: $SHELL"
+
+    echo ""
+    success "Health check complete"
+}
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+main() {
+    # Parse global flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --debug)
+                export AIWB_DEBUG=1
+                shift
+                ;;
+            --version|-v)
+                echo "AIWB v2.0.0"
+                exit 0
+                ;;
+            --help|-h)
+                cmd_help
+                exit 0
+                ;;
+            --provider)
+                config_set model_provider "$2"
+                shift 2
+                ;;
+            --model)
+                config_set model_name "$2"
+                shift 2
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    # Initialize
+    initialize
+
+    # Route command
+    local cmd="${1:-chat}"
+    shift || true
+
+    case "$cmd" in
+        chat|c)
+            cmd_chat "$@"
+            ;;
+        generate|gen|g)
+            cmd_generate "$@"
+            ;;
+        estimate|est|e)
+            cmd_estimate "$@"
+            ;;
+        verify|review)
+            cmd_verify "$@"
+            ;;
+        refine|loop)
+            cmd_refine "$@"
+            ;;
+        keys|key)
+            cmd_keys "$@"
+            ;;
+        settings|config)
+            cmd_settings "$@"
+            ;;
+        status|stat)
+            ui_show_status
+            ;;
+        history|hist)
+            cmd_history "$@"
+            ;;
+        costs|cost)
+            cmd_costs "$@"
+            ;;
+        doctor|check)
+            cmd_doctor "$@"
+            ;;
+        security-audit|audit)
+            security_audit "$@"
+            ;;
+        help|--help|-h)
+            cmd_help
+            ;;
+        *)
+            err "Unknown command: $cmd"
+            echo "Try: aiwb --help"
+            exit 1
+            ;;
+    esac
+}
+
+# Run main
+main "$@"

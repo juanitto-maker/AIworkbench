@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Delete a single task's files from the current project (prompt/status/drafts/outputs)
 set -euo pipefail
 . ~/bin/paths.sh

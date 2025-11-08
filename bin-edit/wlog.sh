@@ -1,7 +1,7 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 T="${1:-$( [ -f "$AIWB/current.task" ] && cat "$AIWB/current.task" || echo "" )}"
 [ -z "$T" ] && { echo "❌ No active task."; exit 1; }
 

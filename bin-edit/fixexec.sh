@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Normalize every file in ~/bin: CRLF→LF, fix shebang, +x
 set -euo pipefail
 DST="$HOME/bin"

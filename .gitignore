@@ -1,0 +1,43 @@
+# API Keys and Sensitive Data
+.env
+*.env
+.aiwb.env
+**/.aiwb.env
+config.json
+**/config.json
+*.key
+*.pem
+
+# User Workspaces
+workspace/
+.aiwb/
+
+# Logs
+*.log
+logs/
+runner-logs/
+
+# Output directories
+*-out/
+gemini-out/
+claude-out/
+snapshots/
+
+# Session files
+.session
+*.session
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+.vscode/
+.idea/
+
+# Test artifacts
+tests/tmp/
+test-output/
+
+# Encrypted keys
+*.age
+*.gpg

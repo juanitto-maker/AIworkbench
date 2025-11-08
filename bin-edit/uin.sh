@@ -1,9 +1,9 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Pick a file with Android file picker and copy into $AIWB/uploads
 
 set -euo pipefail
 
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 UP="$AIWB/uploads"
 mkdir -p "$UP"
 

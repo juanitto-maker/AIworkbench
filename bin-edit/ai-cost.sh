@@ -1,9 +1,9 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # ai-cost.sh <model> <prompt_file> <out_tokens>
 set -euo pipefail
 
 MODEL="${1:-}"; PROMPT="${2:-}"; OUT_TOK="${3:-1000}"
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 PRICING="$AIWB/pricing.json"
 
 # crude but serviceable: ~4 chars per token

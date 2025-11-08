@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 if [ -n "${1:-}" ]; then
   export GEMINI_MODEL="$1"
