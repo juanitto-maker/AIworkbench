@@ -1,8 +1,8 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Snapshot prompt/draft/output into history/<task>/<timestamp>/
 set -euo pipefail
 T="${1:-}"; [ -z "$T" ] && { echo "Usage: ai-snap.sh <TASK_ID>"; exit 1; }
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 ts="$(date -u +"%Y%m%d-%H%M%S")"
 dst="$AIWB/history/$T/$ts"
 mkdir -p "$dst"

@@ -1,9 +1,9 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # ===== AI HYBRID HELPERS =====
 # After saving:  source ~/.bashrc
 
 # Root of the shared workbench
-export AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+export AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 
 # ---------- 1) settask <TID> ----------
 # Scaffold minimal files in the *current repo* and set active task in workbench.

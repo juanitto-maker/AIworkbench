@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Start a simple static server (http-server) and open the index
 set -euo pipefail
 PORT="${1:-8080}"

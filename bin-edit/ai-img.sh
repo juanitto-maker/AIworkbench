@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Import latest Android screenshot into the task and append a markdown image link to the prompt
 set -euo pipefail
 T="${1:-}"; [ -z "$T" ] && { echo "Usage: ai-img.sh <TASK_ID>"; exit 1; }

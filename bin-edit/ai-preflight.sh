@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Shared knobs + cost/confirm preflight
 
 # You can override these in ~/.bashrc

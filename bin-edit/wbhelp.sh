@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 cat <<'EOF'
 ⭐ Workbench Commands (no aliases)
 
@@ -26,5 +26,5 @@ Utils:
 Tips:
   • After editing scripts in bin-edit/: run  binpush.sh
   • Ensure your keys in ~/.aiwb.env, then:   source ~/.aiwb.env
-  • Repo path defaults to: $HOME/storage/shared/0code/0ai-workbench
+  • Repo path defaults to: $HOME/.aiwb/workspace
 EOF

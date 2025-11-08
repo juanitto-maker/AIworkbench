@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Creates ~/.aiwb.env if missing and ensures it's sourced by ~/.bashrc
 
 set -euo pipefail
@@ -15,7 +15,7 @@ export CLAUDE_MODEL="claude-3-5-sonnet-latest"
 export MAX_OUT_TOKENS_DEFAULT=16000
 export CONFIRM=1
 # AI workbench repo
-export AIWB="$HOME/storage/shared/0code/0ai-workbench"
+export AIWB="$HOME/.aiwb/workspace"
 EOF
 echo "✅ Wrote template $ENVFILE"
 fi

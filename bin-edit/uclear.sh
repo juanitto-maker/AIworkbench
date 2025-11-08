@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Usage:
 #   uclear.sh                # interactive confirm
 #   uclear.sh -a             # delete ALL (asks once)
@@ -7,7 +7,7 @@
 #   uclear.sh -y ...         # no prompts
 
 set -euo pipefail
-AIWB="${AIWB:-$HOME/storage/shared/0code/0ai-workbench}"
+AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 UP="$AIWB/uploads"; mkdir -p "$UP"
 
 ALL=0; YES=0; KEEP=""; DAYS=""

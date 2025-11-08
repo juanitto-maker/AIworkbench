@@ -1,4 +1,4 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 # Shows current key env; optional --edit opens the env file in nano
 
 set -euo pipefail
