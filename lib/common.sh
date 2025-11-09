@@ -76,7 +76,7 @@ safe_read() {
     if is_termux; then
         # Termux: Prefer /dev/tty over stdin
         if [[ -c /dev/tty ]] && exec 3</dev/tty 2>/dev/null; then
-            read "${read_opts[@]}" "$var_name" <&3 2>/dev/null
+            read "${read_opts[@]}" "$var_name" <&3
             local result=$?
             exec 3<&- 2>/dev/null || true
             return $result
@@ -85,7 +85,7 @@ safe_read() {
 
     # Non-Termux or /dev/tty failed: try stdin
     if [[ -t 0 ]]; then
-        read "${read_opts[@]}" "$var_name" 2>/dev/null
+        read "${read_opts[@]}" "$var_name"
         return $?
     fi
 
