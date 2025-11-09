@@ -203,6 +203,7 @@ menu_uploads() {
 
         choice=$(ui_choose "Context Files ($current_display)" \
             "Browse files" \
+            "Browse outputs" \
             "Type path manually" \
             "List uploads" \
             "Clear all" \
@@ -211,6 +212,9 @@ menu_uploads() {
         case "$choice" in
             "Browse files")
                 menu_file_browser "."
+                ;;
+            "Browse outputs")
+                menu_outputs_browser
                 ;;
             "Type path manually")
                 local items
@@ -452,6 +456,56 @@ menu_file_browser() {
     done
 }
 
+# Outputs browser for uploads
+menu_outputs_browser() {
+    local workspace output_dir
+    workspace="$(get_workspace)"
+    output_dir="$workspace/outputs"
+
+    if [[ ! -d "$output_dir" ]]; then
+        err "No outputs directory found"
+        return 1
+    fi
+
+    # Get list of output files
+    local files=()
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        local basename=$(basename "$file")
+        local timestamp=$(stat -f%Sm -t "%Y-%m-%d %H:%M" "$file" 2>/dev/null || stat -c%y "$file" 2>/dev/null | cut -d'.' -f1)
+        files+=("$basename ($timestamp)")
+    done < <(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r)
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        info "No output files found"
+        return 0
+    fi
+
+    files+=("Back")
+
+    while true; do
+        local choice
+        choice=$(ui_choose "Select Output to Add" "${files[@]}")
+
+        case "$choice" in
+            "Back"|"")
+                return 0
+                ;;
+            *)
+                # Extract filename from choice (remove timestamp)
+                local filename="${choice%% (*}"
+                local filepath="$output_dir/$filename"
+
+                if [[ -f "$filepath" ]]; then
+                    MODE_UPLOADS+=("$filepath")
+                    success "Added output: $filename"
+                    return 0
+                fi
+                ;;
+        esac
+    done
+}
+
 # View output browser
 menu_view_outputs() {
     local workspace output_dir
@@ -502,6 +556,18 @@ menu_view_outputs() {
                     echo ""
                     echo "File location: $filepath"
                     echo ""
+
+                    # Add clipboard option if available
+                    if has_clipboard; then
+                        if ui_confirm "Copy to clipboard?" "no"; then
+                            if copy_to_clipboard "$(cat "$filepath")"; then
+                                success "Output copied to clipboard!"
+                            else
+                                err "Failed to copy to clipboard"
+                            fi
+                        fi
+                    fi
+
                     ui_confirm "Press enter to continue..."
                 fi
                 ;;
@@ -625,11 +691,19 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     # Execute generation
     echo ""
     msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
-    echo ""
+
+    # Start spinner
+    ui_spinner "Generating response..." &
+    local spinner_pid=$!
 
     local output
     output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
     local gen_exit=$?
+
+    # Stop spinner
+    kill "$spinner_pid" 2>/dev/null || true
+    wait "$spinner_pid" 2>/dev/null || true
+    printf "\r\033[K"  # Clear the spinner line
 
     if [[ $gen_exit -ne 0 ]]; then
         err "Generation failed"
@@ -642,7 +716,11 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     output_dir="$workspace/outputs"
     ensure_dir "$output_dir"
 
-    local output_file="$output_dir/${MODE_CURRENT}_$(date +%Y%m%d_%H%M%S).md"
+    # Create filename with model information
+    local model_slug="${MODE_MODEL_PROVIDER}_${MODE_MODEL_NAME}"
+    # Replace spaces and special characters with underscores
+    model_slug=$(echo "$model_slug" | tr ' /' '_' | tr -cd '[:alnum:]_-')
+    local output_file="$output_dir/${MODE_CURRENT}_${model_slug}_$(date +%Y%m%d_%H%M%S).md"
     echo "$output" > "$output_file"
 
     success "Output saved to: $output_file"
@@ -689,10 +767,20 @@ $output
 === INSTRUCTIONS ===
 Provide specific, actionable feedback."
 
+        # Start spinner for verification
+        ui_spinner "Running verification with $check_provider..." &
+        local verify_spinner_pid=$!
+
         local feedback
         feedback=$(call_api "$check_prompt" "$check_provider" "$check_model")
+        local verify_exit=$?
 
-        if [[ $? -eq 0 ]]; then
+        # Stop spinner
+        kill "$verify_spinner_pid" 2>/dev/null || true
+        wait "$verify_spinner_pid" 2>/dev/null || true
+        printf "\r\033[K"  # Clear the spinner line
+
+        if [[ $verify_exit -eq 0 ]]; then
             # Save feedback
             local feedback_file="${output_file%.md}.feedback.md"
             echo "$feedback" > "$feedback_file"
@@ -727,11 +815,14 @@ Provide specific, actionable feedback."
     # What's next menu
     while true; do
         local choice
-        choice=$(ui_choose "What's next?" \
-            "View output" \
-            "View all outputs" \
-            "Run again" \
-            "Back to mode menu")
+        local menu_options=("View output" "Copy output to clipboard" "View all outputs" "Run again" "Back to mode menu")
+
+        # Remove clipboard option if not available
+        if ! has_clipboard; then
+            menu_options=("View output" "View all outputs" "Run again" "Back to mode menu")
+        fi
+
+        choice=$(ui_choose "What's next?" "${menu_options[@]}")
 
         case "$choice" in
             "View output")
@@ -745,6 +836,13 @@ Provide specific, actionable feedback."
                 echo "File location: $output_file"
                 echo ""
                 ui_confirm "Press enter to continue..."
+                ;;
+            "Copy output to clipboard")
+                if copy_to_clipboard "$(cat "$output_file")"; then
+                    success "Output copied to clipboard!"
+                else
+                    err "Failed to copy to clipboard"
+                fi
                 ;;
             "View all outputs")
                 menu_view_outputs
@@ -827,4 +925,5 @@ export -f init_mode reset_mode mode_loop
 export -f menu_prompt menu_instruct menu_model menu_uploads menu_check menu_status mode_run
 export -f menu_model_provider menu_model_specific
 export -f menu_check_model menu_check_model_specific
+export -f menu_file_browser menu_outputs_browser menu_view_outputs
 export -f get_instruction_display get_model_display get_uploads_display get_check_display

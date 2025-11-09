@@ -318,6 +318,58 @@ run_cleanup_handlers() {
 trap run_cleanup_handlers EXIT TERM
 
 # ============================================================================
+# CLIPBOARD UTILITIES
+# ============================================================================
+
+# Copy text to clipboard (cross-platform)
+copy_to_clipboard() {
+    local text="$1"
+
+    if is_macos; then
+        # macOS
+        if have pbcopy; then
+            echo "$text" | pbcopy
+            return $?
+        fi
+    elif is_termux; then
+        # Termux (Android)
+        if have termux-clipboard-set; then
+            echo "$text" | termux-clipboard-set
+            return $?
+        fi
+    else
+        # Linux
+        if have xclip; then
+            echo "$text" | xclip -selection clipboard
+            return $?
+        elif have xsel; then
+            echo "$text" | xsel --clipboard --input
+            return $?
+        elif have wl-copy; then
+            # Wayland
+            echo "$text" | wl-copy
+            return $?
+        fi
+    fi
+
+    # No clipboard utility available
+    warn "No clipboard utility found (install xclip, xsel, or wl-copy)"
+    return 1
+}
+
+# Get clipboard availability status
+has_clipboard() {
+    if is_macos && have pbcopy; then
+        return 0
+    elif is_termux && have termux-clipboard-set; then
+        return 0
+    elif have xclip || have xsel || have wl-copy; then
+        return 0
+    fi
+    return 1
+}
+
+# ============================================================================
 # EXPORTS
 # ============================================================================
 
