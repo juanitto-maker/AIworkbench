@@ -293,7 +293,7 @@ test_api_key() {
             response=$(call_gemini "$test_prompt" "gemini-1.5-flash" 10 2>&1)
             ;;
         claude)
-            response=$(call_claude "$test_prompt" "claude-3-5-haiku-latest" 10 2>&1)
+            response=$(call_claude "$test_prompt" "claude-3-haiku-20240307" 10 2>&1)
             ;;
         openai)
             response=$(call_openai "$test_prompt" "gpt-4o-mini" 10 2>&1)
