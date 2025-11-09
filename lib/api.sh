@@ -305,17 +305,31 @@ call_groq() {
         }')
 
     local response
-    response=$(curl -sS "$url" \
+    local curl_error
+    curl_error=$(mktemp)
+
+    response=$(curl -fsS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>&1)
+        -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        err "API request failed: $response"
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        rm -f "$curl_error"
+        err "API request failed: $error_msg"
+        return 1
+    fi
+    rm -f "$curl_error"
+
+    # Validate JSON response
+    if ! validate_json "$response"; then
+        err "Invalid JSON response from Groq API"
+        debug "Response: $response"
         return 1
     fi
 
@@ -332,7 +346,15 @@ call_groq() {
     text=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        err "No response from Groq API"
+        # Try alternative error format
+        local error_msg
+        error_msg=$(echo "$response" | jq -r '.error // "Unknown error"' 2>/dev/null)
+        if [[ -n "$error_msg" && "$error_msg" != "null" ]]; then
+            err "Groq API error: $error_msg"
+        else
+            err "No response from Groq API"
+            debug "Response: $response"
+        fi
         return 1
     fi
 
@@ -369,17 +391,31 @@ call_xai() {
         }')
 
     local response
-    response=$(curl -sS "$url" \
+    local curl_error
+    curl_error=$(mktemp)
+
+    response=$(curl -fsS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>&1)
+        -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        err "API request failed: $response"
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        rm -f "$curl_error"
+        err "API request failed: $error_msg"
+        return 1
+    fi
+    rm -f "$curl_error"
+
+    # Validate JSON response
+    if ! validate_json "$response"; then
+        err "Invalid JSON response from xAI API"
+        debug "Response: $response"
         return 1
     fi
 
@@ -396,7 +432,15 @@ call_xai() {
     text=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        err "No response from xAI API"
+        # Try alternative error format
+        local error_msg
+        error_msg=$(echo "$response" | jq -r '.error // "Unknown error"' 2>/dev/null)
+        if [[ -n "$error_msg" && "$error_msg" != "null" ]]; then
+            err "xAI API error: $error_msg"
+        else
+            err "No response from xAI API"
+            debug "Response: $response"
+        fi
         return 1
     fi
 

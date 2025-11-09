@@ -318,24 +318,16 @@ handle_chat_message() {
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
 
-    # Show typing indicator
-    if $GUM_AVAILABLE; then
-        ui_spinner "Thinking..." &
-        local spinner_pid=$!
-        trap "kill $spinner_pid 2>/dev/null" RETURN
-    fi
+    # Show simple message instead of background spinner to avoid deadlock
+    echo -n "Thinking..."
 
-    # Call API
+    # Call API without stderr suppression to see errors
     local response
-    response=$(call_api "$message" "$provider" "$model" 2>/dev/null)
+    response=$(call_api "$message" "$provider" "$model")
     local exit_code=$?
 
-    # Kill spinner
-    if $GUM_AVAILABLE; then
-        kill $spinner_pid 2>/dev/null || true
-        wait $spinner_pid 2>/dev/null || true
-        echo -ne "\r\033[K"  # Clear line
-    fi
+    # Clear the "Thinking..." line
+    echo -ne "\r\033[K"
 
     if [[ $exit_code -ne 0 ]]; then
         err "Failed to get response"
