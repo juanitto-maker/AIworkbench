@@ -7,7 +7,7 @@ AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 T="${1:-$( [ -f "$AIWB/current.task" ] && cat "$AIWB/current.task" || echo "" )}"
 [ -n "$T" ] || { echo "Usage: claude-runner.sh <TASK_ID>"; exit 1; }
 
-MODEL="${CLAUDE_MODEL:-claude-3-5-sonnet-20241022}"
+MODEL="${CLAUDE_MODEL:-claude-3-haiku-20240307}"
 MAXTOK="${MAX_OUT_TOKENS_DEFAULT:-16000}"
 
 PROMPT="$AIWB/claude-prompts/$T.prompt.md"

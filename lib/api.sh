@@ -191,6 +191,8 @@ call_claude() {
         error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
         rm -f "$curl_error"
         err "API request failed: $error_msg"
+        err "Model: $model | API Key set: ${api_key:+YES}"
+        err "Request: $(echo "$request_body" | jq -c '.' 2>/dev/null || echo 'Invalid JSON')"
         return 1
     fi
     rm -f "$curl_error"

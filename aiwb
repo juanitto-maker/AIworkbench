@@ -216,11 +216,8 @@ chat_loop() {
             input=$(gum input --placeholder "Message or /command..." --width 80) || continue
         else
             # Use safe_read helper for Termux compatibility
-            echo -n "> "
-            if ! safe_read input; then
-                # No input available (EOF or non-interactive)
-                break
-            fi
+            printf "\033[0m> "  # Reset colors before prompt
+            safe_read input || { echo ""; exit 0; }
         fi
 
         [[ -z "$input" ]] && continue
