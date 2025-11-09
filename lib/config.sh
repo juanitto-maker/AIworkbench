@@ -227,7 +227,7 @@ get_default_model() {
 
     case "$provider" in
         gemini) echo "2.5-flash" ;;
-        claude) echo "4-5-sonnet-latest" ;;
+        claude) echo "3-5-sonnet-20241022" ;;
         openai) echo "gpt-4o-mini" ;;
         groq) echo "llama-3.3-70b-versatile" ;;
         xai) echo "grok-3" ;;
@@ -244,7 +244,7 @@ get_available_models() {
             echo "1.5-flash 2.0-flash 2.0-flash-lite 2.5-flash 2.5-flash-lite 1.5-pro 2.0-pro 2.0-pro-exp 2.5-pro"
             ;;
         claude)
-            echo "3-5-haiku-latest 4-5-haiku-latest 3-5-sonnet-latest 3-7-sonnet-latest 4-5-sonnet-latest 3-5-opus-latest 4-1-opus-latest"
+            echo "3-haiku-20240307 3-5-haiku-20241022 3-5-sonnet-20240620 3-5-sonnet-20241022 3-opus-20240229 sonnet-4-5-20250929"
             ;;
         openai)
             echo "gpt-4o-mini gpt-4o gpt-4-turbo gpt-5 o1-mini o1-preview o3 o3-pro o4-mini"
