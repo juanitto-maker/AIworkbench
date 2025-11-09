@@ -13,7 +13,7 @@ export CURRENT_TASK_FILE="$AIWB/current.task"
 
 # Models & price knobs (fill real values or keep env overrides)
 export GEMINI_MODEL="${GEMINI_MODEL:-gemini-2.5-flash}"
-export CLAUDE_MODEL="${CLAUDE_MODEL:-claude-3-5-sonnet-20241022}"
+export CLAUDE_MODEL="${CLAUDE_MODEL:-claude-3-haiku-20240307}"
 export MAX_OUT_TOKENS_DEFAULT="${MAX_OUT_TOKENS_DEFAULT:-16000}"
 
 # Pricing (per‑1K tokens, USD). Keep easy to adjust.
