@@ -24,7 +24,17 @@ All notable changes to AIWB will be documented in this file.
   - New model offers better performance and tool use capabilities
   - Updated default model, available models list, and pricing information
 
+- ✅ **Fixed gum join failures** - Added error handling for gum join commands
+  - Fixed early exit issues when gum join fails in Termux/mobile environments
+  - Added fallback rendering when gum join is unavailable or fails
+  - Affects ui_show_status and ui_join functions
+
 **Enhancements:**
+- ✅ **Added xAI/Grok support** - Full integration for xAI's Grok models
+  - Added grok-beta, grok-code-fast-1, grok-2, and grok-2-mini models
+  - OpenAI-compatible API implementation
+  - Pricing information: grok-beta $5 input / $15 output per 1M tokens
+  - Free $25 API credits per month during beta
 - ✅ **Added Groq vision models** - llama-3.2-11b-vision-preview and llama-3.2-90b-vision-preview
 - ✅ **Expanded Groq model support** - Added llama-3.2-1b-preview and llama-3.2-3b-preview for lightweight tasks
 

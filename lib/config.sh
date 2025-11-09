@@ -229,6 +229,7 @@ get_default_model() {
         claude) echo "sonnet-3.5" ;;
         openai) echo "gpt-4o-mini" ;;
         groq) echo "llama-3.3-70b-versatile" ;;
+        xai) echo "grok-beta" ;;
         ollama) echo "llama3.2:latest" ;;
         *) echo "" ;;
     esac
@@ -249,6 +250,9 @@ get_available_models() {
             ;;
         groq)
             echo "llama-3.3-70b-versatile llama-3.1-8b-instant llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview mixtral-8x7b-32768 gemma2-9b-it"
+            ;;
+        xai)
+            echo "grok-beta grok-code-fast-1 grok-2 grok-2-mini"
             ;;
         ollama)
             if have ollama; then
