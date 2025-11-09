@@ -176,7 +176,9 @@ call_claude() {
     local response
     local curl_error
     curl_error=$(mktemp)
-    response=$(curl -fsS "$url" \
+
+    # Remove -f flag to see actual error responses
+    response=$(curl -sS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
@@ -186,9 +188,11 @@ call_claude() {
         -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
+
+    # Check for curl errors
     if [[ $exit_code -ne 0 ]]; then
         local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
         rm -f "$curl_error"
         err "API request failed: $error_msg"
         err "Model: $model | API Key set: ${api_key:+YES}"
@@ -196,6 +200,18 @@ call_claude() {
         return 1
     fi
     rm -f "$curl_error"
+
+    # Check for API errors in response
+    if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+        local api_error_type api_error_msg
+        api_error_type=$(echo "$response" | jq -r '.error.type')
+        api_error_msg=$(echo "$response" | jq -r '.error.message')
+        err "Claude API Error: $api_error_type"
+        err "Message: $api_error_msg"
+        err "Model: $model"
+        err "Full response: $response"
+        return 1
+    fi
 
     # Extract text from response
     local text
