@@ -161,7 +161,7 @@ EOF
 
 # Main interactive chat interface
 cmd_chat() {
-    clear
+    clear 2>/dev/null || true  # Don't fail if TERM not set
     ui_header "AIWB Interactive Chat"
 
     # Show status
@@ -262,7 +262,7 @@ handle_slash_command() {
             cmd_costs
             ;;
         /clear)
-            clear
+            clear 2>/dev/null || true
             ui_header "AIWB Interactive Chat"
             ;;
         /exit|/quit)
