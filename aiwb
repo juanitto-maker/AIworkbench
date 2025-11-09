@@ -464,20 +464,21 @@ copy_to_clipboard() {
 
     # If clipboard tool is available, offer to copy
     if [[ -n "$clipboard_cmd" ]]; then
-        echo "${DIM}[Ctrl+Y to copy response to clipboard, or press Enter to continue]${RESET}"
+        echo "${DIM}[Ctrl+Y to copy response to clipboard, or press Enter to continue (5s timeout)]${RESET}"
         local key
-        if ! read -rsn1 key 2>/dev/null; then
-            return 0
+        # Add 5 second timeout to prevent hanging, and handle Ctrl+C properly
+        if read -rsn1 -t 5 key 2>/dev/null; then
+            # Check if Ctrl+Y was pressed (ASCII 25)
+            if [[ "$key" == $'\x19' ]]; then
+                echo "$text" | $clipboard_cmd 2>/dev/null && {
+                    echo "${GREEN}✓ Copied to clipboard${RESET}"
+                } || {
+                    echo "${YELLOW}⚠ Failed to copy${RESET}"
+                }
+            fi
         fi
-
-        # Check if Ctrl+Y was pressed (ASCII 25)
-        if [[ "$key" == $'\x19' ]]; then
-            echo "$text" | $clipboard_cmd 2>/dev/null && {
-                echo "${GREEN}✓ Copied to clipboard${RESET}"
-            } || {
-                echo "${YELLOW}⚠ Failed to copy${RESET}"
-            }
-        fi
+        # If read times out or is interrupted (Ctrl+C), just return without error
+        return 0
     fi
 }
 
