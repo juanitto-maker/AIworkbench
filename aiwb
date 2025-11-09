@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
 # Load libraries
-for lib in common config ui api error security; do
+for lib in common config ui api error security modes; do
     lib_file="${LIB_DIR}/${lib}.sh"
     if [[ -f "$lib_file" ]]; then
         source "$lib_file"
@@ -119,31 +119,45 @@ A multi-model AI orchestration platform for the command line.
 USAGE:
   aiwb [command] [options]
 
-QUICK COMMANDS (New! 🚀):
+MODE-BASED WORKFLOWS (Recommended! 🎯):
+  Start interactive session, then use modes:
+    aiwb                    # Start interactive
+    > /make                 # Generate from scratch
+    > /tweak                # Modify existing code
+    > /debug                # Find and fix bugs
+
+  Inside each mode:
+    prompt <text>           Set text instructions
+    instruct <file.md>      Load from file
+    model                   Choose AI model
+    uploads <files/dirs>    Add context
+    check [instructions]    Configure verification
+    status                  Show mode status
+    run                     Execute with cost dialog
+
+QUICK COMMANDS:
   quick <description>     One-shot generation with auto-verify
   wizard                  Interactive guided workflow
-  make <description>      Alias for quick
-  improve <suggestion>    Improve last output with feedback
-  templates               Browse and use templates
+  improve <suggestion>    Improve last output
 
 STANDARD COMMANDS:
-  (no command)         Start interactive chat interface
+  (no command)         Start interactive chat
   chat                 Interactive chat mode
-  generate <task>      Generate code/content for a task
-  estimate <task>      Estimate cost before generating
-  verify <task>        Verify/review generated content
-  refine <task>        Automated Generator-Verifier loop
+  generate <task>      Generate for a task
+  verify <task>        Verify/review content
+  refine <task>        Multi-iteration loop
 
 CONFIGURATION:
   keys                 Manage API keys
-  settings             Configure AIWB
-  status               Show current status
+  settings             Configure provider/model
+  status               Show overall status
   doctor               Check system health
 
 UTILITY:
-  history              Show session history
-  costs                Show cost breakdown
-  security-audit       Run security audit
+  history              Session history
+  costs                Cost breakdown
+  templates            Browse templates
+  security-audit       Security audit
 
 OPTIONS:
   --provider <name>    Use specific provider (gemini/claude/openai/groq/xai)
@@ -153,22 +167,25 @@ OPTIONS:
   --version, -v        Show version
 
 EXAMPLES:
-  # Quick and easy (recommended for beginners!)
-  aiwb quick "Create a password generator script"
-  aiwb wizard                      # Interactive guided workflow
-  aiwb make "API client for GitHub"
-  aiwb improve "Add error handling and logging"
+  # Mode-based (powerful and flexible!)
+  aiwb
+  > /make
+  make> prompt "Create REST API for users"
+  make> model              # Choose Claude
+  make> uploads ./docs/ ./src/models/
+  make> check "Focus on security"
+  make> run
 
-  # Traditional workflow
-  aiwb                             # Start interactive chat
-  aiwb generate api-endpoint       # Generate code for task
-  aiwb refine --iterations=3       # Auto-refine current task
+  # Quick one-liners
+  aiwb quick "Create a password generator"
+  aiwb wizard
+  aiwb improve "Add error handling"
 
-  # Configuration
-  aiwb keys                        # Set up API keys
-  aiwb settings                    # Configure provider/model
+  # Setup
+  aiwb keys
+  aiwb settings
 
-Get started: aiwb wizard
+Get started: aiwb wizard (beginners) or aiwb + /make (power users)
 Learn more: https://github.com/juanitto-maker/AIworkbench
 
 EOF
@@ -259,6 +276,22 @@ handle_slash_command() {
         /help)
             show_chat_help
             ;;
+        /make)
+            # Check if this is the old quick command or new mode
+            if [[ -n "$args" ]]; then
+                # Old style: /make "description"
+                cmd_make "$args"
+            else
+                # New style: enter make mode
+                mode_loop "make"
+            fi
+            ;;
+        /tweak)
+            mode_loop "tweak"
+            ;;
+        /debug)
+            mode_loop "debug"
+            ;;
         /keys)
             cmd_keys
             ;;
@@ -266,7 +299,10 @@ handle_slash_command() {
             cmd_settings
             ;;
         /status)
-            ui_show_status
+            cmd_status_overview
+            ;;
+        /context)
+            cmd_context "$args"
             ;;
         /estimate)
             cmd_estimate
@@ -292,9 +328,6 @@ handle_slash_command() {
         /wizard)
             cmd_wizard
             ;;
-        /make)
-            cmd_make "$args"
-            ;;
         /improve)
             cmd_improve "$args"
             ;;
@@ -319,25 +352,39 @@ handle_slash_command() {
 # Show chat help
 show_chat_help() {
     cat <<'EOF'
-QUICK COMMANDS (New!):
+MODE-BASED WORKFLOWS (Recommended! 🎯):
+  /make       Generate code from scratch (enter mode)
+  /tweak      Modify/update existing code (enter mode)
+  /debug      Find and fix errors (enter mode)
+
+  Inside each mode use:
+    prompt <text>          - Set text instructions
+    instruct <file.md>     - Load instructions from file
+    model                  - Choose model interactively
+    uploads <files/dirs>   - Upload context
+    check [instructions]   - Configure verification
+    status                 - Show mode status
+    run                    - Execute (with cost estimation)
+    exit                   - Leave mode
+
+QUICK COMMANDS:
   /quick <description>    One-shot generation with auto-verify
   /wizard                 Interactive guided workflow
-  /make <description>     Quick generate (alias for /quick)
-  /improve <suggestion>   Improve last output with feedback
+  /make <description>     Quick generate (shortcut, not mode)
+  /improve <suggestion>   Improve last output
   /templates              Browse and use templates
 
-STANDARD COMMANDS:
-  /help       Show this help
-  /keys       Manage API keys
-  /settings   Configure provider/model
-  /status     Show current status
-  /estimate   Estimate cost for current task
-  /generate   Generate content for current task
-  /verify     Verify/review generated content
-  /refine     Auto-refine with Generator-Verifier loop
+MANAGEMENT:
+  /status     Show overall status (modes + costs + context)
+  /context    Manage context files (add/list/remove/clear)
   /history    Show chat history
   /costs      Show cost breakdown
+
+CONFIGURATION:
+  /keys       Manage API keys
+  /settings   Configure provider/model
   /clear      Clear screen
+  /help       Show this help
   /exit       Quit
 
 Just type normally to chat with the AI!
@@ -685,6 +732,145 @@ cmd_refine() {
 
     echo ""
     success "Refinement complete!"
+}
+
+# ============================================================================
+# STATUS AND CONTEXT COMMANDS
+# ============================================================================
+
+# Overall status overview
+cmd_status_overview() {
+    ui_header "AIWB Status Overview"
+
+    # Current configuration
+    echo "Configuration:"
+    echo "  Provider: $(config_get model_provider)"
+    echo "  Model: $(config_get model_name)"
+    echo "  Workspace: $(get_workspace)"
+    echo ""
+
+    # Mode states
+    echo "Mode States:"
+    echo "  Make - Model: ${MODE_MODEL_PROVIDER:-default} ${MODE_MODEL_NAME:-default}"
+    echo "  Tweak - Model: ${MODE_MODEL_PROVIDER:-default} ${MODE_MODEL_NAME:-default}"
+    echo "  Debug - Model: ${MODE_MODEL_PROVIDER:-default} ${MODE_MODEL_NAME:-default}"
+    echo ""
+
+    # Context
+    echo "Global Context:"
+    if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        for item in "${MODE_UPLOADS[@]}"; do
+            echo "  - $item"
+        done
+    else
+        echo "  (no files uploaded)"
+    fi
+    echo ""
+
+    # Costs
+    local workspace logs_dir usage_log
+    workspace="$(get_workspace)"
+    logs_dir="$workspace/logs"
+    usage_log="$logs_dir/usage.jsonl"
+
+    if [[ -f "$usage_log" ]]; then
+        echo "Costs (All Time):"
+        local total
+        total=$(jq -s 'map(.cost) | add' "$usage_log" 2>/dev/null || echo "0")
+        echo "  Total spent: \$${total} USD"
+
+        echo ""
+        echo "  By Provider:"
+        jq -s 'group_by(.provider) | map({provider: .[0].provider, cost: (map(.cost) | add)}) | .[]' "$usage_log" 2>/dev/null | \
+            jq -r '"    \(.provider): $\(.cost)"'
+    else
+        echo "Costs:"
+        echo "  No usage data yet"
+    fi
+    echo ""
+
+    # Recent activity
+    echo "Recent Activity:"
+    if [[ -d "$workspace/outputs" ]]; then
+        local recent
+        recent=$(find "$workspace/outputs" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r | head -3)
+        if [[ -n "$recent" ]]; then
+            echo "$recent" | while read -r file; do
+                local basename=$(basename "$file")
+                local timestamp=$(stat -f%Sm -t "%Y-%m-%d %H:%M" "$file" 2>/dev/null || stat -c%y "$file" 2>/dev/null | cut -d'.' -f1)
+                echo "  - $basename ($timestamp)"
+            done
+        else
+            echo "  (no recent outputs)"
+        fi
+    else
+        echo "  (no outputs yet)"
+    fi
+    echo ""
+}
+
+# Context management
+cmd_context() {
+    local subcmd="$1"
+    shift || true
+
+    case "$subcmd" in
+        add)
+            mode_uploads "$@"
+            ;;
+        list)
+            echo "Context Files:"
+            if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+                for item in "${MODE_UPLOADS[@]}"; do
+                    if [[ -f "$item" ]]; then
+                        local size=$(stat -f%z "$item" 2>/dev/null || stat -c%s "$item" 2>/dev/null || echo 0)
+                        local size_kb=$((size / 1024))
+                        echo "  - $item (${size_kb} KB)"
+                    elif [[ -d "$item" ]]; then
+                        local count=$(find "$item" -type f 2>/dev/null | wc -l | tr -d ' ')
+                        echo "  - $item/ ($count files)"
+                    fi
+                done
+            else
+                echo "  (no context files)"
+            fi
+            ;;
+        remove)
+            if [[ -z "$1" ]]; then
+                warn "Usage: /context remove <file|dir>"
+                return 1
+            fi
+            local item="$1"
+            local new_uploads=()
+            local found=false
+            for upload in "${MODE_UPLOADS[@]}"; do
+                if [[ "$upload" != "$item" ]]; then
+                    new_uploads+=("$upload")
+                else
+                    found=true
+                fi
+            done
+            if $found; then
+                MODE_UPLOADS=("${new_uploads[@]}")
+                success "Removed from context: $item"
+            else
+                warn "Not found in context: $item"
+            fi
+            ;;
+        clear)
+            MODE_UPLOADS=()
+            success "Context cleared"
+            ;;
+        *)
+            cat <<'EOF'
+Context Management:
+  /context add <files/dirs>    Add files to context
+  /context list                List context files
+  /context remove <item>       Remove from context
+  /context clear               Clear all context
+EOF
+            ;;
+    esac
 }
 
 # ============================================================================
