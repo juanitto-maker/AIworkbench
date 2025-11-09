@@ -151,7 +151,7 @@ stream_gemini() {
 call_claude() {
     local prompt="$1"
     local model="${2:-claude-3-haiku-20240307}"
-    local max_tokens="${3:-16000}"
+    local max_tokens="${3:-4096}"  # Claude 3 Haiku max is 4096
     local temperature="${4:-0.2}"
 
     local api_key
@@ -532,9 +532,26 @@ call_api() {
     local prompt="$1"
     local provider="${2:-$(config_get model_provider)}"
     local model="${3:-$(config_get model_name)}"
-    local max_tokens="${4:-16000}"
+    local max_tokens="${4:-}"
 
-    debug "Calling $provider API with model $model"
+    # Set appropriate max_tokens based on provider/model if not specified
+    if [[ -z "$max_tokens" ]]; then
+        case "$provider" in
+            claude)
+                # Claude 3 Haiku has 4096 max, Sonnet/Opus have 8192
+                if [[ "$model" == *"haiku"* ]]; then
+                    max_tokens=4096
+                else
+                    max_tokens=8192
+                fi
+                ;;
+            *)
+                max_tokens=16000
+                ;;
+        esac
+    fi
+
+    debug "Calling $provider API with model $model (max_tokens: $max_tokens)"
 
     case "$provider" in
         gemini)
