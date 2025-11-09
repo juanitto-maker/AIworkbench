@@ -248,9 +248,12 @@ add_cleanup_handler() {
 }
 
 run_cleanup_handlers() {
-    for handler in "${cleanup_handlers[@]}"; do
-        eval "$handler" 2>/dev/null || true
-    done
+    # Check if array has elements before iterating (set -u compatibility)
+    if [[ ${#cleanup_handlers[@]} -gt 0 ]]; then
+        for handler in "${cleanup_handlers[@]}"; do
+            eval "$handler" 2>/dev/null || true
+        done
+    fi
 }
 
 trap run_cleanup_handlers EXIT INT TERM
