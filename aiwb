@@ -206,34 +206,20 @@ chat_loop() {
     local chat_log="$logs_dir/chat_$(date +%Y%m%d_%H%M%S).log"
 
     msg "Chat started. Type /help for commands or /exit to quit."
-    msg "Hint: Type / and press TAB to see available commands"
     echo ""
 
     while true; do
         local input
 
-        # Get input with autocomplete support
+        # Get input
         if $GUM_AVAILABLE; then
-            input=$(gum input --placeholder "Message or /command (type /help)..." --width 80) || continue
+            input=$(gum input --placeholder "Message or /command..." --width 80) || continue
         else
-            # Use readline with TAB completion - user just needs to type / and press TAB
+            # Use safe_read helper for Termux compatibility
             echo -n "> "
-            if ! read -e -r input; then
+            if ! safe_read input; then
                 # No input available (EOF or non-interactive)
                 break
-            fi
-
-            # Simple autocomplete helper when input starts with / followed by partial command
-            if [[ "$input" == /* ]] && [[ "$input" != *" "* ]]; then
-                local commands="/help /keys /settings /status /estimate /generate /verify /refine /history /costs /clear /exit /quit"
-                local matches=$(compgen -W "$commands" -- "$input")
-                if [[ $(echo "$matches" | wc -l) -eq 1 ]] && [[ -n "$matches" ]]; then
-                    input="$matches"
-                    echo "→ $input"
-                elif [[ -n "$matches" ]] && [[ "$input" != "/"* ]]; then
-                    echo "Available: $matches"
-                    continue
-                fi
             fi
         fi
 
@@ -263,36 +249,35 @@ handle_slash_command() {
             show_chat_help
             ;;
         /keys)
-            cmd_keys || true  # Don't exit on error
+            cmd_keys
             ;;
         /settings)
-            cmd_settings || true  # Don't exit on error
+            cmd_settings
             ;;
         /status)
-            ui_show_status || true
+            ui_show_status
             ;;
         /estimate)
-            cmd_estimate || true  # Don't exit on error
+            cmd_estimate
             ;;
         /generate)
-            cmd_generate || true  # Don't exit on error
+            cmd_generate
             ;;
         /verify)
-            cmd_verify || true  # Don't exit on error
+            cmd_verify
             ;;
         /refine)
-            cmd_refine || true  # Don't exit on error
+            cmd_refine
             ;;
         /history)
-            cmd_history || true  # Don't exit on error
+            cmd_history
             ;;
         /costs)
-            cmd_costs || true  # Don't exit on error
+            cmd_costs
             ;;
         /clear)
             clear 2>/dev/null || true
             ui_header "AIWB Interactive Chat"
-            msg "Chat continued. Type /help for commands or /exit to quit."
             ;;
         /exit|/quit)
             msg "Goodbye!"
@@ -303,10 +288,6 @@ handle_slash_command() {
             echo "Type /help for available commands"
             ;;
     esac
-
-    # Always return to chat after command
-    echo ""
-    msg "Back to chat. Continue messaging or use /commands"
 }
 
 # Show chat help
