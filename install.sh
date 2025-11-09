@@ -222,8 +222,8 @@ if [[ ! -f "$CONFIG_JSON" ]]; then
   },
   "models": {
     "default_provider": "gemini",
-    "gemini_default": "flash-2.5",
-    "claude_default": "sonnet-4.5"
+    "gemini_default": "2.5-flash",
+    "claude_default": "4-5-sonnet-latest"
   },
   "ui": {
     "chat_first": true,

@@ -84,7 +84,7 @@ get_default_config() {
   "version": "2.0.0",
   "workspace": "",
   "model_provider": "gemini",
-  "model_name": "flash-2.5",
+  "model_name": "2.5-flash",
   "current_task": "",
   "current_project": "",
   "preferences": {
@@ -180,7 +180,7 @@ save_session() {
     local workspace provider model task project
     workspace="$(config_get workspace)"
     provider="$(config_get model_provider 'gemini')"
-    model="$(config_get model_name 'flash-1.5')"
+    model="$(config_get model_name '2.5-flash')"
     task="$(config_get current_task '')"
     project="$(config_get current_project '')"
 
@@ -226,8 +226,8 @@ get_default_model() {
     local provider="${1:-gemini}"
 
     case "$provider" in
-        gemini) echo "flash-2.5" ;;
-        claude) echo "sonnet-4.5" ;;
+        gemini) echo "2.5-flash" ;;
+        claude) echo "4-5-sonnet-latest" ;;
         openai) echo "gpt-4o-mini" ;;
         groq) echo "llama-3.3-70b-versatile" ;;
         xai) echo "grok-3" ;;
@@ -241,10 +241,10 @@ get_available_models() {
 
     case "$provider" in
         gemini)
-            echo "flash-1.5 flash-2.0 flash-2.0-lite flash-2.5 flash-2.5-lite pro-1.5 pro-2.0 pro-2.0-exp pro-2.5"
+            echo "1.5-flash 2.0-flash 2.0-flash-lite 2.5-flash 2.5-flash-lite 1.5-pro 2.0-pro 2.0-pro-exp 2.5-pro"
             ;;
         claude)
-            echo "haiku-3.5 haiku-4.5 sonnet-3.5 sonnet-3.7 sonnet-4.5 opus-3.5 opus-4.1"
+            echo "3-5-haiku-latest 4-5-haiku-latest 3-5-sonnet-latest 3-7-sonnet-latest 4-5-sonnet-latest 3-5-opus-latest 4-1-opus-latest"
             ;;
         openai)
             echo "gpt-4o-mini gpt-4o gpt-4-turbo gpt-5 o1-mini o1-preview o3 o3-pro o4-mini"
