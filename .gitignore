@@ -11,6 +11,7 @@ config.json
 # User Workspaces
 workspace/
 .aiwb/
+Context/
 
 # Logs
 *.log
