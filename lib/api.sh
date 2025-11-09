@@ -173,16 +173,36 @@ call_gemini() {
     fi
 
     if [[ $exit_code -ne 0 ]]; then
-        local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        local error_msg error_code
         local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
+        local curl_error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+
+        # Try to extract actual API error from response
+        if [[ -n "$response_data" ]] && echo "$response_data" | jq -e '.error' >/dev/null 2>&1; then
+            error_msg=$(echo "$response_data" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+            error_code=$(echo "$response_data" | jq -r '.error.code // ""' 2>/dev/null)
+        else
+            # Fallback to curl error if no JSON error
+            error_msg="$curl_error_msg"
+            error_code="$exit_code"
+        fi
+
         rm -f "$curl_error" "$curl_output"
-        display_api_error "Gemini" "$error_msg" "$response_data" "$model" "$exit_code"
+        display_api_error "Gemini" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
     rm -f "$curl_error" "$curl_output"
+
+    # Check for API errors in response
+    if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+        local api_error_msg api_error_code
+        api_error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"')
+        api_error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
+        display_api_error "Gemini" "$api_error_msg" "$response" "$model" "$api_error_code"
+        return 1
+    fi
 
     # Extract text from response
     local text
@@ -191,7 +211,7 @@ call_gemini() {
     if [[ -z "$text" ]]; then
         # Check for error in response
         local error_msg error_code
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
         error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
         display_api_error "Gemini" "$error_msg" "$response" "$model" "$error_code"
         return 1
@@ -371,16 +391,48 @@ call_openai() {
     fi
 
     if [[ $exit_code -ne 0 ]]; then
-        local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        local error_msg error_code
         local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
+        local curl_error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+
+        # Try to extract actual API error from response
+        if [[ -n "$response_data" ]] && echo "$response_data" | jq -e '.error' >/dev/null 2>&1; then
+            error_msg=$(echo "$response_data" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+            error_code=$(echo "$response_data" | jq -r '.error.code // ""' 2>/dev/null)
+
+            # Add helpful context for common errors
+            if [[ "$error_msg" == *"does not exist"* ]] || [[ "$error_msg" == *"model_not_found"* ]]; then
+                error_msg="$error_msg
+
+Possible reasons:
+  - The model name is incorrect or doesn't exist
+  - The model hasn't been released yet (e.g., gpt-5 is not available)
+  - You don't have access to this model with your API key
+
+Available OpenAI models: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o1-mini, o3-mini"
+            fi
+        else
+            # Fallback to curl error if no JSON error
+            error_msg="$curl_error_msg"
+            error_code="$exit_code"
+        fi
+
         rm -f "$curl_error" "$curl_output"
-        display_api_error "OpenAI" "$error_msg" "$response_data" "$model" "$exit_code"
+        display_api_error "OpenAI" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
     rm -f "$curl_error" "$curl_output"
+
+    # Check for API errors in response (even with 200 status)
+    if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+        local api_error_msg api_error_code
+        api_error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"')
+        api_error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
+        display_api_error "OpenAI" "$api_error_msg" "$response" "$model" "$api_error_code"
+        return 1
+    fi
 
     # Extract text from response
     local text
@@ -389,7 +441,7 @@ call_openai() {
     if [[ -z "$text" ]]; then
         # Check for error in response
         local error_msg error_code
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
         error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
         display_api_error "OpenAI" "$error_msg" "$response" "$model" "$error_code"
         return 1
@@ -459,11 +511,22 @@ call_groq() {
     fi
 
     if [[ $exit_code -ne 0 ]]; then
-        local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        local error_msg error_code
         local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
+        local curl_error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+
+        # Try to extract actual API error from response
+        if [[ -n "$response_data" ]] && echo "$response_data" | jq -e '.error' >/dev/null 2>&1; then
+            error_msg=$(echo "$response_data" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+            error_code=$(echo "$response_data" | jq -r '.error.code // ""' 2>/dev/null)
+        else
+            # Fallback to curl error if no JSON error
+            error_msg="$curl_error_msg"
+            error_code="$exit_code"
+        fi
+
         rm -f "$curl_error" "$curl_output"
-        display_api_error "Groq" "$error_msg" "$response_data" "$model" "$exit_code"
+        display_api_error "Groq" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
@@ -561,11 +624,22 @@ call_xai() {
     fi
 
     if [[ $exit_code -ne 0 ]]; then
-        local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        local error_msg error_code
         local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
+        local curl_error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+
+        # Try to extract actual API error from response
+        if [[ -n "$response_data" ]] && echo "$response_data" | jq -e '.error' >/dev/null 2>&1; then
+            error_msg=$(echo "$response_data" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+            error_code=$(echo "$response_data" | jq -r '.error.code // ""' 2>/dev/null)
+        else
+            # Fallback to curl error if no JSON error
+            error_msg="$curl_error_msg"
+            error_code="$exit_code"
+        fi
+
         rm -f "$curl_error" "$curl_output"
-        display_api_error "xAI (Grok)" "$error_msg" "$response_data" "$model" "$exit_code"
+        display_api_error "xAI (Grok)" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
@@ -659,11 +733,22 @@ call_ollama() {
     fi
 
     if [[ $exit_code -ne 0 ]]; then
-        local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        local error_msg error_code
         local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
+        local curl_error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+
+        # Try to extract actual API error from response
+        if [[ -n "$response_data" ]] && echo "$response_data" | jq -e '.error' >/dev/null 2>&1; then
+            error_msg=$(echo "$response_data" | jq -r '.error // "Unknown error"' 2>/dev/null)
+            error_code="$exit_code"
+        else
+            # Fallback to curl error if no JSON error
+            error_msg="$curl_error_msg"
+            error_code="$exit_code"
+        fi
+
         rm -f "$curl_error" "$curl_output"
-        display_api_error "Ollama" "$error_msg" "$response_data" "$model" "$exit_code"
+        display_api_error "Ollama" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
