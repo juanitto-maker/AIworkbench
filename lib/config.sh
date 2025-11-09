@@ -227,7 +227,7 @@ get_default_model() {
 
     case "$provider" in
         gemini) echo "2.5-flash" ;;
-        claude) echo "3-5-sonnet-20241022" ;;
+        claude) echo "3-haiku-20240307" ;;
         openai) echo "gpt-4o-mini" ;;
         groq) echo "llama-3.3-70b-versatile" ;;
         xai) echo "grok-3" ;;
