@@ -150,7 +150,7 @@ stream_gemini() {
 
 call_claude() {
     local prompt="$1"
-    local model="${2:-claude-4-5-sonnet-latest}"
+    local model="${2:-claude-3-5-sonnet-20241022}"
     local max_tokens="${3:-16000}"
     local temperature="${4:-0.2}"
 
