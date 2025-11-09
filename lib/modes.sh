@@ -211,7 +211,37 @@ menu_uploads() {
 
         case "$choice" in
             "Browse files")
-                menu_file_browser "."
+                # Storage location selection
+                local storage_choice
+                storage_choice=$(ui_choose "Select Storage Location" \
+                    "Internal Storage ($HOME)" \
+                    "External Storage (SD Card)" \
+                    "Current Directory (.)" \
+                    "Back")
+
+                case "$storage_choice" in
+                    "Internal Storage"*)
+                        menu_file_browser "$HOME"
+                        ;;
+                    "External Storage"*)
+                        # Try common Android/Termux external storage paths
+                        if [[ -d "$HOME/storage/shared" ]]; then
+                            menu_file_browser "$HOME/storage/shared"
+                        elif [[ -d "/storage/emulated/0" ]]; then
+                            menu_file_browser "/storage/emulated/0"
+                        elif [[ -d "/sdcard" ]]; then
+                            menu_file_browser "/sdcard"
+                        else
+                            err "External storage not found"
+                        fi
+                        ;;
+                    "Current Directory"*)
+                        menu_file_browser "."
+                        ;;
+                    "Back"|"")
+                        # Do nothing, return to menu
+                        ;;
+                esac
                 ;;
             "Browse outputs")
                 menu_outputs_browser
