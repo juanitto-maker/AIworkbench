@@ -25,10 +25,10 @@ ui_input() {
     else
         local result
         if [[ -n "$default" ]]; then
-            read -rp "$prompt [$default]: " result
+            read -rp "$prompt [$default]: " result || return 1
             echo "${result:-$default}"
         else
-            read -rp "$prompt: " result
+            read -rp "$prompt: " result || return 1
             echo "$result"
         fi
     fi
@@ -42,7 +42,7 @@ ui_password() {
         gum input --password --placeholder "$prompt"
     else
         local result
-        read -rsp "$prompt: " result
+        read -rsp "$prompt: " result || return 1
         echo "$result"
         echo >&2  # newline after password
     fi
@@ -82,7 +82,7 @@ ui_choose() {
         done
         echo -n "> " >&2
         local choice
-        read -r choice
+        read -r choice || return 1
         if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice > 0 && choice <= ${#options[@]})); then
             echo "${options[$((choice-1))]}"
         fi
@@ -108,7 +108,7 @@ ui_choose_multi() {
         done
         echo -n "> " >&2
         local choices
-        read -r choices
+        read -r choices || return 1
         for choice in $choices; do
             if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice > 0 && choice <= ${#options[@]})); then
                 echo "${options[$((choice-1))]}"
@@ -134,7 +134,7 @@ ui_filter() {
             echo "Type to filter (supports regex):" >&2
             echo -n "> " >&2
             local pattern
-            read -r pattern
+            read -r pattern || return 1
             printf '%s\n' "${options[@]}" | grep -i "$pattern" | head -1
         fi
     fi

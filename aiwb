@@ -218,9 +218,13 @@ chat_loop() {
             # Try to read from /dev/tty first, then stdin
             echo -n "> "
             if [[ -c /dev/tty ]] && [[ -r /dev/tty ]]; then
-                read -r input </dev/tty || break
+                if ! read -r input </dev/tty; then
+                    break
+                fi
             else
-                read -r input || break
+                if ! read -r input; then
+                    break
+                fi
             fi
         fi
 

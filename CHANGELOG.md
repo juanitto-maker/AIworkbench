@@ -13,6 +13,11 @@ All notable changes to AIWB will be documented in this file.
   - Fixed `confirm()` function to gracefully handle missing or inaccessible `/dev/tty`
   - Fixed `chat_loop()` to read from `/dev/tty` for interactive input in Termux
   - **Fixed `load_session()` conditional statements causing exit with `set -e`** (ROOT CAUSE)
+  - **Fixed all `read` commands in UI functions to properly handle failures with `set -e`**
+    - Added `|| return 1` to `ui_choose()`, `ui_input()`, `ui_password()`, `ui_filter()`, `ui_choose_multi()`
+    - Fixed `confirm()` to use proper error handling instead of `2>/dev/null` which suppressed prompts
+    - Fixed `chat_loop()` to use if-statements instead of `|| break` for better error handling
+    - Prevents script from exiting when stdin is not available or read fails
   - Script now properly executes commands instead of exiting with "Workspace initialized"
   - Affects all platforms (Linux, macOS, Termux)
 
