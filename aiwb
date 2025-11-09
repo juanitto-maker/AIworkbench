@@ -68,7 +68,10 @@ initialize() {
     init_workspace
     load_config
     load_session
+
+    debug "About to load keys..."
     load_keys || true
+    debug "After load keys..."
 
     # Auto-fix CRLF if on Termux
     if is_termux && [[ -d "$HOME/.local/bin" ]]; then
