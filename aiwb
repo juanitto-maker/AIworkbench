@@ -205,8 +205,13 @@ chat_loop() {
         if $GUM_AVAILABLE; then
             input=$(gum input --placeholder "Message or /command..." --width 80) || continue
         else
+            # Try to read from /dev/tty first, then stdin
             echo -n "> "
-            read -r input || break
+            if [[ -c /dev/tty ]] && [[ -r /dev/tty ]]; then
+                read -r input </dev/tty || break
+            else
+                read -r input || break
+            fi
         fi
 
         [[ -z "$input" ]] && continue
