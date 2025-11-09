@@ -220,12 +220,40 @@ Please set up your API keys to continue." "warning"
     chat_loop
 }
 
+# Rotate old log files to save storage
+rotate_logs() {
+    local logs_dir="$1"
+    local max_logs="${2:-10}"  # Keep only last 10 logs by default
+    local max_size="${3:-10485760}"  # 10MB max per log
+
+    # Remove logs older than max count
+    local logs=($(ls -t "$logs_dir"/chat_*.log 2>/dev/null))
+    if [[ ${#logs[@]} -gt $max_logs ]]; then
+        for ((i=max_logs; i<${#logs[@]}; i++)); do
+            rm -f "${logs[$i]}" 2>/dev/null
+        done
+    fi
+
+    # Truncate logs larger than max size
+    for log in "$logs_dir"/chat_*.log; do
+        [[ ! -f "$log" ]] && continue
+        local size=$(stat -c%s "$log" 2>/dev/null || stat -f%z "$log" 2>/dev/null || echo 0)
+        if [[ $size -gt $max_size ]]; then
+            # Keep only the last 1000 lines
+            tail -1000 "$log" > "$log.tmp" && mv "$log.tmp" "$log"
+        fi
+    done
+}
+
 # Chat loop
 chat_loop() {
     local workspace logs_dir
     workspace="$(get_workspace)"
     logs_dir="$workspace/logs"
     local chat_log="$logs_dir/chat_$(date +%Y%m%d_%H%M%S).log"
+
+    # Rotate old logs to save space
+    rotate_logs "$logs_dir" 10 10485760
 
     # Handle Ctrl+C properly in chat
     trap 'echo ""; msg "Goodbye!"; exit 0' INT
@@ -254,8 +282,23 @@ chat_loop() {
         if [[ "$input" == /* ]]; then
             handle_slash_command "$input"
         else
-            # Send to AI
-            handle_chat_message "$input" | tee -a "$chat_log"
+            # Send to AI and log response (with size limit)
+            local response_output
+            response_output=$(handle_chat_message "$input")
+            echo "$response_output"
+
+            # Log response with truncation for large responses
+            local response_lines=$(echo "$response_output" | wc -l)
+            if [[ $response_lines -gt 100 ]]; then
+                # Log only first 50 and last 50 lines for very long responses
+                {
+                    echo "$response_output" | head -50
+                    echo "... [truncated $(($response_lines - 100)) lines] ..."
+                    echo "$response_output" | tail -50
+                } >> "$chat_log"
+            else
+                echo "$response_output" >> "$chat_log"
+            fi
         fi
 
         echo ""
@@ -387,8 +430,55 @@ CONFIGURATION:
   /help       Show this help
   /exit       Quit
 
+TIPS:
+  - Press Ctrl+Y after a response to copy it to clipboard
+  - Old chat logs are auto-rotated to save storage (keeps last 10)
+  - Long responses are truncated in logs to save space
+
 Just type normally to chat with the AI!
 EOF
+}
+
+# Copy text to clipboard with auto-detection of clipboard tool
+copy_to_clipboard() {
+    local text="$1"
+    local clipboard_cmd=""
+
+    # Detect available clipboard command
+    if have termux-clipboard-set; then
+        # Termux
+        clipboard_cmd="termux-clipboard-set"
+    elif have xclip; then
+        # Linux with X11
+        clipboard_cmd="xclip -selection clipboard"
+    elif have xsel; then
+        # Linux alternative
+        clipboard_cmd="xsel --clipboard --input"
+    elif have pbcopy; then
+        # macOS
+        clipboard_cmd="pbcopy"
+    elif have wl-copy; then
+        # Wayland
+        clipboard_cmd="wl-copy"
+    fi
+
+    # If clipboard tool is available, offer to copy
+    if [[ -n "$clipboard_cmd" ]]; then
+        echo "${DIM}[Ctrl+Y to copy response to clipboard, or press Enter to continue]${RESET}"
+        local key
+        if ! read -rsn1 key 2>/dev/null; then
+            return 0
+        fi
+
+        # Check if Ctrl+Y was pressed (ASCII 25)
+        if [[ "$key" == $'\x19' ]]; then
+            echo "$text" | $clipboard_cmd 2>/dev/null && {
+                echo "${GREEN}✓ Copied to clipboard${RESET}"
+            } || {
+                echo "${YELLOW}⚠ Failed to copy${RESET}"
+            }
+        fi
+    fi
 }
 
 # Handle chat message
@@ -416,14 +506,12 @@ handle_chat_message() {
 
     # Display response
     echo ""
-    if $GUM_AVAILABLE; then
-        echo "$response" | gum style --border rounded --padding "1 2" --width 80
-    else
-        echo "${CYAN}┌─ Response ──────────────────────────────────────────┐${RESET}"
-        echo "$response" | fold -s -w 76 | sed 's/^/│ /' | sed "s/$/$(printf ' %.0s' {1..76})/" | cut -c1-78 | sed "s/$/│/"
-        echo "${CYAN}└─────────────────────────────────────────────────────┘${RESET}"
-    fi
+    echo "${CYAN}${BOLD}AI:${RESET}"
+    echo "$response"
     echo ""
+
+    # Offer to copy to clipboard
+    copy_to_clipboard "$response"
 
     # Track cost
     track_usage "$provider" "$model" "$message" "$response"
@@ -522,14 +610,10 @@ cmd_generate() {
 
     # Show preview
     echo ""
-    if $GUM_AVAILABLE; then
-        echo "$output" | head -20 | gum style --border rounded
-        if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
-            echo "... (truncated, see file for full output)"
-        fi
-    else
-        echo "Preview:"
-        echo "$output" | head -20
+    echo "${CYAN}${BOLD}Preview:${RESET}"
+    echo "$output" | head -20
+    if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
+        echo "... (truncated, see file for full output)"
     fi
 
     # Track usage
@@ -680,11 +764,8 @@ Provide specific, actionable feedback."
     echo ""
     ui_info_box "VERIFICATION FEEDBACK" "info"
     echo ""
-    if $GUM_AVAILABLE; then
-        echo "$feedback" | gum style --border rounded --padding "1 2"
-    else
-        echo "$feedback"
-    fi
+    echo "${CYAN}${BOLD}Feedback:${RESET}"
+    echo "$feedback"
     echo ""
 
     # Save feedback
@@ -1097,12 +1178,8 @@ Please provide an improved version incorporating the feedback."
 
     # Show preview
     echo ""
-    if $GUM_AVAILABLE; then
-        echo "$improved" | head -20 | gum style --border rounded
-    else
-        echo "Preview:"
-        echo "$improved" | head -20
-    fi
+    echo "${CYAN}${BOLD}Preview:${RESET}"
+    echo "$improved" | head -20
 
     # Track usage
     track_usage "$provider" "$model" "$prompt" "$improved"

@@ -497,11 +497,7 @@ menu_view_outputs() {
                     ui_header "Output: $filename"
                     echo ""
 
-                    if $GUM_AVAILABLE; then
-                        cat "$filepath" | gum style --border rounded --padding "1 2"
-                    else
-                        cat "$filepath"
-                    fi
+                    cat "$filepath"
 
                     echo ""
                     echo "File location: $filepath"
@@ -653,14 +649,10 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
 
     # Show preview
     echo ""
-    if $GUM_AVAILABLE; then
-        echo "$output" | head -20 | gum style --border rounded
-        if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
-            echo "... (see file for full output)"
-        fi
-    else
-        echo "Preview:"
-        echo "$output" | head -20
+    echo "${CYAN}${BOLD}Preview:${RESET}"
+    echo "$output" | head -20
+    if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
+        echo "... (see file for full output)"
     fi
     echo ""
 
@@ -708,11 +700,7 @@ Provide specific, actionable feedback."
             echo ""
             ui_info_box "VERIFICATION FEEDBACK" "info"
             echo ""
-            if $GUM_AVAILABLE; then
-                echo "$feedback" | gum style --border rounded --padding "1 2"
-            else
-                echo "$feedback"
-            fi
+            echo "$feedback"
             echo ""
             success "Feedback saved to: $feedback_file"
 
@@ -751,11 +739,7 @@ Provide specific, actionable feedback."
                 ui_header "Generated Output"
                 echo ""
 
-                if $GUM_AVAILABLE; then
-                    cat "$output_file" | gum style --border rounded --padding "1 2"
-                else
-                    cat "$output_file"
-                fi
+                cat "$output_file"
 
                 echo ""
                 echo "File location: $output_file"
