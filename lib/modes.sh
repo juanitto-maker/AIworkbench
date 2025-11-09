@@ -202,13 +202,17 @@ menu_uploads() {
         local current_display=$(get_uploads_display)
 
         choice=$(ui_choose "Context Files ($current_display)" \
-            "Add files/directories" \
+            "Browse files" \
+            "Type path manually" \
             "List uploads" \
             "Clear all" \
             "Back")
 
         case "$choice" in
-            "Add files/directories")
+            "Browse files")
+                menu_file_browser "."
+                ;;
+            "Type path manually")
                 local items
                 items=$(ui_input "Enter file/directory paths (space-separated):")
                 if [[ -n "$items" ]]; then
@@ -390,11 +394,130 @@ menu_status() {
     ui_confirm "Press enter to continue..."
 }
 
+# File browser for uploads
+menu_file_browser() {
+    local current_dir="${1:-.}"
+
+    while true; do
+        # Get list of files and directories
+        local items=()
+
+        # Add parent directory option if not at root
+        if [[ "$current_dir" != "/" ]]; then
+            items+=(".. (parent directory)")
+        fi
+
+        # Add directories first
+        while IFS= read -r dir; do
+            [[ -z "$dir" ]] && continue
+            items+=("📁 $(basename "$dir")/")
+        done < <(find "$current_dir" -maxdepth 1 -type d ! -path "$current_dir" 2>/dev/null | sort)
+
+        # Add files
+        while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            items+=("📄 $(basename "$file")")
+        done < <(find "$current_dir" -maxdepth 1 -type f 2>/dev/null | sort)
+
+        items+=("✓ Select current directory")
+        items+=("Back")
+
+        local choice
+        choice=$(ui_choose "Browse: $current_dir" "${items[@]}")
+
+        case "$choice" in
+            ".. (parent directory)")
+                current_dir="$(dirname "$current_dir")"
+                ;;
+            "📁 "*)
+                local dirname="${choice#📁 }"
+                dirname="${dirname%/}"
+                current_dir="$current_dir/$dirname"
+                ;;
+            "📄 "*)
+                local filename="${choice#📄 }"
+                MODE_UPLOADS+=("$current_dir/$filename")
+                success "Added: $current_dir/$filename"
+                return 0
+                ;;
+            "✓ Select current directory")
+                MODE_UPLOADS+=("$current_dir")
+                success "Added directory: $current_dir"
+                return 0
+                ;;
+            "Back"|"")
+                return 0
+                ;;
+        esac
+    done
+}
+
+# View output browser
+menu_view_outputs() {
+    local workspace output_dir
+    workspace="$(get_workspace)"
+    output_dir="$workspace/outputs"
+
+    if [[ ! -d "$output_dir" ]]; then
+        err "No outputs directory found"
+        return 1
+    fi
+
+    # Get list of output files
+    local files=()
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        local basename=$(basename "$file")
+        local timestamp=$(stat -f%Sm -t "%Y-%m-%d %H:%M" "$file" 2>/dev/null || stat -c%y "$file" 2>/dev/null | cut -d'.' -f1)
+        files+=("$basename ($timestamp)")
+    done < <(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r)
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        info "No output files found"
+        return 0
+    fi
+
+    files+=("Back")
+
+    while true; do
+        local choice
+        choice=$(ui_choose "View Outputs" "${files[@]}")
+
+        case "$choice" in
+            "Back"|"")
+                return 0
+                ;;
+            *)
+                # Extract filename from choice (remove timestamp)
+                local filename="${choice%% (*}"
+                local filepath="$output_dir/$filename"
+
+                if [[ -f "$filepath" ]]; then
+                    clear 2>/dev/null || true
+                    ui_header "Output: $filename"
+                    echo ""
+
+                    if $GUM_AVAILABLE; then
+                        cat "$filepath" | gum style --border rounded --padding "1 2"
+                    else
+                        cat "$filepath"
+                    fi
+
+                    echo ""
+                    echo "File location: $filepath"
+                    echo ""
+                    ui_confirm "Press enter to continue..."
+                fi
+                ;;
+        esac
+    done
+}
+
 # Run mode execution
 mode_run() {
     # Validate required fields
     if [[ -z "$MODE_PROMPT" && -z "$MODE_INSTRUCT_FILE" ]]; then
-        err "No instructions set. Use 'prompt' or 'instruct' first."
+        err "No instructions set. Use 'Prompt' or 'Instruct' first."
         return 1
     fi
 
@@ -611,6 +734,46 @@ Provide specific, actionable feedback."
     echo ""
 
     success "Done!"
+    echo ""
+
+    # What's next menu
+    while true; do
+        local choice
+        choice=$(ui_choose "What's next?" \
+            "View output" \
+            "View all outputs" \
+            "Run again" \
+            "Back to mode menu")
+
+        case "$choice" in
+            "View output")
+                clear 2>/dev/null || true
+                ui_header "Generated Output"
+                echo ""
+
+                if $GUM_AVAILABLE; then
+                    cat "$output_file" | gum style --border rounded --padding "1 2"
+                else
+                    cat "$output_file"
+                fi
+
+                echo ""
+                echo "File location: $output_file"
+                echo ""
+                ui_confirm "Press enter to continue..."
+                ;;
+            "View all outputs")
+                menu_view_outputs
+                ;;
+            "Run again")
+                mode_run
+                return $?
+                ;;
+            "Back to mode menu"|"")
+                return 0
+                ;;
+        esac
+    done
 }
 
 # ============================================================================
@@ -640,6 +803,7 @@ mode_loop() {
             "Check: $check_display" \
             "Status" \
             "Run" \
+            "View outputs" \
             "Back")
 
         case "$choice" in
@@ -663,6 +827,9 @@ mode_loop() {
                 ;;
             "Run")
                 mode_run
+                ;;
+            "View outputs")
+                menu_view_outputs
                 ;;
             "Back"|"")
                 return 0
