@@ -11,7 +11,7 @@ cat > "$ENVFILE" <<'EOF'
 # export GEMINI_API_KEY=""
 # export ANTHROPIC_API_KEY=""
 export GEMINI_MODEL="gemini-1.5-flash"
-export CLAUDE_MODEL="claude-3-5-sonnet-latest"
+export CLAUDE_MODEL="claude-3-5-sonnet-20241022"
 export MAX_OUT_TOKENS_DEFAULT=16000
 export CONFIRM=1
 # AI workbench repo

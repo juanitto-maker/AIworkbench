@@ -41,7 +41,7 @@ WS_ROOT_DEFAULT="${AIWB_HOME}/workspace"
 TASKS_DIR_DEFAULT="${WS_ROOT_DEFAULT}/tasks"
 
 PROVIDER_DEFAULT="claude"
-MODEL_DEFAULT_CLAUDE="4-5-sonnet-latest"
+MODEL_DEFAULT_CLAUDE="3-5-sonnet-20241022"
 
 # Pricing defaults (USD per 1K tokens) — override in ~/.aiwb/pricing.json
 # These are placeholders; adjust to your real pricing in your user pricing.json.
@@ -49,11 +49,12 @@ read -r -d '' PRICING_DEFAULT <<'JSON' || true
 {
   "fx": { "EUR_per_USD": 0.92 },
   "claude": {
-    "4-5-sonnet-latest": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
-    "3-5-sonnet-latest": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
-    "4-5-haiku-latest":  { "in_per_1k": 1.00, "out_per_1k": 5.00 },
-    "3-5-haiku-latest":  { "in_per_1k": 0.80, "out_per_1k": 4.00 },
-    "4-1-opus-latest":   { "in_per_1k": 15.00, "out_per_1k": 75.00 }
+    "sonnet-4-5-20250929": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
+    "3-5-sonnet-20241022": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
+    "3-5-sonnet-20240620": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
+    "3-5-haiku-20241022":  { "in_per_1k": 1.00, "out_per_1k": 5.00 },
+    "3-haiku-20240307":    { "in_per_1k": 0.25, "out_per_1k": 1.25 },
+    "3-opus-20240229":     { "in_per_1k": 15.00, "out_per_1k": 75.00 }
   }
 }
 JSON
