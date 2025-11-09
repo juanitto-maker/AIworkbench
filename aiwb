@@ -328,7 +328,7 @@ handle_chat_message() {
 
     # Call API
     local response
-    response=$(call_api "$message" "$provider" "$model" 2>&1)
+    response=$(call_api "$message" "$provider" "$model" 2>/dev/null)
     local exit_code=$?
 
     # Kill spinner

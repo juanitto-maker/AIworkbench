@@ -289,7 +289,10 @@ ui_join() {
     local parts=("$@")
 
     if $GUM_AVAILABLE; then
-        gum join --"$orientation" "${parts[@]}"
+        gum join --"$orientation" "${parts[@]}" || {
+            # Fallback if gum join fails
+            printf '%s\n' "${parts[@]}"
+        }
     else
         # Fallback: just print sequentially
         printf '%s\n' "${parts[@]}"
@@ -358,7 +361,11 @@ Task:       ${task:-inbox}
 
 EOF
 )
-        gum join --horizontal "$left" "  " "$right"
+        gum join --horizontal "$left" "  " "$right" || {
+            # Fallback if gum join fails
+            echo "$left"
+            echo "$right"
+        }
     else
         echo "${CYAN}${BOLD}═══ AIWB Status ═══${RESET}"
         echo "Platform:  $platform"
