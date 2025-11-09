@@ -7,19 +7,26 @@ All notable changes to AIWB will be documented in this file.
 ### 🐛 Fixed
 
 **Critical Fixes:**
-- ✅ **Fixed script exit bug** - Resolved issue where aiwb would exit immediately after initialization
+- ✅ **Fixed script exit bug and Termux intermittent failures** - Resolved issue where aiwb would exit immediately or fail randomly in error loops
   - Fixed `run_cleanup_handlers()` to handle empty cleanup_handlers array with `set -u`
   - Fixed `clear` command failures when TERM environment variable not set
-  - Fixed `confirm()` function to gracefully handle missing or inaccessible `/dev/tty`
-  - Fixed `chat_loop()` to read from `/dev/tty` for interactive input in Termux
-  - **Fixed `load_session()` conditional statements causing exit with `set -e`** (ROOT CAUSE)
-  - **Fixed all `read` commands in UI functions to properly handle failures with `set -e`**
-    - Added `|| return 1` to `ui_choose()`, `ui_input()`, `ui_password()`, `ui_filter()`, `ui_choose_multi()`
-    - Fixed `confirm()` to use proper error handling instead of `2>/dev/null` which suppressed prompts
-    - Fixed `chat_loop()` to use if-statements instead of `|| break` for better error handling
-    - Prevents script from exiting when stdin is not available or read fails
+  - **Fixed `load_session()` conditional statements causing exit with `set -e`** (ROOT CAUSE #1)
+  - **Created unified `safe_read()` function for Termux compatibility** (ROOT CAUSE #2 - INTERMITTENT FAILURES)
+    - **Eliminated redundant and conflicting `/dev/tty` handling** that caused error loops in Termux
+    - Previous code had inconsistent approaches causing intermittent behavior:
+      - `confirm()` used `( : < /dev/tty ) 2>/dev/null` test
+      - `chat_loop()` used `[[ -c /dev/tty ]] && [[ -r /dev/tty ]]` test
+      - These different tests behaved differently in Termux, causing "working, then bug, then working" cycles
+    - New `safe_read()` provides single, unified, Termux-aware input handling:
+      - Prefers /dev/tty in Termux (most reliable for Android/Termux)
+      - Falls back to stdin gracefully if /dev/tty unavailable
+      - Uses file descriptor 3 to avoid conflicts with stdin/stdout/stderr
+      - Proper error handling compatible with `set -e`
+    - Updated all input functions to use `safe_read()`:
+      - `confirm()`, `ui_choose()`, `ui_input()`, `ui_filter()`, `ui_choose_multi()`, `chat_loop()`
+    - **Eliminates intermittent "error loop" behavior** - no more random failures
   - Script now properly executes commands instead of exiting with "Workspace initialized"
-  - Affects all platforms (Linux, macOS, Termux)
+  - Affects all platforms (Linux, macOS, Termux) - **especially critical for Termux reliability**
 
 - ✅ **Fixed API blocking issue** - Resolved hanging/blocking when making API calls (especially in Termux)
   - Added connection timeout (10s) and max request time (300s) to all API calls

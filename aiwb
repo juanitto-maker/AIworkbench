@@ -215,16 +215,11 @@ chat_loop() {
         if $GUM_AVAILABLE; then
             input=$(gum input --placeholder "Message or /command..." --width 80) || continue
         else
-            # Try to read from /dev/tty first, then stdin
+            # Use safe_read helper for Termux compatibility
             echo -n "> "
-            if [[ -c /dev/tty ]] && [[ -r /dev/tty ]]; then
-                if ! read -r input </dev/tty; then
-                    break
-                fi
-            else
-                if ! read -r input; then
-                    break
-                fi
+            if ! safe_read input; then
+                # No input available (EOF or non-interactive)
+                break
             fi
         fi
 

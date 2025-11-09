@@ -25,10 +25,14 @@ ui_input() {
     else
         local result
         if [[ -n "$default" ]]; then
-            read -rp "$prompt [$default]: " result || return 1
+            if ! safe_read -p "$prompt [$default]: " result; then
+                return 1
+            fi
             echo "${result:-$default}"
         else
-            read -rp "$prompt: " result || return 1
+            if ! safe_read -p "$prompt: " result; then
+                return 1
+            fi
             echo "$result"
         fi
     fi
@@ -42,7 +46,11 @@ ui_password() {
         gum input --password --placeholder "$prompt"
     else
         local result
-        read -rsp "$prompt: " result || return 1
+        # Note: read -s doesn't work with safe_read, use direct read
+        # This is acceptable since password input is always from tty
+        if ! read -rsp "$prompt: " result 2>/dev/null; then
+            return 1
+        fi
         echo "$result"
         echo >&2  # newline after password
     fi
@@ -82,7 +90,9 @@ ui_choose() {
         done
         echo -n "> " >&2
         local choice
-        read -r choice || return 1
+        if ! safe_read choice; then
+            return 1
+        fi
         if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice > 0 && choice <= ${#options[@]})); then
             echo "${options[$((choice-1))]}"
         fi
@@ -108,7 +118,9 @@ ui_choose_multi() {
         done
         echo -n "> " >&2
         local choices
-        read -r choices || return 1
+        if ! safe_read choices; then
+            return 1
+        fi
         for choice in $choices; do
             if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice > 0 && choice <= ${#options[@]})); then
                 echo "${options[$((choice-1))]}"
@@ -134,7 +146,9 @@ ui_filter() {
             echo "Type to filter (supports regex):" >&2
             echo -n "> " >&2
             local pattern
-            read -r pattern || return 1
+            if ! safe_read pattern; then
+                return 1
+            fi
             printf '%s\n' "${options[@]}" | grep -i "$pattern" | head -1
         fi
     fi
