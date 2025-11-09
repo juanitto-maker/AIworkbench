@@ -11,6 +11,7 @@ All notable changes to AIWB will be documented in this file.
   - Fixed `run_cleanup_handlers()` to handle empty cleanup_handlers array with `set -u`
   - Fixed `clear` command failures when TERM environment variable not set
   - Fixed `confirm()` function to gracefully handle missing or inaccessible `/dev/tty`
+  - Fixed `chat_loop()` to read from `/dev/tty` for interactive input in Termux
   - Script now properly executes commands instead of exiting with "Workspace initialized"
   - Affects all platforms (Linux, macOS, Termux)
 
