@@ -2,6 +2,20 @@
 
 All notable changes to AIWB will be documented in this file.
 
+## [2.0.1] - 2025-11-09
+
+### 🐛 Fixed
+
+**Critical Fixes:**
+- ✅ **Fixed script exit bug** - Resolved issue where aiwb would exit immediately after initialization
+  - Fixed `run_cleanup_handlers()` to handle empty cleanup_handlers array with `set -u`
+  - Script now properly executes commands instead of exiting with "Workspace initialized"
+  - Affects all platforms (Linux, macOS, Termux)
+
+**Enhancements:**
+- ✅ **Added Groq vision models** - llama-3.2-11b-vision-preview and llama-3.2-90b-vision-preview
+- ✅ **Expanded Groq model support** - Added llama-3.2-1b-preview and llama-3.2-3b-preview for lightweight tasks
+
 ## [2.0.0] - 2025-11-08
 
 ### 🎉 Major Release - Complete Refactor
