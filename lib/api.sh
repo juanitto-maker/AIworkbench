@@ -27,6 +27,9 @@ get_api_key() {
         openai)
             echo "${OPENAI_API_KEY:-}"
             ;;
+        groq)
+            echo "${GROQ_API_KEY:-}"
+            ;;
         *)
             echo ""
             ;;
@@ -243,6 +246,62 @@ call_openai() {
 }
 
 # ============================================================================
+# API CALLS - GROQ
+# ============================================================================
+
+call_groq() {
+    local prompt="$1"
+    local model="${2:-llama-3.1-70b-versatile}"
+    local max_tokens="${3:-16000}"
+    local temperature="${4:-0.2}"
+
+    local api_key
+    api_key="$(get_api_key groq)"
+    [[ -z "$api_key" ]] && { err "GROQ_API_KEY not set"; return 1; }
+
+    local url="https://api.groq.com/openai/v1/chat/completions"
+
+    local request_body
+    request_body=$(jq -n \
+        --arg model "$model" \
+        --arg content "$prompt" \
+        --argjson max "$max_tokens" \
+        --argjson temp "$temperature" \
+        '{
+            model: $model,
+            max_tokens: $max,
+            temperature: $temp,
+            messages: [{role: "user", content: $content}]
+        }')
+
+    local response
+    response=$(curl -fsS "$url" \
+        -H "Authorization: Bearer $api_key" \
+        -H "Content-Type: application/json" \
+        -d "$request_body" 2>&1)
+
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        err "API request failed: $response"
+        return 1
+    fi
+
+    # Extract text from response (OpenAI-compatible format)
+    local text
+    text=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
+
+    if [[ -z "$text" ]]; then
+        # Check for error in response
+        local error_msg
+        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+        err "API error: $error_msg"
+        return 1
+    fi
+
+    echo "$text"
+}
+
+# ============================================================================
 # API CALLS - OLLAMA (Local)
 # ============================================================================
 
@@ -314,6 +373,9 @@ call_api() {
         openai)
             call_openai "$prompt" "$model" "$max_tokens"
             ;;
+        groq)
+            call_groq "$prompt" "$model" "$max_tokens"
+            ;;
         ollama)
             call_ollama "$prompt" "$model"
             ;;
@@ -356,6 +418,15 @@ get_pricing() {
                 *gpt-4o-mini*) [[ "$token_type" == "input" ]] && echo "0.15" || echo "0.60" ;;
                 *gpt-4o*)      [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
                 *) echo "0.15" ;;
+            esac
+            ;;
+        groq)
+            # Groq is extremely cheap/free for most models
+            case "$model" in
+                *llama-3.1-70b*) [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
+                *llama-3.1-8b*)  [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
+                *mixtral*)       [[ "$token_type" == "input" ]] && echo "0.024" || echo "0.024" ;;
+                *) echo "0.01" ;;
             esac
             ;;
         ollama)

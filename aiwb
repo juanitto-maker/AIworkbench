@@ -676,7 +676,7 @@ cmd_settings() {
         case "$choice" in
             "Provider:"*)
                 local new_provider
-                new_provider=$(ui_choose "Select Provider" "gemini" "claude" "openai" "ollama")
+                new_provider=$(ui_choose "Select Provider" "gemini" "claude" "openai" "groq" "ollama")
                 [[ -n "$new_provider" ]] && {
                     config_set model_provider "$new_provider"
                     config_set model_name "$(get_default_model "$new_provider")"
@@ -789,7 +789,7 @@ test_all_keys() {
     msg "Testing configured API keys..."
     echo ""
 
-    for provider in gemini claude openai; do
+    for provider in gemini claude openai groq; do
         if has_api_key "$provider"; then
             test_api_key "$provider"
         else
@@ -879,7 +879,7 @@ cmd_doctor() {
 
     # Check API keys
     echo "API Keys:"
-    for provider in gemini claude openai; do
+    for provider in gemini claude openai groq; do
         if has_api_key "$provider"; then
             success "✓ $provider key configured"
         else

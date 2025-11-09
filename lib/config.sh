@@ -228,6 +228,7 @@ get_default_model() {
         gemini) echo "flash-1.5" ;;
         claude) echo "sonnet-3.5" ;;
         openai) echo "gpt-4o-mini" ;;
+        groq) echo "llama-3.1-70b-versatile" ;;
         ollama) echo "llama3.2:latest" ;;
         *) echo "" ;;
     esac
@@ -245,6 +246,9 @@ get_available_models() {
             ;;
         openai)
             echo "gpt-4o-mini gpt-4o gpt-4-turbo o1-mini o1-preview"
+            ;;
+        groq)
+            echo "llama-3.1-70b-versatile llama-3.1-8b-instant mixtral-8x7b-32768 gemma2-9b-it"
             ;;
         ollama)
             if have ollama; then
