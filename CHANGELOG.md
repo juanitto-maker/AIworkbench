@@ -14,10 +14,15 @@ All notable changes to AIWB will be documented in this file.
 
 - ✅ **Fixed API blocking issue** - Resolved hanging/blocking when making API calls (especially in Termux)
   - Added connection timeout (10s) and max request time (300s) to all API calls
-  - Fixed stderr redirection buffering issues with `--no-buffer` flag
-  - Improved error handling with separate error capture
+  - Fixed stderr redirection buffering issues with `--no-buffer` flag and `2>&1` removal
+  - Improved error handling to properly display API errors instead of silent failures
   - Affects all providers: Groq, OpenAI, Claude, Gemini, and Ollama
   - Particularly impacts mobile/Termux environments where network buffering can cause hangs
+
+- ✅ **Updated Groq default model** - Migrated from decommissioned llama-3.1-70b-versatile to llama-3.3-70b-versatile
+  - Old model was decommissioned by Groq and caused silent failures
+  - New model offers better performance and tool use capabilities
+  - Updated default model, available models list, and pricing information
 
 **Enhancements:**
 - ✅ **Added Groq vision models** - llama-3.2-11b-vision-preview and llama-3.2-90b-vision-preview

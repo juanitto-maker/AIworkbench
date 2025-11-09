@@ -278,7 +278,7 @@ call_openai() {
 
 call_groq() {
     local prompt="$1"
-    local model="${2:-llama-3.1-70b-versatile}"
+    local model="${2:-llama-3.3-70b-versatile}"
     local max_tokens="${3:-16000}"
     local temperature="${4:-0.2}"
 
@@ -302,35 +302,34 @@ call_groq() {
         }')
 
     local response
-    local curl_error
-    curl_error=$(mktemp)
-    response=$(curl -fsS "$url" \
+    response=$(curl -sS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>"$curl_error")
+        -d "$request_body" 2>&1)
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
-        rm -f "$curl_error"
-        err "API request failed: $error_msg"
+        err "API request failed: $response"
         return 1
     fi
-    rm -f "$curl_error"
+
+    # Check for API errors in response
+    local api_error
+    api_error=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+    if [[ -n "$api_error" ]]; then
+        err "Groq API error: $api_error"
+        return 1
+    fi
 
     # Extract text from response (OpenAI-compatible format)
     local text
     text=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        # Check for error in response
-        local error_msg
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
-        err "API error: $error_msg"
+        err "No response from Groq API"
         return 1
     fi
 
@@ -468,6 +467,7 @@ get_pricing() {
         groq)
             # Groq is extremely cheap/free for most models
             case "$model" in
+                *llama-3.3-70b*) [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
                 *llama-3.1-70b*) [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
                 *llama-3.1-8b*)  [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
                 *mixtral*)       [[ "$token_type" == "input" ]] && echo "0.024" || echo "0.024" ;;
