@@ -41,7 +41,7 @@ WS_ROOT_DEFAULT="${AIWB_HOME}/workspace"
 TASKS_DIR_DEFAULT="${WS_ROOT_DEFAULT}/tasks"
 
 PROVIDER_DEFAULT="claude"
-MODEL_DEFAULT_CLAUDE="sonnet-3.5"
+MODEL_DEFAULT_CLAUDE="sonnet-4.5"
 
 # Pricing defaults (USD per 1K tokens) — override in ~/.aiwb/pricing.json
 # These are placeholders; adjust to your real pricing in your user pricing.json.
@@ -49,8 +49,11 @@ read -r -d '' PRICING_DEFAULT <<'JSON' || true
 {
   "fx": { "EUR_per_USD": 0.92 },
   "claude": {
+    "sonnet-4.5": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
     "sonnet-3.5": { "in_per_1k": 3.00, "out_per_1k": 15.00 },
-    "haiku-3.5":  { "in_per_1k": 0.80, "out_per_1k": 4.00 }
+    "haiku-4.5":  { "in_per_1k": 1.00, "out_per_1k": 5.00 },
+    "haiku-3.5":  { "in_per_1k": 0.80, "out_per_1k": 4.00 },
+    "opus-4.1":   { "in_per_1k": 15.00, "out_per_1k": 75.00 }
   }
 }
 JSON

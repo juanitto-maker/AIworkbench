@@ -84,7 +84,7 @@ get_default_config() {
   "version": "2.0.0",
   "workspace": "",
   "model_provider": "gemini",
-  "model_name": "flash-1.5",
+  "model_name": "flash-2.5",
   "current_task": "",
   "current_project": "",
   "preferences": {
@@ -226,11 +226,11 @@ get_default_model() {
     local provider="${1:-gemini}"
 
     case "$provider" in
-        gemini) echo "flash-1.5" ;;
-        claude) echo "sonnet-3.5" ;;
+        gemini) echo "flash-2.5" ;;
+        claude) echo "sonnet-4.5" ;;
         openai) echo "gpt-4o-mini" ;;
         groq) echo "llama-3.3-70b-versatile" ;;
-        xai) echo "grok-beta" ;;
+        xai) echo "grok-3" ;;
         ollama) echo "llama3.2:latest" ;;
         *) echo "" ;;
     esac
@@ -241,19 +241,19 @@ get_available_models() {
 
     case "$provider" in
         gemini)
-            echo "flash-1.5 flash-2.0 pro-1.5 pro-2.0"
+            echo "flash-1.5 flash-2.0 flash-2.0-lite flash-2.5 flash-2.5-lite pro-1.5 pro-2.0 pro-2.0-exp pro-2.5"
             ;;
         claude)
-            echo "haiku-3.5 sonnet-3.5 sonnet-3.7 opus-3.5"
+            echo "haiku-3.5 haiku-4.5 sonnet-3.5 sonnet-3.7 sonnet-4.5 opus-3.5 opus-4.1"
             ;;
         openai)
-            echo "gpt-4o-mini gpt-4o gpt-4-turbo o1-mini o1-preview"
+            echo "gpt-4o-mini gpt-4o gpt-4-turbo gpt-5 o1-mini o1-preview o3 o3-pro o4-mini"
             ;;
         groq)
-            echo "llama-3.3-70b-versatile llama-3.1-8b-instant llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview mixtral-8x7b-32768 gemma2-9b-it"
+            echo "llama-3.3-70b-versatile llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview llama-4-scout llama-4-maverick mixtral-8x7b-32768 gemma2-9b-it"
             ;;
         xai)
-            echo "grok-beta grok-code-fast-1 grok-2 grok-2-mini"
+            echo "grok-2 grok-2-mini grok-3 grok-3-mini grok-4 grok-4-heavy grok-beta grok-code-fast-1"
             ;;
         ollama)
             if have ollama; then

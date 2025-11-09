@@ -75,7 +75,7 @@ estimate_file_tokens() {
 
 call_gemini() {
     local prompt="$1"
-    local model="${2:-gemini-1.5-flash}"
+    local model="${2:-gemini-2.5-flash}"
     local max_tokens="${3:-16000}"
     local temperature="${4:-0.2}"
 
@@ -150,7 +150,7 @@ stream_gemini() {
 
 call_claude() {
     local prompt="$1"
-    local model="${2:-claude-3-5-sonnet-latest}"
+    local model="${2:-claude-4-5-sonnet-latest}"
     local max_tokens="${3:-16000}"
     local temperature="${4:-0.2}"
 
@@ -345,7 +345,7 @@ call_groq() {
 
 call_xai() {
     local prompt="$1"
-    local model="${2:-grok-beta}"
+    local model="${2:-grok-3}"
     local max_tokens="${3:-16000}"
     local temperature="${4:-0.2}"
 
@@ -510,48 +510,67 @@ get_pricing() {
     local model="$2"
     local token_type="${3:-input}"  # input or output
 
-    # Pricing as of 2025 (approximate, user should update)
+    # Pricing as of 2025 (updated with latest models)
     case "$provider" in
         gemini)
             case "$model" in
-                *flash*) [[ "$token_type" == "input" ]] && echo "0.075" || echo "0.30" ;;
-                *pro*)   [[ "$token_type" == "input" ]] && echo "1.25" || echo "5.00" ;;
-                *) echo "0.075" ;;
+                *2.5-flash-lite*|*flash-2.5-lite*) [[ "$token_type" == "input" ]] && echo "0.10" || echo "0.40" ;;
+                *2.5-flash*|*flash-2.5*)           [[ "$token_type" == "input" ]] && echo "0.30" || echo "2.50" ;;
+                *2.5-pro*|*pro-2.5*)               [[ "$token_type" == "input" ]] && echo "1.25" || echo "10.00" ;;
+                *2.0-flash-lite*|*flash-2.0-lite*) [[ "$token_type" == "input" ]] && echo "0.075" || echo "0.30" ;;
+                *flash*)                           [[ "$token_type" == "input" ]] && echo "0.075" || echo "0.30" ;;
+                *pro*)                             [[ "$token_type" == "input" ]] && echo "1.25" || echo "5.00" ;;
+                *) echo "0.30" ;;
             esac
             ;;
         claude)
             case "$model" in
-                *haiku*)  [[ "$token_type" == "input" ]] && echo "0.25" || echo "1.25" ;;
-                *sonnet*) [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
-                *opus*)   [[ "$token_type" == "input" ]] && echo "15.00" || echo "75.00" ;;
+                *haiku-4.5*|*4.5-haiku*) [[ "$token_type" == "input" ]] && echo "1.00" || echo "5.00" ;;
+                *haiku*)                 [[ "$token_type" == "input" ]] && echo "0.25" || echo "1.25" ;;
+                *sonnet-4.5*|*4.5-sonnet*|*sonnet-4*|*4-sonnet*) [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
+                *sonnet*)                [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
+                *opus-4.1*|*4.1-opus*)   [[ "$token_type" == "input" ]] && echo "15.00" || echo "75.00" ;;
+                *opus*)                  [[ "$token_type" == "input" ]] && echo "15.00" || echo "75.00" ;;
                 *) echo "3.00" ;;
             esac
             ;;
         openai)
             case "$model" in
+                *gpt-5-nano*)  [[ "$token_type" == "input" ]] && echo "0.05" || echo "0.40" ;;
+                *gpt-5-mini*)  [[ "$token_type" == "input" ]] && echo "0.25" || echo "2.00" ;;
+                *gpt-5*)       [[ "$token_type" == "input" ]] && echo "1.25" || echo "10.00" ;;
+                *o4-mini*)     [[ "$token_type" == "input" ]] && echo "0.60" || echo "2.40" ;;
+                *o3*)          [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
                 *gpt-4o-mini*) [[ "$token_type" == "input" ]] && echo "0.15" || echo "0.60" ;;
                 *gpt-4o*)      [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
+                *o1*)          [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
                 *) echo "0.15" ;;
             esac
             ;;
         groq)
-            # Groq is extremely cheap/free for most models
+            # Groq pricing updated with Llama 4 models
             case "$model" in
-                *llama-3.3-70b*) [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
-                *llama-3.1-70b*) [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
-                *llama-3.1-8b*)  [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
-                *mixtral*)       [[ "$token_type" == "input" ]] && echo "0.024" || echo "0.024" ;;
-                *) echo "0.01" ;;
+                *llama-4-maverick*) [[ "$token_type" == "input" ]] && echo "0.50" || echo "0.77" ;;
+                *llama-4-scout*)    [[ "$token_type" == "input" ]] && echo "0.11" || echo "0.34" ;;
+                *llama-3.3-70b*)    [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
+                *llama-3.2*)        [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
+                *mixtral*)          [[ "$token_type" == "input" ]] && echo "0.024" || echo "0.024" ;;
+                *gemma*)            [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
+                *) echo "0.05" ;;
             esac
             ;;
         xai)
-            # xAI Grok pricing
+            # xAI Grok pricing updated with Grok 3 and 4
             case "$model" in
+                *grok-4-heavy*)   [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
+                *grok-4-fast*)    [[ "$token_type" == "input" ]] && echo "0.20" || echo "0.50" ;;
                 *grok-4*)         [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
+                *grok-3-mini*)    [[ "$token_type" == "input" ]] && echo "0.30" || echo "0.50" ;;
+                *grok-3*)         [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
                 *grok-beta*)      [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
                 *grok-code-fast*) [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
                 *grok-2*)         [[ "$token_type" == "input" ]] && echo "2.00" || echo "10.00" ;;
-                *) echo "5.00" ;;
+                *) echo "3.00" ;;
             esac
             ;;
         ollama)

@@ -18,10 +18,20 @@ if [ -f "$PRICING" ] && command -v jq >/dev/null 2>&1; then
   OUT_RATE=$(jq -r --arg m "$MODEL" '.[$m].output_per_1k // .default.output_per_1k // 0' "$PRICING")
 else
   case "$MODEL" in
-    claude-3*|claude-3-5*) IN_RATE=3.00; OUT_RATE=15.00 ;;
-    gemini-1.5-flash*)     IN_RATE=0.35; OUT_RATE=0.53  ;;
-    gemini-2.5-flash*)     IN_RATE=1.25; OUT_RATE=5.00  ;;
-    *)                     IN_RATE=1.00; OUT_RATE=2.00  ;;
+    claude-4*|claude-4-5*)   IN_RATE=3.00; OUT_RATE=15.00 ;;
+    claude-3*|claude-3-5*)   IN_RATE=3.00; OUT_RATE=15.00 ;;
+    gemini-2.5-flash*)       IN_RATE=0.30; OUT_RATE=2.50  ;;
+    gemini-2.5-pro*)         IN_RATE=1.25; OUT_RATE=10.00 ;;
+    gemini-2.0-flash*)       IN_RATE=0.075; OUT_RATE=0.30 ;;
+    gemini-1.5-flash*)       IN_RATE=0.075; OUT_RATE=0.30 ;;
+    gemini-*-pro*)           IN_RATE=1.25; OUT_RATE=5.00  ;;
+    gpt-5*)                  IN_RATE=1.25; OUT_RATE=10.00 ;;
+    o4-mini*)                IN_RATE=0.60; OUT_RATE=2.40  ;;
+    o3*)                     IN_RATE=2.50; OUT_RATE=10.00 ;;
+    grok-4*)                 IN_RATE=3.00; OUT_RATE=15.00 ;;
+    grok-3*)                 IN_RATE=3.00; OUT_RATE=15.00 ;;
+    llama-4*)                IN_RATE=0.50; OUT_RATE=0.77  ;;
+    *)                       IN_RATE=1.00; OUT_RATE=2.00  ;;
   esac
 fi
 
