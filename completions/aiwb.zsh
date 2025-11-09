@@ -24,8 +24,6 @@ _aiwb() {
         'gemini:Google Gemini'
         'claude:Anthropic Claude'
         'openai:OpenAI GPT'
-        'groq:Groq (Llama)'
-        'xai:xAI (Grok)'
         'ollama:Local Ollama'
     )
 
