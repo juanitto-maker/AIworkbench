@@ -312,7 +312,7 @@ validate_json() {
 validate_provider() {
     local provider="$1"
     case "$provider" in
-        gemini|claude|openai|ollama) return 0 ;;
+        gemini|claude|openai|groq|ollama) return 0 ;;
         *) return 1 ;;
     esac
 }

@@ -26,8 +26,23 @@ set_api_key() {
     case "$provider" in
         gemini)  var_name="GEMINI_API_KEY" ;;
         claude)  var_name="ANTHROPIC_API_KEY" ;;
+        groq)
+            # Groq keys start with gsk_
+            [[ "$key" =~ ^gsk_ ]]
+            ;;
+        groq)
+            response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
+            ;;
         openai)  var_name="OPENAI_API_KEY" ;;
         *)
+        groq)
+            # Groq keys start with gsk_
+            [[ "$key" =~ ^gsk_ ]]
+        groq)
+            response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
+            ;;
+            ;;
+        groq)    var_name="GROQ_API_KEY" ;;
             err "Unknown provider: $provider"
             return 1
             ;;
@@ -74,18 +89,20 @@ setup_keys_interactive() {
     env_file="$(get_env_file)"
     [[ -f "$env_file" ]] && source "$env_file"
 
-    local providers=("Gemini (Google)" "Claude (Anthropic)" "OpenAI" "Skip")
+    local providers=("Gemini (Google)" "Claude (Anthropic)" "OpenAI" "Groq" "Skip")
     local choice
 
     while true; do
         local status_gemini="${GEMINI_API_KEY:+✓ Set}"
         local status_claude="${ANTHROPIC_API_KEY:+✓ Set}"
         local status_openai="${OPENAI_API_KEY:+✓ Set}"
+        local status_groq="${GROQ_API_KEY:+✓ Set}"
 
         choice=$(ui_choose "Which API key would you like to configure?" \
             "Gemini ${status_gemini:-○ Not set}" \
             "Claude ${status_claude:-○ Not set}" \
             "OpenAI ${status_openai:-○ Not set}" \
+            "Groq ${status_groq:-○ Not set}" \
             "Done")
 
         case "$choice" in
@@ -109,6 +126,14 @@ setup_keys_interactive() {
                 local key
                 key=$(ui_password "Enter OpenAI API key")
                 [[ -n "$key" ]] && set_api_key "openai" "$key"
+            "Groq"*)
+                echo ""
+                echo "Get your Groq API key from: https://console.groq.com/keys"
+                echo "Groq offers FREE ultra-fast inference with Llama 3.1 70B!"
+                local key
+                key=$(ui_password "Enter Groq API key")
+                [[ -n "$key" ]] && set_api_key "groq" "$key"
+                ;;
                 ;;
             "Done"|"Skip"|"")
                 break
@@ -243,6 +268,13 @@ validate_key_format() {
         openai)
             # OpenAI keys start with sk-
             [[ "$key" =~ ^sk- ]]
+        groq)
+            # Groq keys start with gsk_
+            [[ "$key" =~ ^gsk_ ]]
+        groq)
+            response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
+            ;;
+            ;;
             ;;
         *)
             return 1
@@ -268,6 +300,13 @@ test_api_key() {
             ;;
         openai)
             response=$(call_openai "$test_prompt" "gpt-4o-mini" 10 2>&1)
+        groq)
+            # Groq keys start with gsk_
+            [[ "$key" =~ ^gsk_ ]]
+        groq)
+            response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
+            ;;
+            ;;
             ;;
         *)
             err "Unknown provider: $provider"
