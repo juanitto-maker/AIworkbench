@@ -65,9 +65,16 @@ initialize() {
     debug "Initializing AIWB..."
 
     check_dependencies
+    debug "After check_dependencies..."
+
     init_workspace
+    debug "After init_workspace..."
+
     load_config
+    debug "After load_config..."
+
     load_session
+    debug "After load_session..."
 
     debug "About to load keys..."
     load_keys || true
