@@ -7,7 +7,7 @@ AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 T="${1:-$( [ -f "$AIWB/current.task" ] && cat "$AIWB/current.task" || echo "" )}"
 [ -n "$T" ] || { echo "Usage: gemini-runner.sh <TASK_ID>"; exit 1; }
 
-MODEL="${GEMINI_MODEL:-gemini-1.5-flash}"
+MODEL="${GEMINI_MODEL:-gemini-2.5-flash}"
 MAXTOK="${MAX_OUT_TOKENS_DEFAULT:-16000}"
 
 PROMPT="$AIWB/gemini-prompts/$T.prompt.md"

@@ -89,7 +89,7 @@ call_model() {
   case "$PROVIDER" in
     gemini)
       [[ -z "${GEMINI_API_KEY:-}" ]] && return 10
-      local url="https://generativelanguage.googleapis.com/v1beta/models/${MODEL:-gemini-1.5-flash}:generateContent?key=${GEMINI_API_KEY}"
+      local url="https://generativelanguage.googleapis.com/v1beta/models/${MODEL:-gemini-2.5-flash}:generateContent?key=${GEMINI_API_KEY}"
       local body; body="$(make_body_gemini)"
       curl -fsS -H 'Content-Type: application/json' -d "$body" "$url" \
         | jq -r '.candidates[0].content.parts[0].text // empty'
