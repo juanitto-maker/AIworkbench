@@ -31,7 +31,7 @@ display_api_error() {
 
     # Display full response if available
     if [[ -n "$response" ]]; then
-        err "Full API Response:"
+        err "Full API Response (DEBUG):"
         # Pretty print JSON if possible, otherwise show raw
         if echo "$response" | jq -e . >/dev/null 2>&1; then
             echo "$response" | jq -C '.' 2>/dev/null | while IFS= read -r line; do
@@ -40,11 +40,40 @@ display_api_error() {
         else
             err "  $response"
         fi
+        err ""
     fi
+
+    # Add debug information section
+    err "DEBUG Information:"
+    err "  API Endpoint: $(get_api_endpoint_for_provider "$provider")"
+    err "  API Key Set: $(has_api_key "$provider" && echo "Yes" || echo "No")"
+    err "  Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+
+    # Add troubleshooting tips
+    err ""
+    err "Common Solutions:"
+    err "  1. Verify API key is correct and has proper permissions"
+    err "  2. Check if model name is valid for this provider"
+    err "  3. Ensure you have credits/quota available"
+    err "  4. Try a different model from the available list"
 
     err ""
     err "═══════════════════════════════════════════════════════════════"
     echo "" >&2
+}
+
+# Helper to get API endpoint for provider (for debug info)
+get_api_endpoint_for_provider() {
+    local provider="$1"
+    case "$provider" in
+        gemini) echo "https://generativelanguage.googleapis.com/v1beta/models" ;;
+        claude) echo "https://api.anthropic.com/v1/messages" ;;
+        openai) echo "https://api.openai.com/v1/chat/completions" ;;
+        groq) echo "https://api.groq.com/openai/v1/chat/completions" ;;
+        xai) echo "https://api.x.ai/v1/chat/completions" ;;
+        ollama) echo "http://localhost:11434/api/generate" ;;
+        *) echo "Unknown" ;;
+    esac
 }
 
 # ============================================================================
@@ -406,10 +435,10 @@ call_openai() {
 
 Possible reasons:
   - The model name is incorrect or doesn't exist
-  - The model hasn't been released yet (e.g., gpt-5 is not available)
+  - The model hasn't been released yet
   - You don't have access to this model with your API key
 
-Available OpenAI models: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o1-mini, o3-mini"
+Available OpenAI models: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o1-mini, o1-preview, o3, o3-mini, o3-pro"
             fi
         else
             # Fallback to curl error if no JSON error
@@ -861,13 +890,10 @@ get_pricing() {
             ;;
         openai)
             case "$model" in
-                *gpt-5-nano*)  [[ "$token_type" == "input" ]] && echo "0.05" || echo "0.40" ;;
-                *gpt-5-mini*)  [[ "$token_type" == "input" ]] && echo "0.25" || echo "2.00" ;;
-                *gpt-5*)       [[ "$token_type" == "input" ]] && echo "1.25" || echo "10.00" ;;
-                *o4-mini*)     [[ "$token_type" == "input" ]] && echo "0.60" || echo "2.40" ;;
                 *o3*)          [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
                 *gpt-4o-mini*) [[ "$token_type" == "input" ]] && echo "0.15" || echo "0.60" ;;
                 *gpt-4o*)      [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
+                *gpt-4*)       [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
                 *o1*)          [[ "$token_type" == "input" ]] && echo "2.50" || echo "10.00" ;;
                 *) echo "0.15" ;;
             esac
@@ -887,8 +913,6 @@ get_pricing() {
         xai)
             # xAI Grok pricing updated with Grok 3 and 4
             case "$model" in
-                *grok-4-heavy*)   [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
-                *grok-4-fast*)    [[ "$token_type" == "input" ]] && echo "0.20" || echo "0.50" ;;
                 *grok-4*)         [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
                 *grok-3-mini*)    [[ "$token_type" == "input" ]] && echo "0.30" || echo "0.50" ;;
                 *grok-3*)         [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;

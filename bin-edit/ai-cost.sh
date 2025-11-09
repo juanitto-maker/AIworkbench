@@ -25,9 +25,10 @@ else
     gemini-2.0-flash*)       IN_RATE=0.075; OUT_RATE=0.30 ;;
     gemini-1.5-flash*)       IN_RATE=0.075; OUT_RATE=0.30 ;;
     gemini-*-pro*)           IN_RATE=1.25; OUT_RATE=5.00  ;;
-    gpt-5*)                  IN_RATE=1.25; OUT_RATE=10.00 ;;
-    o4-mini*)                IN_RATE=0.60; OUT_RATE=2.40  ;;
+    gpt-4o*)                 IN_RATE=2.50; OUT_RATE=10.00 ;;
+    gpt-4*)                  IN_RATE=2.50; OUT_RATE=10.00 ;;
     o3*)                     IN_RATE=2.50; OUT_RATE=10.00 ;;
+    o1*)                     IN_RATE=2.50; OUT_RATE=10.00 ;;
     grok-4*)                 IN_RATE=3.00; OUT_RATE=15.00 ;;
     grok-3*)                 IN_RATE=3.00; OUT_RATE=15.00 ;;
     llama-4*)                IN_RATE=0.50; OUT_RATE=0.77  ;;
