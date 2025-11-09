@@ -232,10 +232,14 @@ confirm() {
     # Check if /dev/tty is usable
     if ( : < /dev/tty ) 2>/dev/null; then
         # /dev/tty is available, use it
-        read -rp "$prompt_text" yn </dev/tty 2>/dev/null || yn="$default"
+        if ! read -rp "$prompt_text" yn </dev/tty; then
+            yn="$default"
+        fi
     elif [[ -t 0 ]]; then
         # stdin is a terminal, use it
-        read -rp "$prompt_text" yn 2>/dev/null || yn="$default"
+        if ! read -rp "$prompt_text" yn; then
+            yn="$default"
+        fi
     else
         # No interactive input, use default
         yn="$default"
