@@ -218,12 +218,33 @@ confirm() {
     fi
 
     # Fallback to read
-    local yn
+    local yn=""
+    local prompt_text
+
+    # Prepare prompt text
     if [[ "$default" == "y" ]]; then
-        read -rp "$prompt [Y/n] " yn
+        prompt_text="$prompt [Y/n] "
+    else
+        prompt_text="$prompt [y/N] "
+    fi
+
+    # Try to read from user
+    # Check if /dev/tty is usable
+    if ( : < /dev/tty ) 2>/dev/null; then
+        # /dev/tty is available, use it
+        read -rp "$prompt_text" yn </dev/tty 2>/dev/null || yn="$default"
+    elif [[ -t 0 ]]; then
+        # stdin is a terminal, use it
+        read -rp "$prompt_text" yn 2>/dev/null || yn="$default"
+    else
+        # No interactive input, use default
+        yn="$default"
+    fi
+
+    # Check response
+    if [[ "$default" == "y" ]]; then
         [[ -z "$yn" || "$yn" =~ ^[Yy]$ ]]
     else
-        read -rp "$prompt [y/N] " yn
         [[ "$yn" =~ ^[Yy]$ ]]
     fi
 }
