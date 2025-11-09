@@ -210,11 +210,12 @@ load_session() {
     task="$(json_get '.task' "$session_file")"
     project="$(json_get '.project' "$session_file")"
 
-    [[ -n "$ws" && "$ws" != "null" ]] && config_set workspace "$ws"
-    [[ -n "$provider" && "$provider" != "null" ]] && config_set model_provider "$provider"
-    [[ -n "$model" && "$model" != "null" ]] && config_set model_name "$model"
-    [[ -n "$task" && "$task" != "null" ]] && config_set current_task "$task"
-    [[ -n "$project" && "$project" != "null" ]] && config_set current_project "$project"
+    # Set config values if they exist (use || true to prevent set -e exit)
+    [[ -n "$ws" && "$ws" != "null" ]] && config_set workspace "$ws" || true
+    [[ -n "$provider" && "$provider" != "null" ]] && config_set model_provider "$provider" || true
+    [[ -n "$model" && "$model" != "null" ]] && config_set model_name "$model" || true
+    [[ -n "$task" && "$task" != "null" ]] && config_set current_task "$task" || true
+    [[ -n "$project" && "$project" != "null" ]] && config_set current_project "$project" || true
 }
 
 # ============================================================================

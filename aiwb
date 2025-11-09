@@ -65,10 +65,20 @@ initialize() {
     debug "Initializing AIWB..."
 
     check_dependencies
+    debug "After check_dependencies..."
+
     init_workspace
+    debug "After init_workspace..."
+
     load_config
+    debug "After load_config..."
+
     load_session
+    debug "After load_session..."
+
+    debug "About to load keys..."
     load_keys || true
+    debug "After load keys..."
 
     # Auto-fix CRLF if on Termux
     if is_termux && [[ -d "$HOME/.local/bin" ]]; then
@@ -161,7 +171,7 @@ EOF
 
 # Main interactive chat interface
 cmd_chat() {
-    clear
+    clear 2>/dev/null || true  # Don't fail if TERM not set
     ui_header "AIWB Interactive Chat"
 
     # Show status
@@ -205,8 +215,13 @@ chat_loop() {
         if $GUM_AVAILABLE; then
             input=$(gum input --placeholder "Message or /command..." --width 80) || continue
         else
+            # Try to read from /dev/tty first, then stdin
             echo -n "> "
-            read -r input || break
+            if [[ -c /dev/tty ]] && [[ -r /dev/tty ]]; then
+                read -r input </dev/tty || break
+            else
+                read -r input || break
+            fi
         fi
 
         [[ -z "$input" ]] && continue
@@ -262,7 +277,7 @@ handle_slash_command() {
             cmd_costs
             ;;
         /clear)
-            clear
+            clear 2>/dev/null || true
             ui_header "AIWB Interactive Chat"
             ;;
         /exit|/quit)
