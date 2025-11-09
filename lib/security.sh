@@ -26,23 +26,9 @@ set_api_key() {
     case "$provider" in
         gemini)  var_name="GEMINI_API_KEY" ;;
         claude)  var_name="ANTHROPIC_API_KEY" ;;
-        groq)
-            # Groq keys start with gsk_
-            [[ "$key" =~ ^gsk_ ]]
-            ;;
-        groq)
-            response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
-            ;;
         openai)  var_name="OPENAI_API_KEY" ;;
-        *)
-        groq)
-            # Groq keys start with gsk_
-            [[ "$key" =~ ^gsk_ ]]
-        groq)
-            response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
-            ;;
-            ;;
         groq)    var_name="GROQ_API_KEY" ;;
+        *)
             err "Unknown provider: $provider"
             return 1
             ;;
@@ -89,7 +75,6 @@ setup_keys_interactive() {
     env_file="$(get_env_file)"
     [[ -f "$env_file" ]] && source "$env_file"
 
-    local providers=("Gemini (Google)" "Claude (Anthropic)" "OpenAI" "Groq" "Skip")
     local choice
 
     while true; do
@@ -126,6 +111,7 @@ setup_keys_interactive() {
                 local key
                 key=$(ui_password "Enter OpenAI API key")
                 [[ -n "$key" ]] && set_api_key "openai" "$key"
+                ;;
             "Groq"*)
                 echo ""
                 echo "Get your Groq API key from: https://console.groq.com/keys"
@@ -133,7 +119,6 @@ setup_keys_interactive() {
                 local key
                 key=$(ui_password "Enter Groq API key")
                 [[ -n "$key" ]] && set_api_key "groq" "$key"
-                ;;
                 ;;
             "Done"|"Skip"|"")
                 break
@@ -268,13 +253,10 @@ validate_key_format() {
         openai)
             # OpenAI keys start with sk-
             [[ "$key" =~ ^sk- ]]
+            ;;
         groq)
             # Groq keys start with gsk_
             [[ "$key" =~ ^gsk_ ]]
-        groq)
-            response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
-            ;;
-            ;;
             ;;
         *)
             return 1
@@ -300,13 +282,9 @@ test_api_key() {
             ;;
         openai)
             response=$(call_openai "$test_prompt" "gpt-4o-mini" 10 2>&1)
-        groq)
-            # Groq keys start with gsk_
-            [[ "$key" =~ ^gsk_ ]]
+            ;;
         groq)
             response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
-            ;;
-            ;;
             ;;
         *)
             err "Unknown provider: $provider"
@@ -339,9 +317,11 @@ audit_git_exposure() {
     local patterns=(
         "sk-ant-[A-Za-z0-9_-]{30,}"
         "sk-[A-Za-z0-9]{32,}"
+        "gsk_[A-Za-z0-9_-]{30,}"
         "GEMINI_API_KEY.*=.*[A-Za-z0-9_-]{30,}"
         "ANTHROPIC_API_KEY.*=.*sk-ant-"
         "OPENAI_API_KEY.*=.*sk-"
+        "GROQ_API_KEY.*=.*gsk_"
     )
 
     local found=false
