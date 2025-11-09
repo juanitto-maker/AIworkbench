@@ -735,6 +735,12 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     wait "$spinner_pid" 2>/dev/null || true
     printf "\r\033[K"  # Clear the spinner line
 
+    # Check if interrupted
+    if [[ $gen_exit -eq 130 ]]; then
+        echo ""
+        return 130
+    fi
+
     if [[ $gen_exit -ne 0 ]]; then
         err "Generation failed"
         return 1
@@ -809,6 +815,12 @@ Provide specific, actionable feedback."
         kill "$verify_spinner_pid" 2>/dev/null || true
         wait "$verify_spinner_pid" 2>/dev/null || true
         printf "\r\033[K"  # Clear the spinner line
+
+        # Check if interrupted
+        if [[ $verify_exit -eq 130 ]]; then
+            echo ""
+            return 130
+        fi
 
         if [[ $verify_exit -eq 0 ]]; then
             # Save feedback
@@ -939,6 +951,11 @@ mode_loop() {
                 ;;
             "Run")
                 mode_run
+                local run_exit=$?
+                # If interrupted, exit mode loop
+                if [[ $run_exit -eq 130 ]]; then
+                    return 130
+                fi
                 ;;
             "View outputs")
                 menu_view_outputs

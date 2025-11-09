@@ -315,23 +315,38 @@ chat_loop() {
         # Handle commands
         if [[ "$input" == /* ]]; then
             handle_slash_command "$input"
+            local cmd_exit=$?
+            # If slash command was interrupted, exit chat loop
+            if [[ $cmd_exit -eq 130 ]]; then
+                cleanup_on_interrupt
+            fi
         else
             # Send to AI and log response (with size limit)
             local response_output
             response_output=$(handle_chat_message "$input")
-            echo "$response_output"
+            local chat_exit=$?
 
-            # Log response with truncation for large responses
-            local response_lines=$(echo "$response_output" | wc -l)
-            if [[ $response_lines -gt 100 ]]; then
-                # Log only first 50 and last 50 lines for very long responses
-                {
-                    echo "$response_output" | head -50
-                    echo "... [truncated $(($response_lines - 100)) lines] ..."
-                    echo "$response_output" | tail -50
-                } >> "$chat_log"
-            else
-                echo "$response_output" >> "$chat_log"
+            # If interrupted, exit chat loop
+            if [[ $chat_exit -eq 130 ]]; then
+                cleanup_on_interrupt
+            fi
+
+            # Only process output if not interrupted
+            if [[ $chat_exit -eq 0 ]]; then
+                echo "$response_output"
+
+                # Log response with truncation for large responses
+                local response_lines=$(echo "$response_output" | wc -l)
+                if [[ $response_lines -gt 100 ]]; then
+                    # Log only first 50 and last 50 lines for very long responses
+                    {
+                        echo "$response_output" | head -50
+                        echo "... [truncated $(($response_lines - 100)) lines] ..."
+                        echo "$response_output" | tail -50
+                    } >> "$chat_log"
+                else
+                    echo "$response_output" >> "$chat_log"
+                fi
             fi
         fi
 
@@ -533,6 +548,12 @@ handle_chat_message() {
 
     # Clear the "Thinking..." line
     echo -ne "\r\033[K"
+
+    # Check if interrupted (exit code 130)
+    if [[ $exit_code -eq 130 ]]; then
+        echo ""
+        return 130
+    fi
 
     if [[ $exit_code -ne 0 ]]; then
         err "Failed to get response"
