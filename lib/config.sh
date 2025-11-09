@@ -247,13 +247,13 @@ get_available_models() {
             echo "3-haiku-20240307 3-5-haiku-20241022 3-5-sonnet-20240620 3-5-sonnet-20241022 3-opus-20240229 sonnet-4-5-20250929"
             ;;
         openai)
-            echo "gpt-4o-mini gpt-4o gpt-4-turbo gpt-5 o1-mini o1-preview o3 o3-pro o4-mini"
+            echo "gpt-4o-mini gpt-4o gpt-4-turbo o1-mini o1-preview o3-mini o3 o3-pro"
             ;;
         groq)
             echo "llama-3.3-70b-versatile llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview llama-4-scout llama-4-maverick mixtral-8x7b-32768 gemma2-9b-it"
             ;;
         xai)
-            echo "grok-2 grok-2-mini grok-3 grok-3-mini grok-4 grok-4-heavy grok-beta grok-code-fast-1"
+            echo "grok-2 grok-2-mini grok-3 grok-3-mini grok-4 grok-beta grok-code-fast-1"
             ;;
         ollama)
             if have ollama; then

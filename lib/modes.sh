@@ -722,18 +722,15 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     echo ""
     msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
 
-    # Start spinner
-    ui_spinner "Generating response..." &
-    local spinner_pid=$!
+    # Show simple message instead of spinner to avoid blocking
+    echo -n "Generating response..."
 
     local output
     output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
     local gen_exit=$?
 
-    # Stop spinner
-    kill "$spinner_pid" 2>/dev/null || true
-    wait "$spinner_pid" 2>/dev/null || true
-    printf "\r\033[K"  # Clear the spinner line
+    # Clear status message
+    echo ""
 
     # Check if interrupted
     if [[ $gen_exit -eq 130 ]]; then

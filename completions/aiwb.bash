@@ -27,7 +27,7 @@ _aiwb() {
             ;;
         --model)
             # Could query available models dynamically
-            COMPREPLY=( $(compgen -W "2.5-flash 2.5-flash-lite 2.5-pro 2.0-flash 2.0-pro 1.5-flash 4-5-sonnet-latest 4-5-haiku-latest 4-1-opus-latest 3-5-sonnet-latest 3-5-haiku-latest gpt-5 gpt-4o gpt-4o-mini o3 o4-mini grok-4 grok-3 llama-4-scout llama-4-maverick" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "2.5-flash 2.5-flash-lite 2.5-pro 2.0-flash 2.0-pro 1.5-flash 4-5-sonnet-latest 4-5-haiku-latest 4-1-opus-latest 3-5-sonnet-latest 3-5-haiku-latest gpt-4o gpt-4o-mini o3-mini o3 grok-4 grok-3 grok-code-fast-1 llama-4-scout llama-4-maverick" -- ${cur}) )
             return 0
             ;;
         generate|estimate|verify|refine)
