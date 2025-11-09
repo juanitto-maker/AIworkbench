@@ -7,6 +7,32 @@
 set -euo pipefail
 
 # ============================================================================
+# INTERRUPT HANDLING
+# ============================================================================
+
+# Global flag to track if we're in an API call
+AIWB_IN_API_CALL=0
+
+# Cleanup function for graceful exit
+cleanup_on_interrupt() {
+    echo ""
+    echo ""
+    echo "Interrupted! Cleaning up..."
+
+    # Kill any background curl processes
+    pkill -P $$ curl 2>/dev/null || true
+
+    # Clean up temp files
+    rm -f /tmp/aiwb_curl_* 2>/dev/null || true
+
+    echo "Goodbye!"
+    exit 130  # Standard exit code for SIGINT
+}
+
+# Set up trap for Ctrl+C (SIGINT) and Ctrl+Z (SIGTSTP)
+trap cleanup_on_interrupt INT TERM
+
+# ============================================================================
 # BOOTSTRAP
 # ============================================================================
 
@@ -254,9 +280,6 @@ chat_loop() {
 
     # Rotate old logs to save space
     rotate_logs "$logs_dir" 10 10485760
-
-    # Handle Ctrl+C properly in chat
-    trap 'echo ""; msg "Goodbye!"; exit 0' INT
 
     msg "Chat started. Type /help for commands or /exit to quit."
     echo ""

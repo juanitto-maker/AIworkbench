@@ -99,25 +99,46 @@ call_gemini() {
         }')
 
     local response
-    local curl_error
-    curl_error=$(mktemp)
-    response=$(curl -fsS \
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+
+    # Use curl with proper output/error separation and make it interruptible
+    set +e  # Temporarily disable exit on error
+    curl -fsS \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Content-Type: application/json" \
         -X POST "$url" \
-        -d "$request_body" 2>"$curl_error")
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
 
+    # Wait for curl to complete and check for interrupts
+    wait $curl_pid
     local exit_code=$?
+    set -e  # Re-enable exit on error
+
+    # Check if interrupted (exit code 130 is SIGINT)
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
+
     if [[ $exit_code -ne 0 ]]; then
         local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
-        rm -f "$curl_error"
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        rm -f "$curl_error" "$curl_output"
         err "API request failed: $error_msg"
         return 1
     fi
-    rm -f "$curl_error"
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
 
     # Extract text from response
     local text
@@ -174,32 +195,50 @@ call_claude() {
         }')
 
     local response
-    local curl_error
-    curl_error=$(mktemp)
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
 
-    # Remove -f flag to see actual error responses
-    response=$(curl -sS "$url" \
+    # Use curl with proper output/error separation and make it interruptible
+    set +e  # Temporarily disable exit on error
+    curl -sS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "x-api-key: $api_key" \
         -H "anthropic-version: 2023-06-01" \
         -H "content-type: application/json" \
-        -d "$request_body" 2>"$curl_error")
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
 
+    # Wait for curl to complete and check for interrupts
+    wait $curl_pid
     local exit_code=$?
+    set -e  # Re-enable exit on error
+
+    # Check if interrupted (exit code 130 is SIGINT)
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
 
     # Check for curl errors
     if [[ $exit_code -ne 0 ]]; then
         local error_msg
         error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
-        rm -f "$curl_error"
+        rm -f "$curl_error" "$curl_output"
         err "API request failed: $error_msg"
         err "Model: $model | API Key set: ${api_key:+YES}"
         err "Request: $(echo "$request_body" | jq -c '.' 2>/dev/null || echo 'Invalid JSON')"
         return 1
     fi
-    rm -f "$curl_error"
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
 
     # Check for API errors in response
     if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
@@ -258,25 +297,46 @@ call_openai() {
         }')
 
     local response
-    local curl_error
-    curl_error=$(mktemp)
-    response=$(curl -fsS "$url" \
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+
+    # Use curl with proper output/error separation and make it interruptible
+    set +e  # Temporarily disable exit on error
+    curl -fsS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>"$curl_error")
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
 
+    # Wait for curl to complete and check for interrupts
+    wait $curl_pid
     local exit_code=$?
+    set -e  # Re-enable exit on error
+
+    # Check if interrupted (exit code 130 is SIGINT)
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
+
     if [[ $exit_code -ne 0 ]]; then
         local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
-        rm -f "$curl_error"
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        rm -f "$curl_error" "$curl_output"
         err "API request failed: $error_msg"
         return 1
     fi
-    rm -f "$curl_error"
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
 
     # Extract text from response
     local text
@@ -323,26 +383,46 @@ call_groq() {
         }')
 
     local response
-    local curl_error
-    curl_error=$(mktemp)
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
 
-    response=$(curl -fsS "$url" \
+    # Use curl with proper output/error separation and make it interruptible
+    set +e  # Temporarily disable exit on error
+    curl -fsS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>"$curl_error")
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
 
+    # Wait for curl to complete and check for interrupts
+    wait $curl_pid
     local exit_code=$?
+    set -e  # Re-enable exit on error
+
+    # Check if interrupted (exit code 130 is SIGINT)
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
+
     if [[ $exit_code -ne 0 ]]; then
         local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
-        rm -f "$curl_error"
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        rm -f "$curl_error" "$curl_output"
         err "API request failed: $error_msg"
         return 1
     fi
-    rm -f "$curl_error"
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
 
     # Validate JSON response
     if ! validate_json "$response"; then
@@ -409,26 +489,46 @@ call_xai() {
         }')
 
     local response
-    local curl_error
-    curl_error=$(mktemp)
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
 
-    response=$(curl -fsS "$url" \
+    # Use curl with proper output/error separation and make it interruptible
+    set +e  # Temporarily disable exit on error
+    curl -fsS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>"$curl_error")
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
 
+    # Wait for curl to complete and check for interrupts
+    wait $curl_pid
     local exit_code=$?
+    set -e  # Re-enable exit on error
+
+    # Check if interrupted (exit code 130 is SIGINT)
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
+
     if [[ $exit_code -ne 0 ]]; then
         local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
-        rm -f "$curl_error"
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        rm -f "$curl_error" "$curl_output"
         err "API request failed: $error_msg"
         return 1
     fi
-    rm -f "$curl_error"
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
 
     # Validate JSON response
     if ! validate_json "$response"; then
@@ -492,24 +592,45 @@ call_ollama() {
         }')
 
     local response
-    local curl_error
-    curl_error=$(mktemp)
-    response=$(curl -fsS "$url" \
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+
+    # Use curl with proper output/error separation and make it interruptible
+    set +e  # Temporarily disable exit on error
+    curl -fsS "$url" \
         --max-time 300 \
         --connect-timeout 10 \
         --no-buffer \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>"$curl_error")
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
 
+    # Wait for curl to complete and check for interrupts
+    wait $curl_pid
     local exit_code=$?
+    set -e  # Re-enable exit on error
+
+    # Check if interrupted (exit code 130 is SIGINT)
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
+
     if [[ $exit_code -ne 0 ]]; then
         local error_msg
-        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
-        rm -f "$curl_error"
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        rm -f "$curl_error" "$curl_output"
         err "Ollama request failed: $error_msg"
         return 1
     fi
-    rm -f "$curl_error"
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
 
     # Extract response
     local text
