@@ -12,6 +12,7 @@ All notable changes to AIWB will be documented in this file.
   - Fixed `clear` command failures when TERM environment variable not set
   - Fixed `confirm()` function to gracefully handle missing or inaccessible `/dev/tty`
   - Fixed `chat_loop()` to read from `/dev/tty` for interactive input in Termux
+  - **Fixed `load_session()` conditional statements causing exit with `set -e`** (ROOT CAUSE)
   - Script now properly executes commands instead of exiting with "Workspace initialized"
   - Affects all platforms (Linux, macOS, Termux)
 
