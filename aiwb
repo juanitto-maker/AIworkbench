@@ -119,7 +119,14 @@ A multi-model AI orchestration platform for the command line.
 USAGE:
   aiwb [command] [options]
 
-COMMANDS:
+QUICK COMMANDS (New! 🚀):
+  quick <description>     One-shot generation with auto-verify
+  wizard                  Interactive guided workflow
+  make <description>      Alias for quick
+  improve <suggestion>    Improve last output with feedback
+  templates               Browse and use templates
+
+STANDARD COMMANDS:
   (no command)         Start interactive chat interface
   chat                 Interactive chat mode
   generate <task>      Generate code/content for a task
@@ -127,43 +134,41 @@ COMMANDS:
   verify <task>        Verify/review generated content
   refine <task>        Automated Generator-Verifier loop
 
-MANAGEMENT:
-  task new <name>      Create a new task
-  task list            List all tasks
-  task edit <name>     Edit a task
-  task delete <name>   Delete a task
-
-  project set <name>   Set/create active project
-  project list         List all projects
-
 CONFIGURATION:
   keys                 Manage API keys
   settings             Configure AIWB
   status               Show current status
   doctor               Check system health
 
-ADVANCED:
-  template list        List available templates
-  template use <name>  Use a template
+UTILITY:
   history              Show session history
   costs                Show cost breakdown
   security-audit       Run security audit
 
 OPTIONS:
-  --provider <name>    Use specific provider (gemini/claude/openai/ollama)
+  --provider <name>    Use specific provider (gemini/claude/openai/groq/xai)
   --model <name>       Use specific model
   --debug              Enable debug output
   --help, -h           Show this help
   --version, -v        Show version
 
 EXAMPLES:
+  # Quick and easy (recommended for beginners!)
+  aiwb quick "Create a password generator script"
+  aiwb wizard                      # Interactive guided workflow
+  aiwb make "API client for GitHub"
+  aiwb improve "Add error handling and logging"
+
+  # Traditional workflow
   aiwb                             # Start interactive chat
   aiwb generate api-endpoint       # Generate code for task
   aiwb refine --iterations=3       # Auto-refine current task
-  aiwb keys                        # Set up API keys
-  aiwb estimate my-task --tier=Best  # Estimate costs
 
-Get started: aiwb keys
+  # Configuration
+  aiwb keys                        # Set up API keys
+  aiwb settings                    # Configure provider/model
+
+Get started: aiwb wizard
 Learn more: https://github.com/juanitto-maker/AIworkbench
 
 EOF
@@ -243,8 +248,14 @@ chat_loop() {
 # Handle slash commands
 handle_slash_command() {
     local cmd="$1"
+    shift || true
 
-    case "$cmd" in
+    # Extract command and arguments
+    local base_cmd="${cmd%% *}"
+    local args="${cmd#* }"
+    [[ "$args" == "$base_cmd" ]] && args=""
+
+    case "$base_cmd" in
         /help)
             show_chat_help
             ;;
@@ -264,7 +275,7 @@ handle_slash_command() {
             cmd_generate
             ;;
         /verify)
-            cmd_verify
+            cmd_verify "$args"
             ;;
         /refine)
             cmd_refine
@@ -275,6 +286,21 @@ handle_slash_command() {
         /costs)
             cmd_costs
             ;;
+        /quick)
+            cmd_quick "$args"
+            ;;
+        /wizard)
+            cmd_wizard
+            ;;
+        /make)
+            cmd_make "$args"
+            ;;
+        /improve)
+            cmd_improve "$args"
+            ;;
+        /templates)
+            cmd_templates
+            ;;
         /clear)
             clear 2>/dev/null || true
             ui_header "AIWB Interactive Chat"
@@ -284,7 +310,7 @@ handle_slash_command() {
             exit 0
             ;;
         *)
-            warn "Unknown command: $cmd"
+            warn "Unknown command: $base_cmd"
             echo "Type /help for available commands"
             ;;
     esac
@@ -293,7 +319,14 @@ handle_slash_command() {
 # Show chat help
 show_chat_help() {
     cat <<'EOF'
-CHAT COMMANDS:
+QUICK COMMANDS (New!):
+  /quick <description>    One-shot generation with auto-verify
+  /wizard                 Interactive guided workflow
+  /make <description>     Quick generate (alias for /quick)
+  /improve <suggestion>   Improve last output with feedback
+  /templates              Browse and use templates
+
+STANDARD COMMANDS:
   /help       Show this help
   /keys       Manage API keys
   /settings   Configure provider/model
@@ -655,6 +688,340 @@ cmd_refine() {
 }
 
 # ============================================================================
+# QUICK WORKFLOW COMMANDS
+# ============================================================================
+
+# Quick one-shot generation with auto-verify
+cmd_quick() {
+    local description="$*"
+
+    # If no description provided, prompt for it
+    if [[ -z "$description" ]]; then
+        description=$(ui_input "What do you want to create?")
+        [[ -z "$description" ]] && return 0
+    fi
+
+    ui_header "Quick Generation"
+    msg "Creating: $description"
+    echo ""
+
+    # Create temporary task
+    local task_name="quick_$(date +%s)"
+    local workspace tasks_dir
+    workspace="$(get_workspace)"
+    tasks_dir="$workspace/tasks"
+    ensure_dir "$tasks_dir"
+
+    local task_file="$tasks_dir/${task_name}.prompt.md"
+    echo "$description" > "$task_file"
+
+    # Set as current task
+    config_set current_task "$task_name"
+
+    # Check if should auto-verify
+    local auto_verify="true"
+    if [[ "$(config_get preferences.confirm_before_generate)" == "true" ]]; then
+        if ! ui_confirm "Auto-verify with a different model?" "yes"; then
+            auto_verify="false"
+        fi
+    fi
+
+    # Generate
+    cmd_generate "$task_name"
+
+    # Auto-verify if enabled
+    if [[ "$auto_verify" == "true" ]]; then
+        echo ""
+        msg "Auto-verifying with cross-provider review..."
+        cmd_verify "$task_name"
+    fi
+
+    # Cleanup temporary task
+    rm -f "$task_file"
+
+    echo ""
+    success "Done! Check outputs with: ./aiwb history"
+}
+
+# Interactive wizard workflow
+cmd_wizard() {
+    clear 2>/dev/null || true
+    ui_header "AIWB Wizard"
+
+    # Step 1: What to build
+    local project_type
+    project_type=$(ui_choose "What do you want to build?" \
+        "Simple script/tool" \
+        "Web application" \
+        "API integration" \
+        "Data processing pipeline" \
+        "Documentation" \
+        "Just chat/brainstorm" \
+        "Cancel")
+
+    [[ "$project_type" == "Cancel" || -z "$project_type" ]] && return 0
+
+    # Step 2: Get description
+    echo ""
+    local description
+    description=$(ui_input "Brief description of your project:")
+    [[ -z "$description" ]] && return 0
+
+    # Step 3: Choose language/technology (if applicable)
+    local tech=""
+    if [[ "$project_type" != "Just chat/brainstorm" && "$project_type" != "Documentation" ]]; then
+        echo ""
+        tech=$(ui_choose "Choose technology/language:" \
+            "Bash/Shell" \
+            "Python" \
+            "JavaScript/Node.js" \
+            "Go" \
+            "Rust" \
+            "Other/Mixed" \
+            "Skip")
+        [[ "$tech" == "Skip" ]] && tech=""
+    fi
+
+    # Step 4: Special requirements
+    echo ""
+    local requirements
+    requirements=$(ui_input "Any special requirements? (optional)" "" "e.g., security, performance, compatibility")
+
+    # Step 5: Build the prompt
+    local full_prompt="$description"
+    [[ -n "$tech" && "$tech" != "Skip" ]] && full_prompt="$full_prompt
+
+Technology: $tech"
+    [[ -n "$requirements" ]] && full_prompt="$full_prompt
+
+Requirements:
+$requirements"
+
+    # Step 6: Show preview and confirm
+    echo ""
+    ui_header "Preview"
+    echo "$full_prompt"
+    echo ""
+
+    if ! ui_confirm "Proceed with generation?" "yes"; then
+        msg "Cancelled"
+        return 0
+    fi
+
+    # Step 7: Choose workflow
+    echo ""
+    local workflow
+    workflow=$(ui_choose "Choose workflow:" \
+        "Quick (generate + verify)" \
+        "Generate only" \
+        "Full refinement loop (3 iterations)")
+
+    # Execute
+    echo ""
+    case "$workflow" in
+        "Quick"*)
+            cmd_quick "$full_prompt"
+            ;;
+        "Generate only")
+            local task_name="wizard_$(date +%s)"
+            local workspace tasks_dir
+            workspace="$(get_workspace)"
+            tasks_dir="$workspace/tasks"
+            ensure_dir "$tasks_dir"
+            echo "$full_prompt" > "$tasks_dir/${task_name}.prompt.md"
+            config_set current_task "$task_name"
+            cmd_generate "$task_name"
+            rm -f "$tasks_dir/${task_name}.prompt.md"
+            ;;
+        "Full refinement"*)
+            local task_name="wizard_$(date +%s)"
+            local workspace tasks_dir
+            workspace="$(get_workspace)"
+            tasks_dir="$workspace/tasks"
+            ensure_dir "$tasks_dir"
+            echo "$full_prompt" > "$tasks_dir/${task_name}.prompt.md"
+            config_set current_task "$task_name"
+            cmd_refine "$task_name" 3
+            rm -f "$tasks_dir/${task_name}.prompt.md"
+            ;;
+    esac
+}
+
+# Make (alias for quick)
+cmd_make() {
+    cmd_quick "$@"
+}
+
+# Improve last output
+cmd_improve() {
+    local suggestion="$*"
+
+    if [[ -z "$suggestion" ]]; then
+        suggestion=$(ui_input "What improvements do you want?")
+        [[ -z "$suggestion" ]] && return 0
+    fi
+
+    # Find last output
+    local workspace output_dir
+    workspace="$(get_workspace)"
+    output_dir="$workspace/outputs"
+
+    local latest
+    latest=$(find "$output_dir" -name "*.md" -type f ! -name "*.feedback.md" 2>/dev/null | sort -r | head -1)
+
+    if [[ -z "$latest" ]]; then
+        err "No previous output found to improve"
+        return 1
+    fi
+
+    msg "Improving: $(basename "$latest")"
+    echo ""
+
+    # Read last output
+    local content
+    content=$(cat "$latest")
+
+    # Create improvement prompt
+    local prompt="Improve the following based on this feedback: $suggestion
+
+=== ORIGINAL CONTENT ===
+$content
+
+=== IMPROVEMENT REQUEST ===
+$suggestion
+
+Please provide an improved version incorporating the feedback."
+
+    # Generate improvement
+    local provider model
+    provider="$(config_get model_provider)"
+    model="$(config_get model_name)"
+
+    msg "Generating improvements with $provider..."
+    echo ""
+
+    local improved
+    improved=$(call_api "$prompt" "$provider" "$model")
+
+    # Save improved version
+    local improved_file="${latest%.md}_improved_$(date +%s).md"
+    echo "$improved" > "$improved_file"
+
+    success "Improved version saved to: $improved_file"
+
+    # Show preview
+    echo ""
+    if $GUM_AVAILABLE; then
+        echo "$improved" | head -20 | gum style --border rounded
+    else
+        echo "Preview:"
+        echo "$improved" | head -20
+    fi
+
+    # Track usage
+    track_usage "$provider" "$model" "$prompt" "$improved"
+}
+
+# Browse and use templates
+cmd_templates() {
+    local workspace templates_dir
+    workspace="$(get_workspace)"
+    templates_dir="$workspace/templates"
+
+    # Create templates directory if it doesn't exist
+    ensure_dir "$templates_dir"
+
+    # Create default templates if none exist
+    if [[ -z "$(ls -A "$templates_dir" 2>/dev/null)" ]]; then
+        create_default_templates "$templates_dir"
+    fi
+
+    # List templates
+    local templates
+    templates=($(find "$templates_dir" -name "*.md" -type f -exec basename {} .md \; 2>/dev/null | sort))
+
+    if [[ ${#templates[@]} -eq 0 ]]; then
+        info "No templates found. Creating defaults..."
+        create_default_templates "$templates_dir"
+        templates=($(find "$templates_dir" -name "*.md" -type f -exec basename {} .md \; 2>/dev/null | sort))
+    fi
+
+    # Choose template
+    local template
+    template=$(ui_choose "Select Template" "${templates[@]}" "Cancel")
+
+    [[ "$template" == "Cancel" || -z "$template" ]] && return 0
+
+    # Load template
+    local template_file="$templates_dir/${template}.md"
+    local template_content
+    template_content=$(cat "$template_file")
+
+    # Show template
+    echo ""
+    ui_header "Template: $template"
+    echo "$template_content"
+    echo ""
+
+    if ui_confirm "Use this template?" "yes"; then
+        cmd_quick "$template_content"
+    fi
+}
+
+# Create default templates
+create_default_templates() {
+    local templates_dir="$1"
+
+    cat > "$templates_dir/bash-script.md" <<'EOF'
+Create a bash script with the following requirements:
+- POSIX-compliant for maximum compatibility
+- Proper error handling with set -euo pipefail
+- Clear usage/help message
+- Input validation
+- Colorful output for better UX
+- Well-commented code
+
+Describe what the script should do:
+EOF
+
+    cat > "$templates_dir/python-cli.md" <<'EOF'
+Create a Python CLI application with:
+- argparse for argument parsing
+- Proper error handling
+- Type hints
+- Docstrings
+- Logging support
+- Clean project structure
+
+Describe the CLI tool's purpose:
+EOF
+
+    cat > "$templates_dir/api-integration.md" <<'EOF'
+Create an API integration with:
+- Proper authentication handling
+- Error handling and retries
+- Rate limiting consideration
+- Request/response validation
+- Clear documentation
+
+Describe the API to integrate:
+EOF
+
+    cat > "$templates_dir/data-pipeline.md" <<'EOF'
+Create a data processing pipeline with:
+- Input validation
+- Error handling
+- Progress reporting
+- Data transformation steps
+- Output formatting
+
+Describe the data processing requirements:
+EOF
+
+    success "Created default templates in $templates_dir"
+}
+
+# ============================================================================
 # CONFIGURATION COMMANDS
 # ============================================================================
 
@@ -961,6 +1328,21 @@ main() {
     case "$cmd" in
         chat|c)
             cmd_chat "$@"
+            ;;
+        quick|q)
+            cmd_quick "$@"
+            ;;
+        wizard|wiz)
+            cmd_wizard "$@"
+            ;;
+        make|m)
+            cmd_make "$@"
+            ;;
+        improve|imp)
+            cmd_improve "$@"
+            ;;
+        templates|tmpl)
+            cmd_templates "$@"
             ;;
         generate|gen|g)
             cmd_generate "$@"
