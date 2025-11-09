@@ -315,7 +315,7 @@ run_cleanup_handlers() {
     fi
 }
 
-trap run_cleanup_handlers EXIT INT TERM
+trap run_cleanup_handlers EXIT TERM
 
 # ============================================================================
 # EXPORTS
