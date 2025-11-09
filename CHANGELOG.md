@@ -12,6 +12,13 @@ All notable changes to AIWB will be documented in this file.
   - Script now properly executes commands instead of exiting with "Workspace initialized"
   - Affects all platforms (Linux, macOS, Termux)
 
+- ✅ **Fixed API blocking issue** - Resolved hanging/blocking when making API calls (especially in Termux)
+  - Added connection timeout (10s) and max request time (300s) to all API calls
+  - Fixed stderr redirection buffering issues with `--no-buffer` flag
+  - Improved error handling with separate error capture
+  - Affects all providers: Groq, OpenAI, Claude, Gemini, and Ollama
+  - Particularly impacts mobile/Termux environments where network buffering can cause hangs
+
 **Enhancements:**
 - ✅ **Added Groq vision models** - llama-3.2-11b-vision-preview and llama-3.2-90b-vision-preview
 - ✅ **Expanded Groq model support** - Added llama-3.2-1b-preview and llama-3.2-3b-preview for lightweight tasks

@@ -96,16 +96,25 @@ call_gemini() {
         }')
 
     local response
+    local curl_error
+    curl_error=$(mktemp)
     response=$(curl -fsS \
+        --max-time 300 \
+        --connect-timeout 10 \
+        --no-buffer \
         -H "Content-Type: application/json" \
         -X POST "$url" \
-        -d "$request_body" 2>&1)
+        -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        err "API request failed: $response"
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        rm -f "$curl_error"
+        err "API request failed: $error_msg"
         return 1
     fi
+    rm -f "$curl_error"
 
     # Extract text from response
     local text
@@ -162,17 +171,26 @@ call_claude() {
         }')
 
     local response
+    local curl_error
+    curl_error=$(mktemp)
     response=$(curl -fsS "$url" \
+        --max-time 300 \
+        --connect-timeout 10 \
+        --no-buffer \
         -H "x-api-key: $api_key" \
         -H "anthropic-version: 2023-06-01" \
         -H "content-type: application/json" \
-        -d "$request_body" 2>&1)
+        -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        err "API request failed: $response"
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        rm -f "$curl_error"
+        err "API request failed: $error_msg"
         return 1
     fi
+    rm -f "$curl_error"
 
     # Extract text from response
     local text
@@ -219,16 +237,25 @@ call_openai() {
         }')
 
     local response
+    local curl_error
+    curl_error=$(mktemp)
     response=$(curl -fsS "$url" \
+        --max-time 300 \
+        --connect-timeout 10 \
+        --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>&1)
+        -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        err "API request failed: $response"
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        rm -f "$curl_error"
+        err "API request failed: $error_msg"
         return 1
     fi
+    rm -f "$curl_error"
 
     # Extract text from response
     local text
@@ -275,16 +302,25 @@ call_groq() {
         }')
 
     local response
+    local curl_error
+    curl_error=$(mktemp)
     response=$(curl -fsS "$url" \
+        --max-time 300 \
+        --connect-timeout 10 \
+        --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>&1)
+        -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        err "API request failed: $response"
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        rm -f "$curl_error"
+        err "API request failed: $error_msg"
         return 1
     fi
+    rm -f "$curl_error"
 
     # Extract text from response (OpenAI-compatible format)
     local text
@@ -328,15 +364,24 @@ call_ollama() {
         }')
 
     local response
+    local curl_error
+    curl_error=$(mktemp)
     response=$(curl -fsS "$url" \
+        --max-time 300 \
+        --connect-timeout 10 \
+        --no-buffer \
         -H "Content-Type: application/json" \
-        -d "$request_body" 2>&1)
+        -d "$request_body" 2>"$curl_error")
 
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-        err "Ollama request failed: $response"
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "$response")
+        rm -f "$curl_error"
+        err "Ollama request failed: $error_msg"
         return 1
     fi
+    rm -f "$curl_error"
 
     # Extract response
     local text
