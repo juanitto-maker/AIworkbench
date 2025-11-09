@@ -19,7 +19,18 @@ cleanup_on_interrupt() {
     echo ""
     echo "Interrupted! Cleaning up..."
 
-    # Kill any background curl processes
+    # Kill all background jobs (more reliable than pkill, especially in Termux)
+    local bg_jobs=$(jobs -p 2>/dev/null)
+    if [[ -n "$bg_jobs" ]]; then
+        # First try graceful termination
+        kill $bg_jobs 2>/dev/null || true
+        # Give processes 0.5s to exit gracefully
+        sleep 0.5
+        # Force kill any remaining processes
+        kill -9 $bg_jobs 2>/dev/null || true
+    fi
+
+    # Also try pkill as backup for any orphaned curl processes
     pkill -P $$ curl 2>/dev/null || true
 
     # Clean up temp files
