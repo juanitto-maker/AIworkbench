@@ -31,13 +31,7 @@ init_mode() {
         MODE_MODEL_NAME="$(config_get model_name)"
     fi
 
-    # Clear other state
-    MODE_PROMPT=""
-    MODE_INSTRUCT_FILE=""
-    MODE_UPLOADS=()
-    MODE_CHECK_PROVIDER=""
-    MODE_CHECK_MODEL=""
-    MODE_CHECK_INSTRUCT=""
+    # Don't clear state - persist across menu visits
 }
 
 # Reset mode state
@@ -52,31 +46,67 @@ reset_mode() {
     # Keep model settings for next time
 }
 
-# ============================================================================
-# MODE SUB-COMMANDS
-# ============================================================================
-
-# Set text prompt
-mode_prompt() {
-    local text="$*"
-
-    if [[ -z "$text" ]]; then
-        text=$(ui_input "Enter instructions:")
-        [[ -z "$text" ]] && return 0
+# Get current instruction display
+get_instruction_display() {
+    if [[ -n "$MODE_PROMPT" ]]; then
+        echo "Text: ${MODE_PROMPT:0:30}..."
+    elif [[ -n "$MODE_INSTRUCT_FILE" ]]; then
+        echo "File: $(basename "$MODE_INSTRUCT_FILE")"
+    else
+        echo "(not set)"
     fi
-
-    MODE_PROMPT="$text"
-    MODE_INSTRUCT_FILE=""  # Clear file if text is set
-    success "Prompt set (${#text} characters)"
 }
 
-# Set instruction file
-mode_instruct() {
-    local file="$1"
+# Get model display
+get_model_display() {
+    echo "$MODE_MODEL_PROVIDER $MODE_MODEL_NAME"
+}
+
+# Get uploads display
+get_uploads_display() {
+    if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        echo "${#MODE_UPLOADS[@]} items"
+    else
+        echo "(none)"
+    fi
+}
+
+# Get check display
+get_check_display() {
+    if [[ -n "$MODE_CHECK_PROVIDER" ]]; then
+        if [[ "$MODE_CHECK_PROVIDER" == "auto" ]]; then
+            echo "Auto"
+        else
+            echo "$MODE_CHECK_PROVIDER $MODE_CHECK_MODEL"
+        fi
+    else
+        echo "(not set)"
+    fi
+}
+
+# ============================================================================
+# MODE MENU FUNCTIONS
+# ============================================================================
+
+# Prompt menu (text instruction)
+menu_prompt() {
+    local text
+    text=$(ui_input "Enter instructions:")
+
+    if [[ -n "$text" ]]; then
+        MODE_PROMPT="$text"
+        MODE_INSTRUCT_FILE=""  # Clear file if text is set
+        success "Prompt set (${#text} characters)"
+    fi
+}
+
+# Instruct menu (file-based instruction)
+menu_instruct() {
+    local file
+    file=$(ui_input "Instruction file path:" "$MODE_INSTRUCT_FILE")
 
     if [[ -z "$file" ]]; then
-        warn "Usage: instruct <file.md>"
-        return 1
+        return 0
     fi
 
     if [[ ! -f "$file" ]]; then
@@ -86,46 +116,22 @@ mode_instruct() {
 
     MODE_INSTRUCT_FILE="$file"
     MODE_PROMPT=""  # Clear text if file is set
-    local size=$(wc -w < "$file")
+    local size=$(wc -w < "$file" 2>/dev/null || echo 0)
     success "Instructions loaded from file ($size words)"
 }
 
-# Interactive model selection
-mode_model() {
+# Model menu - nested navigation
+menu_model() {
     while true; do
         local choice
         choice=$(ui_choose "Model Selection" \
-            "Choose model" \
+            "Choose provider" \
             "Use default ($(config_get model_provider) $(config_get model_name))" \
             "Back")
 
         case "$choice" in
-            "Choose model")
-                # Select provider
-                local provider
-                provider=$(ui_choose "Select Provider" \
-                    "gemini" \
-                    "claude" \
-                    "openai" \
-                    "groq" \
-                    "xai" \
-                    "ollama" \
-                    "Back")
-
-                [[ "$provider" == "Back" || -z "$provider" ]] && continue
-
-                # Select model
-                local models available
-                available=$(get_available_models "$provider")
-                local model
-                model=$(ui_choose "Select Model for $provider" $available "Back")
-
-                [[ "$model" == "Back" || -z "$model" ]] && continue
-
-                MODE_MODEL_PROVIDER="$provider"
-                MODE_MODEL_NAME="$model"
-                success "Model set to: $provider $model"
-                return 0
+            "Choose provider")
+                menu_model_provider && return 0
                 ;;
             "Use default"*)
                 MODE_MODEL_PROVIDER="$(config_get model_provider)"
@@ -140,94 +146,109 @@ mode_model() {
     done
 }
 
-# Upload context files
-mode_uploads() {
-    local items=("$@")
+# Provider selection submenu
+menu_model_provider() {
+    while true; do
+        local provider
+        provider=$(ui_choose "Select Provider" \
+            "gemini" \
+            "claude" \
+            "openai" \
+            "groq" \
+            "xai" \
+            "ollama" \
+            "Back")
 
-    if [[ ${#items[@]} -eq 0 ]]; then
-        warn "Usage: uploads <file|dir> [<file|dir> ...]"
-        return 1
-    fi
-
-    local total_size=0
-    local count=0
-
-    for item in "${items[@]}"; do
-        if [[ ! -e "$item" ]]; then
-            warn "Not found: $item (skipping)"
-            continue
-        fi
-
-        MODE_UPLOADS+=("$item")
-
-        if [[ -f "$item" ]]; then
-            local size=$(stat -f%z "$item" 2>/dev/null || stat -c%s "$item" 2>/dev/null || echo 0)
-            total_size=$((total_size + size))
-            ((count++))
-        elif [[ -d "$item" ]]; then
-            local file_count=$(find "$item" -type f 2>/dev/null | wc -l | tr -d ' ')
-            count=$((count + file_count))
-        fi
+        case "$provider" in
+            "Back"|"")
+                return 1
+                ;;
+            *)
+                menu_model_specific "$provider" && return 0
+                ;;
+        esac
     done
-
-    local size_kb=$((total_size / 1024))
-    success "Uploaded ${#items[@]} items ($count files, ${size_kb} KB)"
 }
 
-# Interactive check model selection
-mode_check() {
-    local instruct_text="$*"
+# Model selection submenu for specific provider
+menu_model_specific() {
+    local provider="$1"
 
     while true; do
+        local available
+        available=$(get_available_models "$provider")
+
+        local model
+        model=$(ui_choose "Select Model for $provider" $available "Back")
+
+        case "$model" in
+            "Back"|"")
+                return 1
+                ;;
+            *)
+                MODE_MODEL_PROVIDER="$provider"
+                MODE_MODEL_NAME="$model"
+                success "Model set to: $provider $model"
+                return 0
+                ;;
+        esac
+    done
+}
+
+# Uploads menu
+menu_uploads() {
+    while true; do
         local choice
-        choice=$(ui_choose "Check Model Selection" \
-            "Choose check model" \
-            "Use auto (different from main model)" \
+        local current_display=$(get_uploads_display)
+
+        choice=$(ui_choose "Context Files ($current_display)" \
+            "Add files/directories" \
+            "List uploads" \
+            "Clear all" \
             "Back")
 
         case "$choice" in
-            "Choose check model")
-                # Select provider
-                local provider
-                provider=$(ui_choose "Select Check Provider" \
-                    "gemini" \
-                    "claude" \
-                    "openai" \
-                    "groq" \
-                    "xai" \
-                    "ollama" \
-                    "Back")
-
-                [[ "$provider" == "Back" || -z "$provider" ]] && continue
-
-                # Select model
-                local models available
-                available=$(get_available_models "$provider")
-                local model
-                model=$(ui_choose "Select Check Model for $provider" $available "Back")
-
-                [[ "$model" == "Back" || -z "$model" ]] && continue
-
-                MODE_CHECK_PROVIDER="$provider"
-                MODE_CHECK_MODEL="$model"
-
-                # Optional check instructions
-                if [[ -n "$instruct_text" ]]; then
-                    MODE_CHECK_INSTRUCT="$instruct_text"
-                elif ui_confirm "Add custom check instructions?" "no"; then
-                    MODE_CHECK_INSTRUCT=$(ui_input "Check instructions:")
+            "Add files/directories")
+                local items
+                items=$(ui_input "Enter file/directory paths (space-separated):")
+                if [[ -n "$items" ]]; then
+                    local added=0
+                    for item in $items; do
+                        if [[ -e "$item" ]]; then
+                            MODE_UPLOADS+=("$item")
+                            ((added++))
+                        else
+                            warn "Not found: $item"
+                        fi
+                    done
+                    [[ $added -gt 0 ]] && success "Added $added item(s)"
                 fi
-
-                success "Check model set to: $provider $model"
-                [[ -n "$MODE_CHECK_INSTRUCT" ]] && msg "With custom instructions: ${MODE_CHECK_INSTRUCT:0:50}..."
-                return 0
                 ;;
-            "Use auto"*)
-                MODE_CHECK_PROVIDER="auto"
-                MODE_CHECK_MODEL="auto"
-                MODE_CHECK_INSTRUCT="$instruct_text"
-                success "Auto-check enabled (will use different provider)"
-                return 0
+            "List uploads")
+                if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+                    echo ""
+                    msg "Uploaded files:"
+                    for item in "${MODE_UPLOADS[@]}"; do
+                        if [[ -f "$item" ]]; then
+                            local size=$(stat -f%z "$item" 2>/dev/null || stat -c%s "$item" 2>/dev/null || echo 0)
+                            local size_kb=$((size / 1024))
+                            echo "  - $item (${size_kb} KB)"
+                        elif [[ -d "$item" ]]; then
+                            local count=$(find "$item" -type f 2>/dev/null | wc -l | tr -d ' ')
+                            echo "  - $item/ ($count files)"
+                        fi
+                    done
+                    echo ""
+                    ui_confirm "Press enter to continue..."
+                else
+                    info "No files uploaded yet"
+                fi
+                ;;
+            "Clear all")
+                if ui_confirm "Clear all uploaded files?" "no"; then
+                    MODE_UPLOADS=()
+                    success "Cleared all uploads"
+                fi
                 ;;
             "Back"|"")
                 return 0
@@ -236,8 +257,93 @@ mode_check() {
     done
 }
 
-# Show mode status
-mode_status() {
+# Check menu - verification configuration
+menu_check() {
+    while true; do
+        local choice
+        choice=$(ui_choose "Check/Verification" \
+            "Choose check model" \
+            "Use auto (different from main)" \
+            "Add custom instructions" \
+            "Back")
+
+        case "$choice" in
+            "Choose check model")
+                menu_check_model && return 0
+                ;;
+            "Use auto"*)
+                MODE_CHECK_PROVIDER="auto"
+                MODE_CHECK_MODEL="auto"
+                success "Auto-check enabled"
+                return 0
+                ;;
+            "Add custom instructions")
+                local instruct
+                instruct=$(ui_input "Check instructions:" "$MODE_CHECK_INSTRUCT")
+                if [[ -n "$instruct" ]]; then
+                    MODE_CHECK_INSTRUCT="$instruct"
+                    success "Custom instructions set"
+                fi
+                ;;
+            "Back"|"")
+                return 0
+                ;;
+        esac
+    done
+}
+
+# Check model selection submenu
+menu_check_model() {
+    while true; do
+        local provider
+        provider=$(ui_choose "Select Check Provider" \
+            "gemini" \
+            "claude" \
+            "openai" \
+            "groq" \
+            "xai" \
+            "ollama" \
+            "Back")
+
+        case "$provider" in
+            "Back"|"")
+                return 1
+                ;;
+            *)
+                menu_check_model_specific "$provider" && return 0
+                ;;
+        esac
+    done
+}
+
+# Check model specific selection
+menu_check_model_specific() {
+    local provider="$1"
+
+    while true; do
+        local available
+        available=$(get_available_models "$provider")
+
+        local model
+        model=$(ui_choose "Select Check Model for $provider" $available "Back")
+
+        case "$model" in
+            "Back"|"")
+                return 1
+                ;;
+            *)
+                MODE_CHECK_PROVIDER="$provider"
+                MODE_CHECK_MODEL="$model"
+                success "Check model set to: $provider $model"
+                return 0
+                ;;
+        esac
+    done
+}
+
+# Status menu - display current configuration
+menu_status() {
+    clear 2>/dev/null || true
     ui_header "$MODE_CURRENT Mode Status"
 
     echo "Instructions:"
@@ -248,7 +354,7 @@ mode_status() {
         echo "  Type: File"
         echo "  File: $MODE_INSTRUCT_FILE"
     else
-        echo "  (not set)"
+        echo "  $(ui_style '(not set)' 'yellow')"
     fi
     echo ""
 
@@ -263,7 +369,7 @@ mode_status() {
             echo "  - $item"
         done
     else
-        echo "  (none)"
+        echo "  $(ui_style '(none)' 'dim')"
     fi
     echo ""
 
@@ -277,9 +383,11 @@ mode_status() {
         fi
         [[ -n "$MODE_CHECK_INSTRUCT" ]] && echo "  Custom instructions: ${MODE_CHECK_INSTRUCT:0:50}..."
     else
-        echo "  (not configured)"
+        echo "  $(ui_style '(not configured)' 'dim')"
     fi
     echo ""
+
+    ui_confirm "Press enter to continue..."
 }
 
 # Run mode execution
@@ -506,106 +614,66 @@ Provide specific, actionable feedback."
 }
 
 # ============================================================================
-# MODE LOOP
+# MODE MENU LOOP
 # ============================================================================
 
-# Enter mode loop
+# Main mode menu loop
 mode_loop() {
     local mode="$1"
     init_mode "$mode"
 
     local mode_upper=$(echo "$mode" | tr '[:lower:]' '[:upper:]')
-    ui_header "$mode_upper Mode"
-    msg "Type 'help' for available commands, 'exit' to leave mode"
-    echo ""
 
     while true; do
-        local input
+        # Build menu with current state
+        local instr_display=$(get_instruction_display)
+        local model_display=$(get_model_display)
+        local uploads_display=$(get_uploads_display)
+        local check_display=$(get_check_display)
 
-        # Get input
-        if $GUM_AVAILABLE; then
-            input=$(gum input --placeholder "${mode}> " --width 80) || break
-        else
-            printf "${CYAN}${mode}>${RESET} "
-            safe_read input || break
-        fi
+        local choice
+        choice=$(ui_choose "$mode_upper Mode" \
+            "Prompt (text)" \
+            "Instruct (file)" \
+            "Model: $model_display" \
+            "Uploads: $uploads_display" \
+            "Check: $check_display" \
+            "Status" \
+            "Run" \
+            "Back")
 
-        [[ -z "$input" ]] && continue
-
-        # Parse command
-        local cmd="${input%% *}"
-        local args="${input#* }"
-        [[ "$args" == "$cmd" ]] && args=""
-
-        case "$cmd" in
-            prompt)
-                mode_prompt $args
+        case "$choice" in
+            "Prompt (text)")
+                menu_prompt
                 ;;
-            instruct)
-                mode_instruct $args
+            "Instruct (file)")
+                menu_instruct
                 ;;
-            model)
-                mode_model
+            "Model:"*)
+                menu_model
                 ;;
-            uploads)
-                mode_uploads $args
+            "Uploads:"*)
+                menu_uploads
                 ;;
-            check)
-                mode_check $args
+            "Check:"*)
+                menu_check
                 ;;
-            status)
-                mode_status
+            "Status")
+                menu_status
                 ;;
-            run)
+            "Run")
                 mode_run
                 ;;
-            help)
-                show_mode_help "$mode"
-                ;;
-            exit|quit|back)
-                msg "Exiting $mode mode"
-                reset_mode
+            "Back"|"")
                 return 0
                 ;;
-            *)
-                warn "Unknown command: $cmd"
-                echo "Type 'help' for available commands"
-                ;;
         esac
-
-        echo ""
     done
-
-    reset_mode
-}
-
-# Show mode help
-show_mode_help() {
-    local mode="$1"
-
-    cat <<EOF
-$mode MODE COMMANDS:
-  prompt <text>           Set text instructions
-  instruct <file.md>      Load instructions from file
-  model                   Choose model (interactive menu)
-  uploads <files/dirs>    Upload context files
-  check [instructions]    Configure verification
-  status                  Show current configuration
-  run                     Execute with cost estimation
-
-  help                    Show this help
-  exit                    Exit $mode mode
-
-EXAMPLE:
-  $mode> prompt "Create a REST API for users"
-  $mode> model
-  $mode> uploads ./docs/ ./src/models/
-  $mode> check "Focus on security"
-  $mode> status
-  $mode> run
-EOF
 }
 
 # Export functions
 export -f init_mode reset_mode mode_loop
-export -f mode_prompt mode_instruct mode_model mode_uploads mode_check mode_status mode_run
+export -f menu_prompt menu_instruct menu_model menu_uploads menu_check menu_status mode_run
+export -f menu_model_provider menu_model_specific
+export -f menu_check_model menu_check_model_specific
+export -f get_instruction_display get_model_display get_uploads_display get_check_display
