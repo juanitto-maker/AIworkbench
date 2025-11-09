@@ -217,10 +217,7 @@ chat_loop() {
         else
             # Use safe_read helper for Termux compatibility
             echo -n "> "
-            if ! safe_read input; then
-                # No input available (EOF or non-interactive)
-                break
-            fi
+            safe_read input || exit 0
         fi
 
         [[ -z "$input" ]] && continue
