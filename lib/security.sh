@@ -28,6 +28,7 @@ set_api_key() {
         claude)  var_name="ANTHROPIC_API_KEY" ;;
         openai)  var_name="OPENAI_API_KEY" ;;
         groq)    var_name="GROQ_API_KEY" ;;
+        xai)     var_name="XAI_API_KEY" ;;
         *)
             err "Unknown provider: $provider"
             return 1
@@ -82,12 +83,14 @@ setup_keys_interactive() {
         local status_claude="${ANTHROPIC_API_KEY:+✓ Set}"
         local status_openai="${OPENAI_API_KEY:+✓ Set}"
         local status_groq="${GROQ_API_KEY:+✓ Set}"
+        local status_xai="${XAI_API_KEY:+✓ Set}"
 
         choice=$(ui_choose "Which API key would you like to configure?" \
             "Gemini ${status_gemini:-○ Not set}" \
             "Claude ${status_claude:-○ Not set}" \
             "OpenAI ${status_openai:-○ Not set}" \
             "Groq ${status_groq:-○ Not set}" \
+            "xAI (Grok) ${status_xai:-○ Not set}" \
             "Done")
 
         case "$choice" in
@@ -119,6 +122,14 @@ setup_keys_interactive() {
                 local key
                 key=$(ui_password "Enter Groq API key")
                 [[ -n "$key" ]] && set_api_key "groq" "$key"
+                ;;
+            "xAI"*)
+                echo ""
+                echo "Get your xAI API key from: https://console.x.ai/"
+                echo "xAI Grok offers \$25 FREE monthly credits during beta!"
+                local key
+                key=$(ui_password "Enter xAI API key")
+                [[ -n "$key" ]] && set_api_key "xai" "$key"
                 ;;
             "Done"|"Skip"|"")
                 break
@@ -258,6 +269,10 @@ validate_key_format() {
             # Groq keys start with gsk_
             [[ "$key" =~ ^gsk_ ]]
             ;;
+        xai)
+            # xAI keys start with xai-
+            [[ "$key" =~ ^xai- ]]
+            ;;
         *)
             return 1
             ;;
@@ -285,6 +300,9 @@ test_api_key() {
             ;;
         groq)
             response=$(call_groq "$test_prompt" "llama-3.1-8b-instant" 10 2>&1)
+            ;;
+        xai)
+            response=$(call_xai "$test_prompt" "grok-beta" 10 2>&1)
             ;;
         *)
             err "Unknown provider: $provider"
@@ -318,10 +336,12 @@ audit_git_exposure() {
         "sk-ant-[A-Za-z0-9_-]{30,}"
         "sk-[A-Za-z0-9]{32,}"
         "gsk_[A-Za-z0-9_-]{30,}"
+        "xai-[A-Za-z0-9_-]{30,}"
         "GEMINI_API_KEY.*=.*[A-Za-z0-9_-]{30,}"
         "ANTHROPIC_API_KEY.*=.*sk-ant-"
         "OPENAI_API_KEY.*=.*sk-"
         "GROQ_API_KEY.*=.*gsk_"
+        "XAI_API_KEY.*=.*xai-"
     )
 
     local found=false
