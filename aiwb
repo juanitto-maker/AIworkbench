@@ -205,6 +205,9 @@ chat_loop() {
     logs_dir="$workspace/logs"
     local chat_log="$logs_dir/chat_$(date +%Y%m%d_%H%M%S).log"
 
+    # Handle Ctrl+C properly in chat
+    trap 'echo ""; msg "Goodbye!"; exit 0' INT
+
     msg "Chat started. Type /help for commands or /exit to quit."
     echo ""
 
@@ -217,7 +220,7 @@ chat_loop() {
         else
             # Use safe_read helper for Termux compatibility
             printf "\033[0m> "  # Reset colors before prompt
-            safe_read input || { echo ""; exit 0; }
+            safe_read input || continue
         fi
 
         [[ -z "$input" ]] && continue
