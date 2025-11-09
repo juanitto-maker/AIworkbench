@@ -49,6 +49,51 @@ supports_color() {
 }
 
 # ============================================================================
+# SAFE INPUT READING (Termux-compatible)
+# ============================================================================
+
+# Safely read input with proper fallback handling
+# Returns 0 on success, 1 on failure
+# Usage: safe_read [-p prompt] variable_name
+safe_read() {
+    local prompt="" var_name read_opts=()
+
+    # Parse arguments
+    if [[ "$1" == "-p" ]]; then
+        prompt="$2"
+        var_name="$3"
+        read_opts=(-r -p "$prompt")
+    else
+        var_name="$1"
+        read_opts=(-r)
+    fi
+
+    # Try reading in order of preference
+    # 1. Try /dev/tty if in Termux (most reliable for Android)
+    # 2. Try stdin if it's a terminal
+    # 3. Fail gracefully
+
+    if is_termux; then
+        # Termux: Prefer /dev/tty over stdin
+        if [[ -c /dev/tty ]] && exec 3</dev/tty 2>/dev/null; then
+            read "${read_opts[@]}" "$var_name" <&3 2>/dev/null
+            local result=$?
+            exec 3<&- 2>/dev/null || true
+            return $result
+        fi
+    fi
+
+    # Non-Termux or /dev/tty failed: try stdin
+    if [[ -t 0 ]]; then
+        read "${read_opts[@]}" "$var_name" 2>/dev/null
+        return $?
+    fi
+
+    # No interactive input available
+    return 1
+}
+
+# ============================================================================
 # OUTPUT FORMATTING
 # ============================================================================
 
@@ -228,20 +273,9 @@ confirm() {
         prompt_text="$prompt [y/N] "
     fi
 
-    # Try to read from user
-    # Check if /dev/tty is usable
-    if ( : < /dev/tty ) 2>/dev/null; then
-        # /dev/tty is available, use it
-        if ! read -rp "$prompt_text" yn </dev/tty; then
-            yn="$default"
-        fi
-    elif [[ -t 0 ]]; then
-        # stdin is a terminal, use it
-        if ! read -rp "$prompt_text" yn; then
-            yn="$default"
-        fi
-    else
-        # No interactive input, use default
+    # Try to read from user using safe_read helper
+    if ! safe_read -p "$prompt_text" yn; then
+        # No interactive input available, use default
         yn="$default"
     fi
 
