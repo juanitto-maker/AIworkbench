@@ -298,11 +298,12 @@ chat_loop() {
     while true; do
         local input
 
-        # Get input (check test mode at runtime, not source time)
-        if [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
+        # Get input
+        # Only use gum if stdin is a terminal (not piped from tests)
+        if [[ -t 0 ]] && [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
             input=$(gum input --placeholder "Message or /command..." --width 80) || continue
         else
-            # Use safe_read helper for Termux compatibility
+            # Use safe_read for piped input or Termux compatibility
             printf "\033[0m> "  # Reset colors before prompt
             safe_read input || continue
         fi
