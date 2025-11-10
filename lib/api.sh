@@ -83,32 +83,37 @@ get_api_endpoint_for_provider() {
 # Get API key for provider
 get_api_key() {
     local provider="$1"
-    local env_file
+    local env_file key
     env_file="$(get_env_file)"
 
-    # Source env file if exists
-    [[ -f "$env_file" ]] && source "$env_file"
+    # Source env file if exists (overrides environment)
+    if [[ -f "$env_file" ]]; then
+        source "$env_file"
+    fi
 
+    # Get key based on provider (checks both file-sourced and environment variables)
     case "$provider" in
         gemini)
-            echo "${GEMINI_API_KEY:-}"
+            key="${GEMINI_API_KEY:-}"
             ;;
         claude)
-            echo "${ANTHROPIC_API_KEY:-}"
+            key="${ANTHROPIC_API_KEY:-}"
             ;;
         openai)
-            echo "${OPENAI_API_KEY:-}"
+            key="${OPENAI_API_KEY:-}"
             ;;
         groq)
-            echo "${GROQ_API_KEY:-}"
+            key="${GROQ_API_KEY:-}"
             ;;
         xai)
-            echo "${XAI_API_KEY:-}"
+            key="${XAI_API_KEY:-}"
             ;;
         *)
-            echo ""
+            key=""
             ;;
     esac
+
+    echo "$key"
 }
 
 # Check if API key is set
@@ -1237,12 +1242,12 @@ get_pricing() {
             esac
             ;;
         groq)
-            # Groq pricing updated with Llama 4 models
+            # Groq pricing for available models (llama-4 models not yet available)
             case "$model" in
-                *llama-4-maverick*) [[ "$token_type" == "input" ]] && echo "0.50" || echo "0.77" ;;
-                *llama-4-scout*)    [[ "$token_type" == "input" ]] && echo "0.11" || echo "0.34" ;;
                 *llama-3.3-70b*)    [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
                 *llama-3.2*)        [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
+                *llama-3.1-70b*)    [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
+                *llama-3.1-8b*)     [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
                 *mixtral*)          [[ "$token_type" == "input" ]] && echo "0.024" || echo "0.024" ;;
                 *gemma*)            [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
                 *) echo "0.05" ;;
