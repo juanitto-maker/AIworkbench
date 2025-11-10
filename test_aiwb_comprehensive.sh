@@ -137,9 +137,9 @@ test_chat_mode() {
     log "Testing chat mode with simple question"
 
     # Use echo with newlines piped to the command
-    # AIWB_TEST_MODE=1 disables /dev/tty reading for automated testing
+    # AIWB_TEST_MODE is exported in main() for automated testing
     set +e
-    AIWB_TEST_MODE=1 timeout "$TIMEOUT_SECONDS" bash -c "echo -e 'What is 2+2?\n/exit\nyes' | '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model' chat" > "$output_file" 2> "$error_file"
+    timeout "$TIMEOUT_SECONDS" bash -c "echo -e 'What is 2+2?\n/exit\nyes' | '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model' chat" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -246,7 +246,7 @@ test_make_mode() {
     log "Testing make mode full workflow"
 
     set +e
-    AIWB_TEST_MODE=1 timeout "$TIMEOUT_SECONDS" bash -c "echo -e '/make\nprompt \"create a function that adds two numbers\"\nstatus\nrun\ny\npreview\nexit\n/exit\nyes' | '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model'" > "$output_file" 2> "$error_file"
+    timeout "$TIMEOUT_SECONDS" bash -c "echo -e '/make\nprompt \"create a function that adds two numbers\"\nstatus\nrun\ny\npreview\nexit\n/exit\nyes' | '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -312,7 +312,7 @@ test_plan_mode() {
     log "Testing plan mode"
 
     set +e
-    AIWB_TEST_MODE=1 timeout "$TIMEOUT_SECONDS" bash -c "echo -e '/plan\ncreate a todo app\n/exit\nyes' | '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model'" > "$output_file" 2> "$error_file"
+    timeout "$TIMEOUT_SECONDS" bash -c "echo -e '/plan\ncreate a todo app\n/exit\nyes' | '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -366,7 +366,7 @@ test_settings_menu() {
     log "Testing settings menu navigation"
 
     set +e
-    AIWB_TEST_MODE=1 timeout 30 bash -c "echo -e '/settings\n1\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '/settings\n1\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -411,7 +411,7 @@ test_help_command() {
     log "Testing /help command"
 
     set +e
-    AIWB_TEST_MODE=1 timeout 30 bash -c "echo -e '/help\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '/help\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -460,7 +460,7 @@ test_invalid_command() {
     log "Testing invalid command handling"
 
     set +e
-    AIWB_TEST_MODE=1 timeout 30 bash -c "echo -e '/invalidcommandthatdoesnotexist\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '/invalidcommandthatdoesnotexist\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -508,7 +508,7 @@ test_empty_input() {
     log "Testing empty input handling"
 
     set +e
-    AIWB_TEST_MODE=1 timeout 30 bash -c "echo -e '\n\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '\n\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -538,6 +538,9 @@ test_empty_input() {
 # ============================================================================
 
 main() {
+    # Enable test mode for all commands in this script
+    export AIWB_TEST_MODE=1
+
     log_header "AIWB COMPREHENSIVE FUNCTIONALITY TEST"
     log "Script: $0"
     log "Log file: $LOG_FILE"
