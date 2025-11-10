@@ -556,18 +556,15 @@ handle_chat_message() {
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
 
-    # Show spinner in background while API call runs
-    ui_spinner "Thinking..." &
-    local spinner_pid=$!
+    # Show blinking cursor while API call runs (as requested by user)
+    ui_blink "Thinking..."
 
     # Call API without stderr suppression to see errors
     local response
     response=$(call_api "$message" "$provider" "$model")
     local exit_code=$?
 
-    # Stop spinner and clear line
-    kill $spinner_pid 2>/dev/null || true
-    wait $spinner_pid 2>/dev/null || true
+    # Clear the blinking cursor line
     ui_clear_line
 
     # Check if interrupted (exit code 130)

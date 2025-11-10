@@ -1242,8 +1242,10 @@ get_pricing() {
             esac
             ;;
         groq)
-            # Groq pricing for available models (llama-4 models not yet available)
+            # Groq pricing for available models (including Llama-4)
             case "$model" in
+                *llama-4-maverick*) [[ "$token_type" == "input" ]] && echo "0.50" || echo "0.77" ;;
+                *llama-4-scout*)    [[ "$token_type" == "input" ]] && echo "0.11" || echo "0.34" ;;
                 *llama-3.3-70b*)    [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
                 *llama-3.2*)        [[ "$token_type" == "input" ]] && echo "0.005" || echo "0.008" ;;
                 *llama-3.1-70b*)    [[ "$token_type" == "input" ]] && echo "0.059" || echo "0.079" ;;
@@ -1254,11 +1256,15 @@ get_pricing() {
             esac
             ;;
         xai)
-            # xAI Grok pricing (as of January 2025)
+            # xAI Grok pricing (as of January 2025 - official models)
             case "$model" in
+                *grok-4*)         [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
+                *grok-3-mini*)    [[ "$token_type" == "input" ]] && echo "0.30" || echo "0.50" ;;
+                *grok-3*)         [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
+                *grok-code-fast*) [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
                 *grok-beta*)      [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
-                *grok-2*)         [[ "$token_type" == "input" ]] && echo "2.00" || echo "10.00" ;;
                 *grok-vision*)    [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
+                *grok-2*)         [[ "$token_type" == "input" ]] && echo "2.00" || echo "10.00" ;;
                 *) echo "5.00" ;;
             esac
             ;;
