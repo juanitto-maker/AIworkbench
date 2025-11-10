@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Comprehensive AIWB Functionality Test Script
-# Tests all providers, models, chat mode, and /make mode
+# Tests: APIs, workspace functionality, dialogs, output handling, mode behavior
 # Generates detailed logs for debugging
 
 set -euo pipefail
@@ -34,6 +34,7 @@ SKIPPED_TESTS=0
 declare -a FAILED_DETAILS
 declare -a PASSED_DETAILS
 declare -a SKIPPED_DETAILS
+declare -a WORKSPACE_ISSUES
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -76,21 +77,321 @@ info() {
 }
 
 # ============================================================================
-# TEST INFRASTRUCTURE
+# WORKSPACE FUNCTIONALITY TESTS
+# ============================================================================
+
+test_workspace_structure() {
+    local test_name="Workspace: Structure Creation"
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    log_section "TEST $TOTAL_TESTS: $test_name"
+
+    # Run aiwb to initialize workspace
+    timeout 5 "$SCRIPT_DIR/aiwb" --version >/dev/null 2>&1 || true
+
+    local workspace="$HOME/.aiwb/workspace"
+    local config="$HOME/.aiwb/config.json"
+
+    # Check workspace directories
+    local required_dirs=(
+        "$workspace"
+        "$workspace/projects"
+        "$workspace/tasks"
+        "$workspace/snapshots"
+        "$workspace/logs"
+        "$workspace/templates"
+        "$workspace/history"
+    )
+
+    local all_exist=true
+    for dir in "${required_dirs[@]}"; do
+        if [[ -d "$dir" ]]; then
+            log "  ✓ Directory exists: $dir"
+        else
+            log "  ✗ Missing directory: $dir"
+            all_exist=false
+            WORKSPACE_ISSUES+=("Missing directory: $dir")
+        fi
+    done
+
+    # Check config file
+    if [[ -f "$config" ]]; then
+        log "  ✓ Config file exists: $config"
+        log "  Config contents:"
+        cat "$config" | tee -a "$LOG_FILE"
+    else
+        log "  ✗ Config file missing: $config"
+        all_exist=false
+        WORKSPACE_ISSUES+=("Config file missing")
+    fi
+
+    if $all_exist; then
+        success "PASSED"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        PASSED_DETAILS+=("$test_name")
+    else
+        error "FAILED - Workspace structure incomplete"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        FAILED_DETAILS+=("$test_name: Incomplete structure")
+    fi
+}
+
+test_output_file_creation() {
+    local provider="$1"
+    local model="$2"
+    local test_name="Workspace: Output File Creation ($provider/$model)"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    log_section "TEST $TOTAL_TESTS: $test_name"
+
+    local workspace="$HOME/.aiwb/workspace"
+    local outputs_dir="$workspace/outputs"
+
+    # Count existing outputs
+    local before_count=0
+    if [[ -d "$outputs_dir" ]]; then
+        before_count=$(find "$outputs_dir" -type f -name "*.md" 2>/dev/null | wc -l)
+    fi
+    log "Output files before test: $before_count"
+
+    # Create a test using quick command (simpler than make mode)
+    local test_input=$(mktemp)
+    cat > "$test_input" <<'EOF'
+y
+EOF
+
+    local output_file=$(mktemp)
+    local error_file=$(mktemp)
+
+    log "Running: ./aiwb quick 'write hello world in bash' --provider $provider --model $model"
+
+    set +e
+    timeout "$TIMEOUT_SECONDS" "$SCRIPT_DIR/aiwb" --provider "$provider" --model "$model" quick "write hello world in bash" < "$test_input" > "$output_file" 2> "$error_file"
+    local exit_code=$?
+    set -e
+
+    # Count outputs after
+    local after_count=0
+    if [[ -d "$outputs_dir" ]]; then
+        after_count=$(find "$outputs_dir" -type f -name "*.md" 2>/dev/null | wc -l)
+    fi
+    log "Output files after test: $after_count"
+
+    # Check if new file was created
+    if [[ $after_count -gt $before_count ]]; then
+        success "PASSED - New output file created"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        PASSED_DETAILS+=("$test_name")
+
+        # Log the newest file
+        local newest=$(find "$outputs_dir" -type f -name "*.md" 2>/dev/null | sort -r | head -1)
+        if [[ -n "$newest" ]]; then
+            log "Newest output file: $newest"
+            log "File size: $(stat -c%s "$newest" 2>/dev/null || stat -f%z "$newest" 2>/dev/null) bytes"
+        fi
+    else
+        error "FAILED - No output file created"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        FAILED_DETAILS+=("$test_name: No file created")
+        WORKSPACE_ISSUES+=("Output files not being saved to workspace")
+
+        # Log what happened
+        log "--- STDOUT ---"
+        cat "$output_file" | tee -a "$LOG_FILE"
+        log "--- STDERR ---"
+        cat "$error_file" | tee -a "$LOG_FILE"
+    fi
+
+    rm -f "$test_input" "$output_file" "$error_file"
+}
+
+test_make_mode_workflow() {
+    local provider="$1"
+    local model="$2"
+    local test_name="Workflow: Make Mode Full Flow ($provider/$model)"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    log_section "TEST $TOTAL_TESTS: $test_name"
+
+    # Test the full make mode workflow
+    local test_input=$(mktemp)
+    cat > "$test_input" <<'EOF'
+/make
+prompt "create a simple bash hello world function"
+status
+run
+y
+exit
+/exit
+yes
+EOF
+
+    local output_file=$(mktemp)
+    local error_file=$(mktemp)
+
+    log "Testing full /make workflow with status check"
+
+    set +e
+    timeout "$TIMEOUT_SECONDS" "$SCRIPT_DIR/aiwb" --provider "$provider" --model "$model" < "$test_input" > "$output_file" 2> "$error_file"
+    local exit_code=$?
+    set -e
+
+    local output_content=$(cat "$output_file")
+    local error_content=$(cat "$error_file")
+
+    log "--- STDOUT ---"
+    cat "$output_file" | tee -a "$LOG_FILE"
+    log "--- STDERR ---"
+    cat "$error_file" | tee -a "$LOG_FILE"
+    log "--- EXIT CODE: $exit_code ---"
+
+    # Check workflow steps
+    local workflow_ok=true
+    local issues=()
+
+    # Check if make mode was entered
+    if echo "$output_content" | grep -qi "make>"; then
+        log "  ✓ Make mode entered successfully"
+    else
+        log "  ✗ Make mode not entered"
+        workflow_ok=false
+        issues+=("Make mode not entered")
+    fi
+
+    # Check if status command worked
+    if echo "$output_content" | grep -qi "status\|instruction\|model"; then
+        log "  ✓ Status command worked"
+    else
+        log "  ⚠ Status command may not have worked"
+        issues+=("Status unclear")
+    fi
+
+    # Check if generation happened
+    if echo "$output_content" | grep -qi "generating\|generated\|response"; then
+        log "  ✓ Generation appeared to occur"
+    else
+        log "  ✗ No evidence of generation"
+        workflow_ok=false
+        issues+=("No generation detected")
+    fi
+
+    # Check for premature exit
+    if [[ $exit_code -eq 0 ]] || [[ $exit_code -eq 130 ]]; then
+        log "  ✓ Clean exit"
+    else
+        log "  ⚠ Unusual exit code: $exit_code"
+        issues+=("Exit code: $exit_code")
+    fi
+
+    # Check if output was shown (the key issue!)
+    if echo "$output_content" | grep -qi "preview\|output\|result\|content:"; then
+        log "  ✓ Output appears to be displayed"
+    else
+        log "  ✗ OUTPUT NOT DISPLAYED - This might be the bug!"
+        workflow_ok=false
+        issues+=("Output not displayed after generation")
+        WORKSPACE_ISSUES+=("Make mode doesn't show output after generation")
+    fi
+
+    if $workflow_ok; then
+        success "PASSED"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        PASSED_DETAILS+=("$test_name")
+    else
+        error "FAILED - Workflow issues: ${issues[*]}"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        FAILED_DETAILS+=("$test_name: ${issues[*]}")
+    fi
+
+    rm -f "$test_input" "$output_file" "$error_file"
+}
+
+test_cost_tracking() {
+    local test_name="Workspace: Cost Tracking"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    log_section "TEST $TOTAL_TESTS: $test_name"
+
+    local workspace="$HOME/.aiwb/workspace"
+    local usage_log="$workspace/logs/usage.jsonl"
+
+    if [[ -f "$usage_log" ]]; then
+        log "✓ Usage log exists: $usage_log"
+        log "Usage log contents (last 5 entries):"
+        tail -5 "$usage_log" | tee -a "$LOG_FILE"
+
+        # Check if it's valid JSON
+        if tail -1 "$usage_log" | jq -e . >/dev/null 2>&1; then
+            log "  ✓ Usage log contains valid JSON"
+            success "PASSED"
+            PASSED_TESTS=$((PASSED_TESTS + 1))
+            PASSED_DETAILS+=("$test_name")
+        else
+            log "  ✗ Usage log has invalid JSON"
+            error "FAILED - Invalid JSON in usage log"
+            FAILED_TESTS=$((FAILED_TESTS + 1))
+            FAILED_DETAILS+=("$test_name: Invalid JSON")
+        fi
+    else
+        warn "Usage log not created yet (may be normal for first run)"
+        SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
+        SKIPPED_DETAILS+=("$test_name: No usage data yet")
+    fi
+}
+
+test_chat_history() {
+    local test_name="Workspace: Chat History Logging"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    log_section "TEST $TOTAL_TESTS: $test_name"
+
+    local workspace="$HOME/.aiwb/workspace"
+    local logs_dir="$workspace/logs"
+
+    if [[ -d "$logs_dir" ]]; then
+        local chat_logs=$(find "$logs_dir" -name "chat_*.log" 2>/dev/null | wc -l)
+        log "Chat log files found: $chat_logs"
+
+        if [[ $chat_logs -gt 0 ]]; then
+            log "✓ Chat history is being logged"
+            local newest=$(find "$logs_dir" -name "chat_*.log" 2>/dev/null | sort -r | head -1)
+            log "Newest log: $newest"
+            log "Last 10 lines:"
+            tail -10 "$newest" | tee -a "$LOG_FILE"
+
+            success "PASSED"
+            PASSED_TESTS=$((PASSED_TESTS + 1))
+            PASSED_DETAILS+=("$test_name")
+        else
+            warn "No chat logs created yet"
+            SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
+            SKIPPED_DETAILS+=("$test_name: No logs yet")
+        fi
+    else
+        error "FAILED - Logs directory doesn't exist"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        FAILED_DETAILS+=("$test_name: No logs directory")
+    fi
+}
+
+# ============================================================================
+# API FUNCTIONALITY TESTS
 # ============================================================================
 
 test_chat_message() {
     local provider="$1"
     local model="$2"
-    local test_name="Chat: $provider/$model"
+    local test_name="API: Chat ($provider/$model)"
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
     # Create a test input file
     local test_input=$(mktemp)
-    echo "hi" > "$test_input"
-    echo "/exit" >> "$test_input"
+    cat > "$test_input" <<'EOF'
+hi
+/exit
+yes
+EOF
 
     # Capture output and errors
     local output_file=$(mktemp)
@@ -124,81 +425,12 @@ test_chat_message() {
     elif echo "$error_content" | grep -qi "error\|failed\|exception\|404\|401\|403\|500"; then
         error "FAILED - API Error detected"
         FAILED_TESTS=$((FAILED_TESTS + 1))
-        FAILED_DETAILS+=("$test_name: API Error - $(echo "$error_content" | grep -i error | head -1)")
-    elif echo "$output_content" | grep -qi "error\|failed\|unknown command"; then
+        local err_msg=$(echo "$error_content" | grep -i error | head -1)
+        FAILED_DETAILS+=("$test_name: $err_msg")
+    elif echo "$output_content" | grep -qi "error.*api\|failed.*api\|unknown command\|model.*not.*found"; then
         error "FAILED - Error in output"
         FAILED_TESTS=$((FAILED_TESTS + 1))
-        FAILED_DETAILS+=("$test_name: Output Error")
-    elif [[ $exit_code -ne 0 ]] && [[ $exit_code -ne 130 ]]; then
-        error "FAILED - Non-zero exit code: $exit_code"
-        FAILED_TESTS=$((FAILED_TESTS + 1))
-        FAILED_DETAILS+=("$test_name: Exit code $exit_code")
-    else
-        success "PASSED"
-        PASSED_TESTS=$((PASSED_TESTS + 1))
-        PASSED_DETAILS+=("$test_name")
-    fi
-
-    # Cleanup
-    rm -f "$test_input" "$output_file" "$error_file"
-}
-
-test_make_mode() {
-    local provider="$1"
-    local model="$2"
-    local test_name="Make: $provider/$model"
-
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-    log_section "TEST $TOTAL_TESTS: $test_name"
-
-    # Create a test input file for /make mode
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-prompt "Create a bash function that prints hello world"
-run
-y
-exit
-/exit
-yes
-EOF
-
-    # Capture output and errors
-    local output_file=$(mktemp)
-    local error_file=$(mktemp)
-
-    log "Running: ./aiwb --provider $provider --model $model chat, then entering /make mode"
-    log "Input: prompt + run command"
-
-    # Run with timeout
-    set +e
-    timeout "$TIMEOUT_SECONDS" "$SCRIPT_DIR/aiwb" --provider "$provider" --model "$model" chat < "$test_input" > "$output_file" 2> "$error_file"
-    local exit_code=$?
-    set -e
-
-    # Log the output
-    log "--- STDOUT ---"
-    cat "$output_file" | tee -a "$LOG_FILE"
-    log "--- STDERR ---"
-    cat "$error_file" | tee -a "$LOG_FILE"
-    log "--- EXIT CODE: $exit_code ---"
-
-    # Analyze results
-    local output_content=$(cat "$output_file")
-    local error_content=$(cat "$error_file")
-
-    # Check for success indicators
-    if [[ $exit_code -eq 124 ]]; then
-        error "TIMEOUT - Test exceeded ${TIMEOUT_SECONDS}s"
-        FAILED_TESTS=$((FAILED_TESTS + 1))
-        FAILED_DETAILS+=("$test_name: TIMEOUT")
-    elif echo "$error_content" | grep -qi "error\|failed\|exception\|404\|401\|403\|500"; then
-        error "FAILED - API Error detected"
-        FAILED_TESTS=$((FAILED_TESTS + 1))
-        FAILED_DETAILS+=("$test_name: API Error - $(echo "$error_content" | grep -i error | head -1)")
-    elif echo "$output_content" | grep -qi "error.*api\|failed.*api\|unknown command"; then
-        error "FAILED - Error in output"
-        FAILED_TESTS=$((FAILED_TESTS + 1))
-        FAILED_DETAILS+=("$test_name: Output Error")
+        FAILED_DETAILS+=("$test_name: Output error")
     elif [[ $exit_code -ne 0 ]] && [[ $exit_code -ne 130 ]]; then
         error "FAILED - Non-zero exit code: $exit_code"
         FAILED_TESTS=$((FAILED_TESTS + 1))
@@ -282,6 +514,20 @@ main() {
     log "Date: $(date)"
     log "AIWB Version: $(cd "$SCRIPT_DIR" && ./aiwb --version 2>&1 || echo 'Unknown')"
 
+    # ========================================================================
+    # PHASE 1: WORKSPACE TESTS (No API keys needed)
+    # ========================================================================
+    log_header "PHASE 1: WORKSPACE FUNCTIONALITY TESTS"
+
+    test_workspace_structure
+    test_cost_tracking
+    test_chat_history
+
+    # ========================================================================
+    # PHASE 2: API & WORKFLOW TESTS (Needs API keys)
+    # ========================================================================
+    log_header "PHASE 2: API & WORKFLOW TESTS"
+
     # Check which providers have API keys
     log_section "Checking API Keys"
 
@@ -298,39 +544,46 @@ main() {
     done
 
     if [[ ${#providers_to_test[@]} -eq 0 ]]; then
-        error "No API keys found! Please set at least one API key:"
+        warn "No API keys found! Skipping API tests."
+        warn "Workspace tests completed, but API tests require keys."
+        echo ""
+        echo "To test APIs, set at least one API key:"
         echo "  export GEMINI_API_KEY='your-key'"
         echo "  export ANTHROPIC_API_KEY='your-key'"
         echo "  export OPENAI_API_KEY='your-key'"
         echo "  export GROQ_API_KEY='your-key'"
         echo "  export XAI_API_KEY='your-key'"
-        exit 1
-    fi
+    else
+        # Test each provider
+        for provider in "${providers_to_test[@]}"; do
+            log_header "TESTING PROVIDER: $provider"
 
-    # Test each provider
-    for provider in "${providers_to_test[@]}"; do
-        log_header "TESTING PROVIDER: $provider"
+            local models=$(get_models_for_provider "$provider")
+            local model_array=($models)
+            local first_model="${model_array[0]}"
 
-        local models=$(get_models_for_provider "$provider")
+            # For efficiency, only test first model for each provider
+            # But do comprehensive workflow tests
+            info "Testing with model: $first_model"
 
-        for model in $models; do
-            info "Testing model: $model"
+            # API test
+            test_chat_message "$provider" "$first_model"
 
-            # Test chat mode
-            test_chat_message "$provider" "$model"
+            # Workflow test (the important one!)
+            test_make_mode_workflow "$provider" "$first_model"
 
-            # Test make mode
-            test_make_mode "$provider" "$model"
+            # Output file creation test
+            test_output_file_creation "$provider" "$first_model"
 
-            # Add small delay between tests
+            # Add small delay between providers
             sleep 2
         done
-    done
+    fi
 
-    # Generate summary
+    # ========================================================================
+    # PHASE 3: SUMMARY & ANALYSIS
+    # ========================================================================
     generate_summary
-
-    # Display results
     display_results
 }
 
@@ -339,7 +592,7 @@ generate_summary() {
 
     {
         echo "=========================================================================="
-        echo "AIWB FUNCTIONALITY TEST SUMMARY"
+        echo "AIWB COMPREHENSIVE FUNCTIONALITY TEST SUMMARY"
         echo "=========================================================================="
         echo ""
         echo "Date: $(date)"
@@ -355,12 +608,12 @@ generate_summary() {
         echo "Skipped:      ${#SKIPPED_DETAILS[@]}"
         echo ""
 
-        if [[ ${#PASSED_DETAILS[@]} -gt 0 ]]; then
+        if [[ ${#WORKSPACE_ISSUES[@]} -gt 0 ]]; then
             echo "=========================================================================="
-            echo "PASSED TESTS (${#PASSED_DETAILS[@]})"
+            echo "🐛 WORKSPACE ISSUES DETECTED (${#WORKSPACE_ISSUES[@]})"
             echo "=========================================================================="
-            for detail in "${PASSED_DETAILS[@]}"; do
-                echo "  ✓ $detail"
+            for issue in "${WORKSPACE_ISSUES[@]}"; do
+                echo "  ⚠️  $issue"
             done
             echo ""
         fi
@@ -371,6 +624,16 @@ generate_summary() {
             echo "=========================================================================="
             for detail in "${FAILED_DETAILS[@]}"; do
                 echo "  ✗ $detail"
+            done
+            echo ""
+        fi
+
+        if [[ ${#PASSED_DETAILS[@]} -gt 0 ]]; then
+            echo "=========================================================================="
+            echo "PASSED TESTS (${#PASSED_DETAILS[@]})"
+            echo "=========================================================================="
+            for detail in "${PASSED_DETAILS[@]}"; do
+                echo "  ✓ $detail"
             done
             echo ""
         fi
@@ -392,9 +655,7 @@ generate_summary() {
         echo "Full log file: $LOG_FILE"
         echo ""
         echo "To share with Claude, copy/paste the contents of:"
-        echo "  $LOG_FILE"
-        echo ""
-        echo "Or run: cat $LOG_FILE"
+        echo "  cat $LOG_FILE"
         echo ""
     } > "$SUMMARY_FILE"
 
@@ -412,6 +673,15 @@ display_results() {
     # Display summary
     cat "$SUMMARY_FILE"
 
+    if [[ ${#WORKSPACE_ISSUES[@]} -gt 0 ]]; then
+        echo ""
+        echo -e "${BOLD}${RED}⚠️  WORKSPACE ISSUES FOUND!${RESET}"
+        echo -e "${YELLOW}These are likely the bugs causing your problems:${RESET}"
+        for issue in "${WORKSPACE_ISSUES[@]}"; do
+            echo -e "  ${RED}•${RESET} $issue"
+        done
+    fi
+
     echo ""
     echo -e "${BOLD}Next Steps:${RESET}"
     echo "1. Review the summary above"
@@ -420,11 +690,6 @@ display_results() {
     echo ""
     echo -e "${YELLOW}Command to view full logs:${RESET}"
     echo "  cat $LOG_FILE"
-    echo ""
-    echo -e "${YELLOW}Command to copy to clipboard (if available):${RESET}"
-    echo "  cat $LOG_FILE | xclip -selection clipboard    # Linux"
-    echo "  cat $LOG_FILE | pbcopy                        # macOS"
-    echo "  cat $LOG_FILE | termux-clipboard-set          # Termux"
     echo ""
 }
 

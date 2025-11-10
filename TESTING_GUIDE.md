@@ -58,20 +58,46 @@ Copy/paste the log contents to Claude for analysis.
 
 ## What Gets Tested
 
-### For Each Provider + Model Combination:
+### Phase 1: Workspace Functionality (No API keys needed)
+
+1. **Workspace Structure**
+   - Checks all required directories exist
+   - Verifies config file
+   - Validates workspace initialization
+
+2. **Cost Tracking**
+   - Checks usage logs exist
+   - Validates JSON format
+   - Ensures tracking is working
+
+3. **Chat History**
+   - Checks log files are created
+   - Validates logging works
+
+### Phase 2: API & Workflow Tests (Requires API keys)
+
+For Each Provider + Model:
 
 1. **Chat Mode Test**
    - Sends message: "hi"
    - Waits for response
-   - Checks for errors
+   - Checks for API errors
    - Exits cleanly
 
-2. **Make Mode Test**
+2. **Make Mode Workflow Test** (The Important One!)
    - Enters /make mode
-   - Sets simple prompt: "Create a bash function that prints hello world"
+   - Sets prompt
+   - Checks status command
    - Runs generation
-   - Checks for errors
-   - Exits cleanly
+   - **Checks if output is displayed** ⚠️
+   - **Checks if dialogs appear** ⚠️
+   - Checks for premature exit ⚠️
+   - Validates workflow completion
+
+3. **Output File Creation**
+   - Uses quick command
+   - Checks if file is saved to workspace/outputs
+   - Validates file exists and has content
 
 ### Providers Tested (if API keys present):
 
