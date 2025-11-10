@@ -431,8 +431,12 @@ handle_slash_command() {
             ui_header "AIWB Interactive Chat"
             ;;
         /exit|/quit)
-            msg "Goodbye!"
-            exit 0
+            if ui_confirm "Are you sure you want to exit?" "no"; then
+                msg "Goodbye!"
+                exit 0
+            else
+                info "Exit cancelled"
+            fi
             ;;
         *)
             warn "Unknown command: $base_cmd"
@@ -538,16 +542,26 @@ handle_chat_message() {
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
 
-    # Show simple message instead of background spinner to avoid deadlock
-    echo -n "Thinking..."
+    # Show spinner in background while API call runs
+    if $GUM_AVAILABLE; then
+        # Use gum spin with actual command
+        response=$(gum spin --spinner dot --title "Thinking..." -- bash -c "call_api '$message' '$provider' '$model'")
+        local exit_code=$?
+    else
+        # Show animated spinner in background
+        ui_spinner "Thinking..." &
+        local spinner_pid=$!
 
-    # Call API without stderr suppression to see errors
-    local response
-    response=$(call_api "$message" "$provider" "$model")
-    local exit_code=$?
+        # Call API without stderr suppression to see errors
+        local response
+        response=$(call_api "$message" "$provider" "$model")
+        local exit_code=$?
 
-    # Clear the "Thinking..." line
-    echo -ne "\r\033[K"
+        # Stop spinner and clear line
+        kill $spinner_pid 2>/dev/null || true
+        wait $spinner_pid 2>/dev/null || true
+        ui_clear_line
+    fi
 
     # Check if interrupted (exit code 130)
     if [[ $exit_code -eq 130 ]]; then
@@ -946,68 +960,89 @@ cmd_status_overview() {
     echo ""
 }
 
-# Context management
+# Context management - interactive menu
 cmd_context() {
-    local subcmd="$1"
-    shift || true
+    while true; do
+        local context_count=${#MODE_UPLOADS[@]}
+        local context_display="$context_count file(s)"
 
-    case "$subcmd" in
-        add)
-            mode_uploads "$@"
-            ;;
-        list)
-            echo "Context Files:"
-            if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
-                for item in "${MODE_UPLOADS[@]}"; do
-                    if [[ -f "$item" ]]; then
-                        local size=$(stat -f%z "$item" 2>/dev/null || stat -c%s "$item" 2>/dev/null || echo 0)
-                        local size_kb=$((size / 1024))
-                        echo "  - $item (${size_kb} KB)"
-                    elif [[ -d "$item" ]]; then
-                        local count=$(find "$item" -type f 2>/dev/null | wc -l | tr -d ' ')
-                        echo "  - $item/ ($count files)"
-                    fi
-                done
-            else
-                echo "  (no context files)"
-            fi
-            ;;
-        remove)
-            if [[ -z "$1" ]]; then
-                warn "Usage: /context remove <file|dir>"
-                return 1
-            fi
-            local item="$1"
-            local new_uploads=()
-            local found=false
-            for upload in "${MODE_UPLOADS[@]}"; do
-                if [[ "$upload" != "$item" ]]; then
-                    new_uploads+=("$upload")
+        local choice
+        choice=$(ui_choose "Context Manager ($context_display)" \
+            "Add files/directories" \
+            "List current context" \
+            "Remove from context" \
+            "Clear all context" \
+            "Back")
+
+        case "$choice" in
+            "Add files/directories")
+                menu_uploads
+                ;;
+            "List current context")
+                echo ""
+                echo "Context Files:"
+                if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+                    for item in "${MODE_UPLOADS[@]}"; do
+                        if [[ -f "$item" ]]; then
+                            local size=$(stat -f%z "$item" 2>/dev/null || stat -c%s "$item" 2>/dev/null || echo 0)
+                            local size_kb=$((size / 1024))
+                            if is_image_file "$item"; then
+                                echo "  - [IMAGE] $item (${size_kb} KB)"
+                            else
+                                echo "  - [FILE] $item (${size_kb} KB)"
+                            fi
+                        elif [[ -d "$item" ]]; then
+                            local count=$(find "$item" -type f 2>/dev/null | wc -l | tr -d ' ')
+                            echo "  - [DIR] $item/ ($count files)"
+                        fi
+                    done
                 else
-                    found=true
+                    echo "  (no context files)"
                 fi
-            done
-            if $found; then
-                MODE_UPLOADS=("${new_uploads[@]}")
-                success "Removed from context: $item"
-            else
-                warn "Not found in context: $item"
-            fi
-            ;;
-        clear)
-            MODE_UPLOADS=()
-            success "Context cleared"
-            ;;
-        *)
-            cat <<'EOF'
-Context Management:
-  /context add <files/dirs>    Add files to context
-  /context list                List context files
-  /context remove <item>       Remove from context
-  /context clear               Clear all context
-EOF
-            ;;
-    esac
+                echo ""
+                ui_confirm "Press enter to continue..."
+                ;;
+            "Remove from context")
+                if [[ ${#MODE_UPLOADS[@]} -eq 0 ]]; then
+                    warn "No context files to remove"
+                else
+                    # Build list of items for removal
+                    local items=()
+                    for item in "${MODE_UPLOADS[@]}"; do
+                        items+=("$item")
+                    done
+                    items+=("Back")
+
+                    local to_remove
+                    to_remove=$(ui_choose "Select file to remove" "${items[@]}")
+
+                    if [[ -n "$to_remove" ]] && [[ "$to_remove" != "Back" ]]; then
+                        local new_uploads=()
+                        for upload in "${MODE_UPLOADS[@]}"; do
+                            if [[ "$upload" != "$to_remove" ]]; then
+                                new_uploads+=("$upload")
+                            fi
+                        done
+                        MODE_UPLOADS=("${new_uploads[@]}")
+                        success "Removed from context: $to_remove"
+                    fi
+                fi
+                ;;
+            "Clear all context")
+                if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+                    if ui_confirm "Clear all context files?" "no"; then
+                        MODE_UPLOADS=()
+                        success "Context cleared"
+                    fi
+                else
+                    info "Context is already empty"
+                fi
+                ;;
+            "Back"|"")
+                break
+                ;;
+        esac
+    done
 }
 
 # ============================================================================
@@ -1493,32 +1528,167 @@ test_all_keys() {
     success "Key testing complete"
 }
 
-# Show session history
+# Show session history - interactive menu
 cmd_history() {
     local workspace logs_dir
     workspace="$(get_workspace)"
     logs_dir="$workspace/logs"
 
-    if [[ ! -d "$logs_dir" ]] || [[ -z "$(ls -A "$logs_dir"/chat_*.log 2>/dev/null)" ]]; then
+    if [[ ! -d "$logs_dir" ]]; then
         info "No chat history found"
         return 0
     fi
 
-    local logs
-    logs=($(ls -t "$logs_dir"/chat_*.log 2>/dev/null))
+    while true; do
+        local log_count=$(ls -1 "$logs_dir"/chat_*.log 2>/dev/null | wc -l | tr -d ' ')
 
-    if have fzf; then
-        local selected
-        selected=$(printf '%s\n' "${logs[@]}" | fzf --preview 'cat {}')
-        [[ -n "$selected" ]] && less "$selected"
-    elif $GUM_AVAILABLE; then
-        local selected
-        selected=$(ui_filter "Select log to view" "${logs[@]}")
-        [[ -n "$selected" ]] && less "$selected"
-    else
-        echo "Recent chat sessions:"
-        ls -lht "$logs_dir"/chat_*.log | head -10
-    fi
+        local choice
+        choice=$(ui_choose "Chat History ($log_count sessions)" \
+            "View recent sessions" \
+            "Search in history" \
+            "Show statistics" \
+            "Export all history" \
+            "Clear old logs" \
+            "Back")
+
+        case "$choice" in
+            "View recent sessions")
+                if [[ $log_count -eq 0 ]]; then
+                    warn "No chat sessions found"
+                    continue
+                fi
+
+                # List sessions with timestamps
+                local logs sessions
+                logs=($(ls -t "$logs_dir"/chat_*.log 2>/dev/null))
+                sessions=()
+
+                for log in "${logs[@]}"; do
+                    local basename=$(basename "$log")
+                    local date_part=$(echo "$basename" | sed 's/chat_\(.*\)\.log/\1/')
+                    local formatted_date=$(echo "$date_part" | sed 's/_/ /g' | sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\) \([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3 \4:\5:\6/')
+                    local msg_count=$(grep -c "USER:" "$log" 2>/dev/null || echo 0)
+                    sessions+=("$formatted_date ($msg_count messages)")
+                done
+                sessions+=("Back")
+
+                local selected
+                selected=$(ui_choose "Select Session" "${sessions[@]}")
+
+                if [[ -n "$selected" ]] && [[ "$selected" != "Back" ]]; then
+                    # Find the corresponding log file
+                    local idx=0
+                    for i in "${!sessions[@]}"; do
+                        if [[ "${sessions[$i]}" == "$selected" ]]; then
+                            idx=$i
+                            break
+                        fi
+                    done
+
+                    if [[ $idx -lt ${#logs[@]} ]]; then
+                        clear 2>/dev/null || true
+                        ui_header "Chat Session: $selected"
+                        echo ""
+                        cat "${logs[$idx]}"
+                        echo ""
+                        ui_confirm "Press enter to continue..."
+                    fi
+                fi
+                ;;
+
+            "Search in history")
+                if [[ $log_count -eq 0 ]]; then
+                    warn "No chat sessions to search"
+                    continue
+                fi
+
+                local search_term
+                search_term=$(ui_input "Search for:")
+                if [[ -n "$search_term" ]]; then
+                    echo ""
+                    msg "Search results for: '$search_term'"
+                    echo ""
+                    grep -i -n --color=auto "$search_term" "$logs_dir"/chat_*.log 2>/dev/null || echo "No matches found"
+                    echo ""
+                    ui_confirm "Press enter to continue..."
+                fi
+                ;;
+
+            "Show statistics")
+                if [[ $log_count -eq 0 ]]; then
+                    warn "No chat sessions found"
+                    continue
+                fi
+
+                clear 2>/dev/null || true
+                ui_header "Chat History Statistics"
+                echo ""
+
+                local total_messages=$(grep -c "USER:" "$logs_dir"/chat_*.log 2>/dev/null || echo 0)
+                local total_ai_responses=$(grep -c "AI:" "$logs_dir"/chat_*.log 2>/dev/null || echo 0)
+                local oldest_log=$(ls -t "$logs_dir"/chat_*.log 2>/dev/null | tail -1)
+                local newest_log=$(ls -t "$logs_dir"/chat_*.log 2>/dev/null | head -1)
+
+                echo "Total sessions: $log_count"
+                echo "Total user messages: $total_messages"
+                echo "Total AI responses: $total_ai_responses"
+
+                if [[ -n "$oldest_log" ]]; then
+                    local oldest_date=$(basename "$oldest_log" | sed 's/chat_\(.*\)\.log/\1/' | sed 's/_/ /g')
+                    echo "Oldest session: $oldest_date"
+                fi
+
+                if [[ -n "$newest_log" ]]; then
+                    local newest_date=$(basename "$newest_log" | sed 's/chat_\(.*\)\.log/\1/' | sed 's/_/ /g')
+                    echo "Latest session: $newest_date"
+                fi
+
+                # Calculate total size
+                local total_size=$(du -sh "$logs_dir" 2>/dev/null | cut -f1)
+                echo "Total storage: $total_size"
+
+                echo ""
+                ui_confirm "Press enter to continue..."
+                ;;
+
+            "Export all history")
+                if [[ $log_count -eq 0 ]]; then
+                    warn "No chat sessions to export"
+                    continue
+                fi
+
+                local export_file
+                export_file=$(ui_input "Export to file:" "$HOME/aiwb_history_export.txt")
+                if [[ -n "$export_file" ]]; then
+                    cat "$logs_dir"/chat_*.log > "$export_file" 2>/dev/null
+                    success "History exported to: $export_file"
+                fi
+                ;;
+
+            "Clear old logs")
+                if [[ $log_count -eq 0 ]]; then
+                    info "No logs to clear"
+                    continue
+                fi
+
+                local days
+                days=$(ui_input "Delete logs older than (days):" "30")
+                if [[ -n "$days" ]] && [[ "$days" =~ ^[0-9]+$ ]]; then
+                    if ui_confirm "Delete logs older than $days days?" "no"; then
+                        local deleted=0
+                        find "$logs_dir" -name "chat_*.log" -type f -mtime +$days -exec rm {} \; -exec echo {} \; | while read -r; do
+                            ((deleted++))
+                        done
+                        success "Deleted old chat logs"
+                    fi
+                fi
+                ;;
+
+            "Back"|"")
+                break
+                ;;
+        esac
+    done
 }
 
 # Show cost breakdown
