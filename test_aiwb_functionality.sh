@@ -561,6 +561,19 @@ main() {
     # ========================================================================
     log_header "PHASE 2: API & WORKFLOW TESTS"
 
+    # Load API keys from .aiwb.env if it exists
+    local env_file="$HOME/.aiwb/.aiwb.env"
+    if [[ -f "$env_file" ]]; then
+        log "Loading API keys from: $env_file"
+        # Source the env file to load API keys
+        set +u  # Temporarily disable unset variable errors
+        # shellcheck disable=SC1090
+        source "$env_file" 2>/dev/null || true
+        set -u
+    else
+        log "No .aiwb.env file found, checking system environment variables"
+    fi
+
     # Check which providers have API keys
     log_section "Checking API Keys"
 
