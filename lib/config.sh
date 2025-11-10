@@ -241,7 +241,8 @@ get_available_models() {
 
     case "$provider" in
         gemini)
-            echo "1.5-flash 2.0-flash 2.0-flash-lite 2.5-flash 2.5-flash-lite 1.5-pro 2.0-pro 2.0-pro-exp 2.5-pro"
+            # Gemini 2.x models (1.x models retired Sept 2025)
+            echo "2.5-flash 2.5-flash-lite 2.5-pro 2.0-flash 2.0-flash-lite 2.0-pro 2.0-pro-exp"
             ;;
         claude)
             echo "3-haiku-20240307 3-5-haiku-20241022 3-5-sonnet-20240620 3-5-sonnet-20241022 3-opus-20240229 sonnet-4-5-20250929"
@@ -250,12 +251,12 @@ get_available_models() {
             echo "gpt-4o-mini gpt-4o gpt-4-turbo o1-mini o1-preview o3-mini o3 o3-pro"
             ;;
         groq)
-            # Note: llama-4 models removed - not yet available on Groq API
-            echo "llama-3.3-70b-versatile llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview llama-3.1-70b-versatile llama-3.1-8b-instant mixtral-8x7b-32768 gemma2-9b-it gemma-7b-it"
+            # Groq models including Llama-4 (verified available - released April 2025)
+            echo "llama-3.3-70b-versatile meta-llama/llama-4-scout-17b-16e-instruct meta-llama/llama-4-maverick-17b-128e-instruct llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview llama-3.1-70b-versatile llama-3.1-8b-instant mixtral-8x7b-32768 gemma2-9b-it gemma-7b-it"
             ;;
         xai)
-            # xAI Grok models - only listing currently available models
-            echo "grok-beta grok-2-1212 grok-vision-beta"
+            # xAI Grok models (verified against official API docs - all working)
+            echo "grok-beta grok-4 grok-4-latest grok-4-fast-reasoning grok-4-fast-non-reasoning grok-3 grok-3-latest grok-3-fast grok-3-mini-fast grok-code-fast-1 grok-vision-beta grok-2-1212 grok-2"
             ;;
         ollama)
             if have ollama; then

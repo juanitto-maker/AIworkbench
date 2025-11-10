@@ -891,9 +891,8 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     echo ""
     msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
 
-    # Show spinner while generating
-    ui_spinner "Generating response..." &
-    local spinner_pid=$!
+    # Show blinking cursor while generating (as requested by user)
+    ui_blink "Generating response..."
 
     # Use vision API if we have images, otherwise use standard API
     local output
@@ -904,9 +903,7 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     fi
     local gen_exit=$?
 
-    # Stop spinner and clear line
-    kill $spinner_pid 2>/dev/null || true
-    wait $spinner_pid 2>/dev/null || true
+    # Clear the blinking cursor line
     ui_clear_line
 
     echo ""
@@ -979,18 +976,15 @@ $output
 === INSTRUCTIONS ===
 Provide specific, actionable feedback."
 
-        # Start spinner for verification
-        ui_spinner "Running verification with $check_provider..." &
-        local verify_spinner_pid=$!
+        # Show blinking cursor for verification (as requested by user)
+        ui_blink "Running verification with $check_provider..."
 
         local feedback
         feedback=$(call_api "$check_prompt" "$check_provider" "$check_model")
         local verify_exit=$?
 
-        # Stop spinner
-        kill "$verify_spinner_pid" 2>/dev/null || true
-        wait "$verify_spinner_pid" 2>/dev/null || true
-        printf "\r\033[K"  # Clear the spinner line
+        # Clear blinking cursor
+        ui_clear_line
 
         # Check if interrupted
         if [[ $verify_exit -eq 130 ]]; then
