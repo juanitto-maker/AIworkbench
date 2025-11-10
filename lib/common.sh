@@ -194,11 +194,12 @@ get_workspace() {
 ensure_dir() {
     local dir="$1"
     if [[ ! -d "$dir" ]]; then
-        mkdir -p "$dir" || {
+        mkdir -p "$dir" 2>/dev/null || {
             err "Failed to create directory: $dir"
             return 1
         }
     fi
+    return 0
 }
 
 # ============================================================================
