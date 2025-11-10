@@ -878,7 +878,7 @@ call_groq() {
 
 call_xai() {
     local prompt="$1"
-    local model="${2:-grok-3}"
+    local model="${2:-grok-beta}"
     local max_tokens="${3:-16000}"
     local temperature="${4:-0.2}"
 
@@ -1254,15 +1254,12 @@ get_pricing() {
             esac
             ;;
         xai)
-            # xAI Grok pricing updated with Grok 3 and 4
+            # xAI Grok pricing (as of January 2025)
             case "$model" in
-                *grok-4*)         [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
-                *grok-3-mini*)    [[ "$token_type" == "input" ]] && echo "0.30" || echo "0.50" ;;
-                *grok-3*)         [[ "$token_type" == "input" ]] && echo "3.00" || echo "15.00" ;;
                 *grok-beta*)      [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
-                *grok-code-fast*) [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
                 *grok-2*)         [[ "$token_type" == "input" ]] && echo "2.00" || echo "10.00" ;;
-                *) echo "3.00" ;;
+                *grok-vision*)    [[ "$token_type" == "input" ]] && echo "5.00" || echo "15.00" ;;
+                *) echo "5.00" ;;
             esac
             ;;
         ollama)
