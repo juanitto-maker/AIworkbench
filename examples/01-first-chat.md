@@ -33,10 +33,7 @@ AIWB Status
 Platform:   linux
 Workspace:  ~/.aiwb/workspace
 Provider:   gemini
-Model:      flash-1.5
-
-Project:    none
-Task:       inbox
+Model:      gemini-2.5-flash
 
 Chat started. Type /help for commands or /exit to quit.
 
