@@ -57,6 +57,21 @@ Start here based on your needs:
 - Storage and performance comparisons
 - Lightweight alternatives
 
+### I want to use swarm mode for large codebases
+→ Read: **[SWARM_MODE_USER_GUIDE.md](SWARM_MODE_USER_GUIDE.md)**
+- Complete user guide with examples
+- How to enable and configure swarm mode
+- Cost comparisons and performance expectations
+- Troubleshooting and best practices
+- Real-world usage examples
+
+### I want implementation details for swarm mode
+→ Read: **[SWARM_MODE_IMPLEMENTATION.md](SWARM_MODE_IMPLEMENTATION.md)**
+- Technical implementation design
+- Menu structure and integration
+- Code examples and patterns
+- Implementation timeline
+
 ---
 
 ## Document Details
@@ -69,8 +84,10 @@ Start here based on your needs:
 | **CONTEXT_LIMITATION_SOLUTION_ANALYSIS.md** | 64 KB | 9 | Scaling to 100K+ LOC codebases |
 | **QUICK_START_RAG.md** | 8 KB | 8 | Quick RAG implementation |
 | **TERMUX_MOBILE_STRATEGY.md** | 18 KB | 9 | Mobile/Termux optimization |
+| **SWARM_MODE_USER_GUIDE.md** | 24 KB | 14 | Using swarm mode |
+| **SWARM_MODE_IMPLEMENTATION.md** | 32 KB | 9 | Implementing swarm mode |
 
-**Total**: 142 KB, 3,200+ lines of analysis
+**Total**: 198 KB, 4,500+ lines of analysis
 
 ---
 
