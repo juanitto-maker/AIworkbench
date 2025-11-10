@@ -229,9 +229,12 @@ swarm_execute() {
     echo ""
     ui_header "🐝 Swarm Mode Execution"
     echo ""
+    msg "DEBUG: swarm_execute called with mode=$mode"
+    msg "DEBUG: Prompt length: ${#prompt} characters"
 
     # Auto-detect strategy if set to auto
     local strategy="$SWARM_STRATEGY"
+    msg "DEBUG: Current SWARM_STRATEGY=$SWARM_STRATEGY"
     if [[ "$strategy" = "auto" ]]; then
         strategy=$(swarm_auto_detect "$prompt")
         msg "Auto-detected strategy: $strategy"
@@ -284,13 +287,18 @@ swarm_mapreduce() {
     local prompt="$1"
     local mode="$2"
 
+    msg "DEBUG: Estimating tokens for prompt..."
     local tokens=$(estimate_tokens "$prompt")
+    msg "DEBUG: Estimated tokens: $tokens"
+
     local chunk_size=2500  # tokens per chunk
     local num_chunks=$(( (tokens + chunk_size - 1) / chunk_size ))
+    msg "DEBUG: Calculated $num_chunks chunks (chunk_size=$chunk_size)"
 
     # If only 1-2 chunks, not worth the overhead
     if (( num_chunks <= 2 )); then
         warn "Prompt small enough for standard mode ($num_chunks chunks)"
+        warn "DEBUG: tokens=$tokens, num_chunks=$num_chunks"
         return 1
     fi
 
