@@ -101,6 +101,87 @@ menu_prompt() {
     fi
 }
 
+# URL input and download menu
+menu_url_input() {
+    local mode="$1"  # "upload" or "instruct"
+    local url
+    url=$(ui_input "Enter URL (GitHub repo, raw file, etc.):")
+
+    if [[ -z "$url" ]]; then
+        return 0
+    fi
+
+    local workspace download_dir
+    workspace="$(get_workspace)"
+    download_dir="$workspace/downloads"
+    ensure_dir "$download_dir"
+
+    # Check if it's a GitHub repo URL
+    if [[ "$url" =~ github\.com.*\.git$ ]] || [[ "$url" =~ ^https://github\.com/[^/]+/[^/]+/?$ ]]; then
+        # Clone GitHub repository
+        msg "Cloning repository from $url..."
+        local repo_name=$(basename "$url" .git)
+        local target_dir="$download_dir/$repo_name"
+
+        if [[ -d "$target_dir" ]]; then
+            warn "Repository already exists: $target_dir"
+            if ui_confirm "Use existing repository?" "yes"; then
+                if [[ "$mode" == "upload" ]]; then
+                    MODE_UPLOADS+=("$target_dir")
+                    success "Added repository: $target_dir"
+                else
+                    err "Cannot use directory as instruction file. Please select a specific file."
+                fi
+                return 0
+            else
+                msg "Removing existing repository..."
+                rm -rf "$target_dir"
+            fi
+        fi
+
+        if git clone "$url" "$target_dir" 2>/dev/null; then
+            success "Repository cloned to: $target_dir"
+            if [[ "$mode" == "upload" ]]; then
+                MODE_UPLOADS+=("$target_dir")
+                success "Added repository as context"
+            else
+                # For instruct mode, let user browse the cloned repo
+                local selected_file
+                selected_file=$(menu_file_browser "$target_dir")
+                if [[ -f "$selected_file" ]]; then
+                    MODE_INSTRUCT_FILE="$selected_file"
+                    MODE_PROMPT=""
+                    local size=$(wc -w < "$selected_file" 2>/dev/null || echo 0)
+                    success "Instructions loaded from file ($size words)"
+                fi
+            fi
+        else
+            err "Failed to clone repository"
+        fi
+    else
+        # Download direct file
+        msg "Downloading file from $url..."
+        local filename=$(basename "$url" | cut -d'?' -f1)
+        [[ -z "$filename" ]] && filename="downloaded_file"
+        local target_file="$download_dir/$filename"
+
+        if curl -fsSL "$url" -o "$target_file" 2>/dev/null; then
+            success "File downloaded to: $target_file"
+            if [[ "$mode" == "upload" ]]; then
+                MODE_UPLOADS+=("$target_file")
+                success "Added file as context"
+            else
+                MODE_INSTRUCT_FILE="$target_file"
+                MODE_PROMPT=""
+                local size=$(wc -w < "$target_file" 2>/dev/null || echo 0)
+                success "Instructions loaded from file ($size words)"
+            fi
+        else
+            err "Failed to download file from URL"
+        fi
+    fi
+}
+
 # Instruct menu (file-based instruction)
 menu_instruct() {
     while true; do
@@ -112,6 +193,7 @@ menu_instruct() {
             "Browse files" \
             "Browse outputs" \
             "Type path manually" \
+            "From URL" \
             "View current file" \
             "Clear" \
             "Back")
@@ -202,6 +284,9 @@ menu_instruct() {
                         err "File not found: $file"
                     fi
                 fi
+                ;;
+            "From URL")
+                menu_url_input "instruct"
                 ;;
             "View current file")
                 if [[ -n "$MODE_INSTRUCT_FILE" ]] && [[ -f "$MODE_INSTRUCT_FILE" ]]; then
@@ -311,6 +396,7 @@ menu_uploads() {
             "Browse files" \
             "Browse outputs" \
             "Type path manually" \
+            "From URL" \
             "List uploads" \
             "Clear all" \
             "Back")
@@ -379,6 +465,9 @@ menu_uploads() {
                     [[ $added -gt 0 ]] && success "Added $added item(s)"
                 fi
                 ;;
+            "From URL")
+                menu_url_input "upload"
+                ;;
             "List uploads")
                 if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
                     echo ""
@@ -420,6 +509,7 @@ menu_check() {
             "Choose check model" \
             "Use auto (different from main)" \
             "Add custom instructions" \
+            "Disable check" \
             "Back")
 
         case "$choice" in
@@ -439,6 +529,13 @@ menu_check() {
                     MODE_CHECK_INSTRUCT="$instruct"
                     success "Custom instructions set"
                 fi
+                ;;
+            "Disable check")
+                MODE_CHECK_PROVIDER=""
+                MODE_CHECK_MODEL=""
+                MODE_CHECK_INSTRUCT=""
+                success "Check/verification disabled"
+                return 0
                 ;;
             "Back"|"")
                 return 0
@@ -614,14 +711,14 @@ menu_outputs_browser() {
         return 1
     fi
 
-    # Get list of output files
+    # Get list of output files sorted by modification time (newest first)
     local files=()
     while IFS= read -r file; do
         [[ -z "$file" ]] && continue
         local basename=$(basename "$file")
         local timestamp=$(stat -f%Sm -t "%Y-%m-%d %H:%M" "$file" 2>/dev/null || stat -c%y "$file" 2>/dev/null | cut -d'.' -f1)
         files+=("$basename ($timestamp)")
-    done < <(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r)
+    done < <(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f -printf "%T@ %p\n" 2>/dev/null | sort -rn | cut -d' ' -f2- || find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r)
 
     if [[ ${#files[@]} -eq 0 ]]; then
         info "No output files found"
@@ -664,14 +761,14 @@ menu_view_outputs() {
         return 1
     fi
 
-    # Get list of output files
+    # Get list of output files sorted by modification time (newest first)
     local files=()
     while IFS= read -r file; do
         [[ -z "$file" ]] && continue
         local basename=$(basename "$file")
         local timestamp=$(stat -f%Sm -t "%Y-%m-%d %H:%M" "$file" 2>/dev/null || stat -c%y "$file" 2>/dev/null | cut -d'.' -f1)
         files+=("$basename ($timestamp)")
-    done < <(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r)
+    done < <(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f -printf "%T@ %p\n" 2>/dev/null | sort -rn | cut -d' ' -f2- || find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r)
 
     if [[ ${#files[@]} -eq 0 ]]; then
         info "No output files found"
@@ -1190,5 +1287,5 @@ export -f init_mode reset_mode mode_loop
 export -f menu_prompt menu_instruct menu_model menu_uploads menu_check menu_swarm menu_status mode_run
 export -f menu_model_provider menu_model_specific
 export -f menu_check_model menu_check_model_specific
-export -f menu_file_browser menu_outputs_browser menu_view_outputs
+export -f menu_file_browser menu_outputs_browser menu_view_outputs menu_url_input
 export -f get_instruction_display get_model_display get_uploads_display get_check_display get_swarm_display

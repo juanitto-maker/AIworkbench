@@ -177,9 +177,9 @@ encode_image_base64() {
 # Estimate token count (rough approximation)
 estimate_tokens() {
     local text="$1"
-    # Rough estimate: 1 token ≈ 4 characters
+    # Conservative estimate: 1 token ≈ 3 characters (slight overestimation is better)
     local chars=${#text}
-    echo $((chars / 4))
+    echo $((chars / 3))
 }
 
 # Read file and estimate tokens
