@@ -431,11 +431,25 @@ handle_slash_command() {
             ui_header "AIWB Interactive Chat"
             ;;
         /exit|/quit)
-            if ui_confirm "Are you sure you want to exit?" "no"; then
-                msg "Goodbye!"
-                exit 0
+            # Require explicit confirmation to exit
+            local confirm_exit
+            if $GUM_AVAILABLE; then
+                # Force user to make explicit choice - affirmative required
+                if gum confirm "Are you sure you want to exit?" --affirmative="Yes, exit" --negative="No, stay"; then
+                    msg "Goodbye!"
+                    exit 0
+                else
+                    info "Exit cancelled"
+                fi
             else
-                info "Exit cancelled"
+                # Fallback: require explicit 'yes' response
+                confirm_exit=$(ui_input "Type 'yes' to exit, or press Enter to cancel:")
+                if [[ "$confirm_exit" == "yes" ]]; then
+                    msg "Goodbye!"
+                    exit 0
+                else
+                    info "Exit cancelled"
+                fi
             fi
             ;;
         *)
@@ -543,25 +557,18 @@ handle_chat_message() {
     model="$(config_get model_name)"
 
     # Show spinner in background while API call runs
-    if $GUM_AVAILABLE; then
-        # Use gum spin with actual command
-        response=$(gum spin --spinner dot --title "Thinking..." -- bash -c "call_api '$message' '$provider' '$model'")
-        local exit_code=$?
-    else
-        # Show animated spinner in background
-        ui_spinner "Thinking..." &
-        local spinner_pid=$!
+    ui_spinner "Thinking..." &
+    local spinner_pid=$!
 
-        # Call API without stderr suppression to see errors
-        local response
-        response=$(call_api "$message" "$provider" "$model")
-        local exit_code=$?
+    # Call API without stderr suppression to see errors
+    local response
+    response=$(call_api "$message" "$provider" "$model")
+    local exit_code=$?
 
-        # Stop spinner and clear line
-        kill $spinner_pid 2>/dev/null || true
-        wait $spinner_pid 2>/dev/null || true
-        ui_clear_line
-    fi
+    # Stop spinner and clear line
+    kill $spinner_pid 2>/dev/null || true
+    wait $spinner_pid 2>/dev/null || true
+    ui_clear_line
 
     # Check if interrupted (exit code 130)
     if [[ $exit_code -eq 130 ]]; then

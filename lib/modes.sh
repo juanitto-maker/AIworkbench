@@ -892,40 +892,22 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
 
     # Show spinner while generating
-    local output gen_exit
-    if $GUM_AVAILABLE; then
-        # Use gum spin with actual command - need to handle image array properly
-        if [[ ${#context_images[@]} -gt 0 ]]; then
-            # For vision calls, we can't easily pass arrays through bash -c, so fall back to spinner
-            ui_spinner "Generating response..." &
-            local spinner_pid=$!
-            output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
-            gen_exit=$?
-            kill $spinner_pid 2>/dev/null || true
-            wait $spinner_pid 2>/dev/null || true
-            ui_clear_line
-        else
-            output=$(gum spin --spinner dot --title "Generating response..." -- bash -c "call_api '$final_prompt' '$MODE_MODEL_PROVIDER' '$MODE_MODEL_NAME'")
-            gen_exit=$?
-        fi
+    ui_spinner "Generating response..." &
+    local spinner_pid=$!
+
+    # Use vision API if we have images, otherwise use standard API
+    local output
+    if [[ ${#context_images[@]} -gt 0 ]]; then
+        output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
     else
-        # Show animated spinner in background
-        ui_spinner "Generating response..." &
-        local spinner_pid=$!
-
-        # Use vision API if we have images, otherwise use standard API
-        if [[ ${#context_images[@]} -gt 0 ]]; then
-            output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
-        else
-            output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
-        fi
-        gen_exit=$?
-
-        # Stop spinner and clear line
-        kill $spinner_pid 2>/dev/null || true
-        wait $spinner_pid 2>/dev/null || true
-        ui_clear_line
+        output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
     fi
+    local gen_exit=$?
+
+    # Stop spinner and clear line
+    kill $spinner_pid 2>/dev/null || true
+    wait $spinner_pid 2>/dev/null || true
+    ui_clear_line
 
     echo ""
 

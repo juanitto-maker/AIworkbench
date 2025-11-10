@@ -230,7 +230,7 @@ get_default_model() {
         claude) echo "3-haiku-20240307" ;;
         openai) echo "gpt-4o-mini" ;;
         groq) echo "llama-3.3-70b-versatile" ;;
-        xai) echo "grok-3" ;;
+        xai) echo "grok-beta" ;;
         ollama) echo "llama3.2:latest" ;;
         *) echo "" ;;
     esac
@@ -250,10 +250,12 @@ get_available_models() {
             echo "gpt-4o-mini gpt-4o gpt-4-turbo o1-mini o1-preview o3-mini o3 o3-pro"
             ;;
         groq)
-            echo "llama-3.3-70b-versatile llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview llama-4-scout llama-4-maverick mixtral-8x7b-32768 gemma2-9b-it"
+            # Note: llama-4 models removed - not yet available on Groq API
+            echo "llama-3.3-70b-versatile llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview llama-3.1-70b-versatile llama-3.1-8b-instant mixtral-8x7b-32768 gemma2-9b-it gemma-7b-it"
             ;;
         xai)
-            echo "grok-2 grok-2-mini grok-3 grok-3-mini grok-4 grok-beta grok-code-fast-1"
+            # Note: grok-3, grok-4 may not be available yet - keeping for future use
+            echo "grok-beta grok-2 grok-2-mini grok-code-fast-1"
             ;;
         ollama)
             if have ollama; then
