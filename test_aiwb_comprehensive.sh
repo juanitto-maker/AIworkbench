@@ -131,20 +131,15 @@ test_chat_mode() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-What is 2+2?
-/exit
-yes
-EOF
-
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
     log "Testing chat mode with simple question"
 
+    # Use echo with newlines piped to the command
+    # AIWB_TEST_MODE=1 disables /dev/tty reading for automated testing
     set +e
-    timeout "$TIMEOUT_SECONDS" "$SCRIPT_DIR/aiwb" --provider "$provider" --model "$model" chat < "$test_input" > "$output_file" 2> "$error_file"
+    timeout "$TIMEOUT_SECONDS" bash -c "echo -e 'What is 2+2?\n/exit\nyes' | AIWB_TEST_MODE=1 '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model' chat" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -184,7 +179,7 @@ EOF
     log "--- OUTPUT ---"
     cat "$output_file" | tee -a "$LOG_FILE"
 
-    rm -f "$test_input" "$output_file" "$error_file"
+    rm -f "$output_file" "$error_file"
 }
 
 test_quick_mode() {
@@ -245,26 +240,13 @@ test_make_mode() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-/make
-prompt "create a function that adds two numbers"
-status
-run
-y
-preview
-exit
-/exit
-yes
-EOF
-
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
     log "Testing make mode full workflow"
 
     set +e
-    timeout "$TIMEOUT_SECONDS" "$SCRIPT_DIR/aiwb" --provider "$provider" --model "$model" < "$test_input" > "$output_file" 2> "$error_file"
+    timeout "$TIMEOUT_SECONDS" bash -c "echo -e '/make\nprompt \"create a function that adds two numbers\"\nstatus\nrun\ny\npreview\nexit\n/exit\nyes' | AIWB_TEST_MODE=1 '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -313,7 +295,7 @@ EOF
     log "--- OUTPUT ---"
     cat "$output_file" | tee -a "$LOG_FILE"
 
-    rm -f "$test_input" "$output_file" "$error_file"
+    rm -f "$output_file" "$error_file"
 }
 
 test_plan_mode() {
@@ -324,21 +306,13 @@ test_plan_mode() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-/plan
-create a todo app
-/exit
-yes
-EOF
-
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
     log "Testing plan mode"
 
     set +e
-    timeout "$TIMEOUT_SECONDS" "$SCRIPT_DIR/aiwb" --provider "$provider" --model "$model" < "$test_input" > "$output_file" 2> "$error_file"
+    timeout "$TIMEOUT_SECONDS" bash -c "echo -e '/plan\ncreate a todo app\n/exit\nyes' | AIWB_TEST_MODE=1 '$SCRIPT_DIR/aiwb' --provider '$provider' --model '$model'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -373,7 +347,7 @@ EOF
     log "--- OUTPUT ---"
     cat "$output_file" | tee -a "$LOG_FILE"
 
-    rm -f "$test_input" "$output_file" "$error_file"
+    rm -f "$output_file" "$error_file"
 }
 
 # ============================================================================
@@ -386,21 +360,13 @@ test_settings_menu() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-/settings
-1
-/exit
-yes
-EOF
-
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
     log "Testing settings menu navigation"
 
     set +e
-    timeout 30 "$SCRIPT_DIR/aiwb" < "$test_input" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '/settings\n1\n/exit\nyes' | AIWB_TEST_MODE=1 '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -430,7 +396,7 @@ EOF
     log "--- OUTPUT ---"
     cat "$output_file" | tee -a "$LOG_FILE"
 
-    rm -f "$test_input" "$output_file" "$error_file"
+    rm -f "$output_file" "$error_file"
 }
 
 test_help_command() {
@@ -439,20 +405,13 @@ test_help_command() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-/help
-/exit
-yes
-EOF
-
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
     log "Testing /help command"
 
     set +e
-    timeout 30 "$SCRIPT_DIR/aiwb" < "$test_input" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '/help\n/exit\nyes' | AIWB_TEST_MODE=1 '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -482,7 +441,7 @@ EOF
     log "--- OUTPUT ---"
     cat "$output_file" | tee -a "$LOG_FILE"
 
-    rm -f "$test_input" "$output_file" "$error_file"
+    rm -f "$output_file" "$error_file"
 }
 
 # ============================================================================
@@ -495,20 +454,13 @@ test_invalid_command() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-/invalidcommandthatdoesnotexist
-/exit
-yes
-EOF
-
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
     log "Testing invalid command handling"
 
     set +e
-    timeout 30 "$SCRIPT_DIR/aiwb" < "$test_input" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '/invalidcommandthatdoesnotexist\n/exit\nyes' | AIWB_TEST_MODE=1 '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -541,7 +493,7 @@ EOF
     log "--- OUTPUT ---"
     cat "$output_file" | tee -a "$LOG_FILE"
 
-    rm -f "$test_input" "$output_file" "$error_file"
+    rm -f "$output_file" "$error_file"
 }
 
 test_empty_input() {
@@ -550,21 +502,13 @@ test_empty_input() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local test_input=$(mktemp)
-    cat > "$test_input" <<'EOF'
-
-
-/exit
-yes
-EOF
-
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
     log "Testing empty input handling"
 
     set +e
-    timeout 30 "$SCRIPT_DIR/aiwb" < "$test_input" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '\n\n/exit\nyes' | AIWB_TEST_MODE=1 '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
@@ -586,7 +530,7 @@ EOF
         FAILED_DETAILS+=("$test_name: ${issues[*]}")
     fi
 
-    rm -f "$test_input" "$output_file" "$error_file"
+    rm -f "$output_file" "$error_file"
 }
 
 # ============================================================================

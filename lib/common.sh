@@ -69,9 +69,16 @@ safe_read() {
     fi
 
     # Try reading in order of preference
-    # 1. Try /dev/tty if in Termux (most reliable for Android)
-    # 2. Try stdin if it's a terminal
-    # 3. Fail gracefully
+    # 1. If in test mode, always use stdin
+    # 2. Try /dev/tty if in Termux (most reliable for Android)
+    # 3. Try stdin if it's a terminal
+    # 4. Fail gracefully
+
+    # Test mode: always use stdin
+    if [[ "${AIWB_TEST_MODE:-0}" == "1" ]]; then
+        read "${read_opts[@]}" "$var_name"
+        return $?
+    fi
 
     if is_termux; then
         # Termux: Prefer /dev/tty over stdin
