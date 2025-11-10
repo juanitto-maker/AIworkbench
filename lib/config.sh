@@ -33,14 +33,46 @@ init_workspace() {
 
     debug "Initializing workspace at: $workspace"
 
-    # Create workspace structure
-    ensure_dir "$workspace"
-    ensure_dir "$workspace/projects"
-    ensure_dir "$workspace/tasks"
-    ensure_dir "$workspace/snapshots"
-    ensure_dir "$workspace/logs"
-    ensure_dir "$workspace/templates"
-    ensure_dir "$workspace/history"
+    # Try to create workspace structure
+    if ! ensure_dir "$workspace"; then
+        # If workspace creation fails (e.g., Termux storage not accessible),
+        # fall back to .aiwb/workspace
+        local fallback_workspace
+        fallback_workspace="$(get_aiwb_home)/workspace"
+
+        warn "Could not create workspace at: $workspace"
+        warn "Falling back to: $fallback_workspace"
+
+        if is_termux; then
+            warn "If you want to use external storage, run: termux-setup-storage"
+        fi
+
+        workspace="$fallback_workspace"
+
+        # Try fallback location
+        if ! ensure_dir "$workspace"; then
+            err "CRITICAL: Cannot create workspace at $workspace"
+            err "Please check filesystem permissions"
+            return 1
+        fi
+
+        # Update config with fallback workspace
+        local config_file
+        config_file="$(get_config_file)"
+        if [[ -f "$config_file" ]]; then
+            local tmp
+            tmp="$(mktemp)"
+            jq --arg ws "$workspace" '.workspace = $ws' "$config_file" > "$tmp" && mv "$tmp" "$config_file"
+        fi
+    fi
+
+    # Create subdirectories
+    ensure_dir "$workspace/projects" || return 1
+    ensure_dir "$workspace/tasks" || return 1
+    ensure_dir "$workspace/snapshots" || return 1
+    ensure_dir "$workspace/logs" || return 1
+    ensure_dir "$workspace/templates" || return 1
+    ensure_dir "$workspace/history" || return 1
 
     # Create default inbox task if doesn't exist
     local inbox="$workspace/tasks/inbox.prompt.md"
@@ -70,7 +102,7 @@ EOF
     aiwb_home="$(get_aiwb_home)"
     ensure_dir "$aiwb_home"
 
-    success "Workspace initialized"
+    success "Workspace initialized at: $workspace"
 }
 
 # ============================================================================
