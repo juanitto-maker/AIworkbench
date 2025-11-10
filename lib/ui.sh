@@ -8,7 +8,10 @@
 # ============================================================================
 
 GUM_AVAILABLE=false
-have gum && GUM_AVAILABLE=true
+# Disable gum in test mode (it reads from TTY, not stdin)
+if [[ "${AIWB_TEST_MODE:-0}" != "1" ]]; then
+    have gum && GUM_AVAILABLE=true
+fi
 
 # ============================================================================
 # INPUT FUNCTIONS
