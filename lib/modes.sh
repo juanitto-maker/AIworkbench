@@ -1022,23 +1022,23 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
 
     # Check if swarm mode should be used
     if [[ "$SWARM_ENABLED" = "true" ]]; then
-        msg "DEBUG: SWARM_ENABLED=true, calling swarm_execute..."
-        msg "DEBUG: final_prompt length=${#final_prompt}, MODE_CURRENT=$MODE_CURRENT"
+        echo "DEBUG: SWARM_ENABLED=true, calling swarm_execute..." >&2
+        echo "DEBUG: final_prompt length=${#final_prompt}, MODE_CURRENT=$MODE_CURRENT" >&2
 
         # Check if swarm_execute function exists
         if ! type swarm_execute &>/dev/null; then
-            err "DEBUG: swarm_execute function not found!"
-            err "DEBUG: AIWB_LIB_SWARM_LOADED=${AIWB_LIB_SWARM_LOADED:-not set}"
+            echo "ERROR: swarm_execute function not found!" >&2
+            echo "DEBUG: AIWB_LIB_SWARM_LOADED=${AIWB_LIB_SWARM_LOADED:-not set}" >&2
             return 1
         fi
-        msg "DEBUG: swarm_execute function found"
+        echo "DEBUG: swarm_execute function found" >&2
 
         # Try swarm execution
         output=$(swarm_execute "$final_prompt" "$MODE_CURRENT")
         gen_exit=$?
 
-        msg "DEBUG: swarm_execute returned with exit code: $gen_exit"
-        msg "DEBUG: output length: ${#output}"
+        echo "DEBUG: swarm_execute returned with exit code: $gen_exit" >&2
+        echo "DEBUG: output length: ${#output}" >&2
 
         # If swarm returns non-zero, fall back to standard mode
         if [[ $gen_exit -ne 0 ]]; then
