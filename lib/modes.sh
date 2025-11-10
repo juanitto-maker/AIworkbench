@@ -4,6 +4,7 @@
 [[ -z "${AIWB_LIB_COMMON_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 [[ -z "${AIWB_LIB_UI_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/ui.sh"
 [[ -z "${AIWB_LIB_CONFIG_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+[[ -z "${AIWB_LIB_SWARM_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/swarm.sh"
 
 # ============================================================================
 # MODE STATE MANAGEMENT
@@ -845,14 +846,35 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     local output_tokens=$((input_tokens * 2))  # Rough estimate
 
     local gen_cost
-    gen_cost=$(calculate_cost "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "$input_tokens" "$output_tokens")
+    local swarm_cost="0"
 
-    echo "Generation:"
-    echo "  Provider: $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)"
-    echo "  Input tokens: $input_tokens"
-    echo "  Output tokens (est): $output_tokens"
-    echo "  Estimated cost: \$${gen_cost}"
-    echo ""
+    # Check if swarm mode is enabled
+    if [[ "$SWARM_ENABLED" = "true" ]]; then
+        swarm_display_cost "$final_prompt" "$SWARM_STRATEGY"
+        echo ""
+        swarm_cost=$(swarm_estimate_cost "$final_prompt" "$SWARM_STRATEGY")
+
+        # If swarm returns 0, it means context is too small, use standard mode
+        if [[ "$swarm_cost" = "0" || "$swarm_cost" = "0.0000" ]]; then
+            gen_cost=$(calculate_cost "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "$input_tokens" "$output_tokens")
+            echo "Standard Generation (context too small for swarm):"
+            echo "  Provider: $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)"
+            echo "  Input tokens: $input_tokens"
+            echo "  Output tokens (est): $output_tokens"
+            echo "  Estimated cost: \$${gen_cost}"
+            echo ""
+        else
+            gen_cost="$swarm_cost"
+        fi
+    else
+        gen_cost=$(calculate_cost "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "$input_tokens" "$output_tokens")
+        echo "Generation:"
+        echo "  Provider: $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)"
+        echo "  Input tokens: $input_tokens"
+        echo "  Output tokens (est): $output_tokens"
+        echo "  Estimated cost: \$${gen_cost}"
+        echo ""
+    fi
 
     local check_cost="0"
     if [[ -n "$MODE_CHECK_PROVIDER" && "$MODE_CHECK_PROVIDER" != "" ]]; then
@@ -889,22 +911,43 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
 
     # Execute generation
     echo ""
-    msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
 
-    # Show blinking cursor while generating (as requested by user)
-    ui_blink "Generating response..."
-
-    # Use vision API if we have images, otherwise use standard API
     local output
-    if [[ ${#context_images[@]} -gt 0 ]]; then
-        output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
-    else
-        output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
-    fi
-    local gen_exit=$?
+    local gen_exit=0
 
-    # Clear the blinking cursor line
-    ui_clear_line
+    # Check if swarm mode should be used
+    if [[ "$SWARM_ENABLED" = "true" ]]; then
+        # Try swarm execution
+        output=$(swarm_execute "$final_prompt" "$MODE_CURRENT")
+        gen_exit=$?
+
+        # If swarm returns non-zero, fall back to standard mode
+        if [[ $gen_exit -ne 0 ]]; then
+            warn "Swarm execution failed or not applicable, falling back to standard mode"
+            msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
+            ui_blink "Generating response..."
+
+            if [[ ${#context_images[@]} -gt 0 ]]; then
+                output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
+            else
+                output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
+            fi
+            gen_exit=$?
+            ui_clear_line
+        fi
+    else
+        # Standard mode execution
+        msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
+        ui_blink "Generating response..."
+
+        if [[ ${#context_images[@]} -gt 0 ]]; then
+            output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
+        else
+            output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
+        fi
+        gen_exit=$?
+        ui_clear_line
+    fi
 
     echo ""
 
@@ -1087,6 +1130,7 @@ mode_loop() {
         local model_display=$(get_model_display)
         local uploads_display=$(get_uploads_display)
         local check_display=$(get_check_display)
+        local swarm_display=$(get_swarm_display)
 
         local choice
         choice=$(ui_choose "$mode_upper Mode" \
@@ -1095,6 +1139,7 @@ mode_loop() {
             "Model: $model_display" \
             "Uploads: $uploads_display" \
             "Check: $check_display" \
+            "Swarm: $swarm_display" \
             "Status" \
             "Run" \
             "View outputs" \
@@ -1115,6 +1160,9 @@ mode_loop() {
                 ;;
             "Check:"*)
                 menu_check
+                ;;
+            "Swarm:"*)
+                menu_swarm
                 ;;
             "Status")
                 menu_status
@@ -1139,8 +1187,8 @@ mode_loop() {
 
 # Export functions
 export -f init_mode reset_mode mode_loop
-export -f menu_prompt menu_instruct menu_model menu_uploads menu_check menu_status mode_run
+export -f menu_prompt menu_instruct menu_model menu_uploads menu_check menu_swarm menu_status mode_run
 export -f menu_model_provider menu_model_specific
 export -f menu_check_model menu_check_model_specific
 export -f menu_file_browser menu_outputs_browser menu_view_outputs
-export -f get_instruction_display get_model_display get_uploads_display get_check_display
+export -f get_instruction_display get_model_display get_uploads_display get_check_display get_swarm_display
