@@ -20,8 +20,8 @@ ui_input() {
     local default="${2:-}"
     local placeholder="${3:-$prompt}"
 
-    # Check test mode at runtime, not source time
-    if [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
+    # Only use gum if stdin is a terminal (not piped)
+    if [[ -t 0 ]] && [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
         gum input --placeholder "$placeholder" ${default:+--value "$default"}
     else
         local result
