@@ -4,6 +4,7 @@
 [[ -z "${AIWB_LIB_COMMON_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 [[ -z "${AIWB_LIB_CONFIG_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/config.sh"
 [[ -z "${AIWB_LIB_UI_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/ui.sh"
+[[ -z "${AIWB_LIB_API_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/api.sh"
 
 # ============================================================================
 # SWARM STATE MANAGEMENT
