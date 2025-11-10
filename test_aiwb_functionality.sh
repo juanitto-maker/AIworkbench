@@ -88,8 +88,20 @@ test_workspace_structure() {
     # Run aiwb to initialize workspace
     timeout 5 "$SCRIPT_DIR/aiwb" --version >/dev/null 2>&1 || true
 
-    local workspace="$HOME/.aiwb/workspace"
     local config="$HOME/.aiwb/config.json"
+
+    # Read workspace path from config, fallback to default
+    local workspace
+    if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+        workspace=$(jq -r '.workspace // empty' "$config" 2>/dev/null)
+    fi
+
+    # If config doesn't exist or workspace is not set, use default
+    if [[ -z "$workspace" || "$workspace" == "null" ]]; then
+        workspace="$HOME/.aiwb/workspace"
+    fi
+
+    log "Using workspace path from config: $workspace"
 
     # Check workspace directories
     local required_dirs=(
@@ -143,7 +155,14 @@ test_output_file_creation() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local workspace="$HOME/.aiwb/workspace"
+    # Read workspace from config
+    local workspace
+    local config="$HOME/.aiwb/config.json"
+    if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+        workspace=$(jq -r '.workspace // empty' "$config" 2>/dev/null)
+    fi
+    [[ -z "$workspace" || "$workspace" == "null" ]] && workspace="$HOME/.aiwb/workspace"
+
     local outputs_dir="$workspace/outputs"
 
     # Count existing outputs
@@ -311,7 +330,14 @@ test_cost_tracking() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local workspace="$HOME/.aiwb/workspace"
+    # Read workspace from config
+    local workspace
+    local config="$HOME/.aiwb/config.json"
+    if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+        workspace=$(jq -r '.workspace // empty' "$config" 2>/dev/null)
+    fi
+    [[ -z "$workspace" || "$workspace" == "null" ]] && workspace="$HOME/.aiwb/workspace"
+
     local usage_log="$workspace/logs/usage.jsonl"
 
     if [[ -f "$usage_log" ]]; then
@@ -344,7 +370,14 @@ test_chat_history() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
 
-    local workspace="$HOME/.aiwb/workspace"
+    # Read workspace from config
+    local workspace
+    local config="$HOME/.aiwb/config.json"
+    if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+        workspace=$(jq -r '.workspace // empty' "$config" 2>/dev/null)
+    fi
+    [[ -z "$workspace" || "$workspace" == "null" ]] && workspace="$HOME/.aiwb/workspace"
+
     local logs_dir="$workspace/logs"
 
     if [[ -d "$logs_dir" ]]; then
