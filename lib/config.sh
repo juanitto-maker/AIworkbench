@@ -33,8 +33,26 @@ init_workspace() {
 
     debug "Initializing workspace at: $workspace"
 
-    # Try to create workspace structure
-    if ! ensure_dir "$workspace"; then
+    # Function to try creating workspace and subdirectories
+    try_create_workspace() {
+        local ws="$1"
+
+        # Try to create main workspace directory
+        ensure_dir "$ws" || return 1
+
+        # Try to create subdirectories
+        ensure_dir "$ws/projects" || return 1
+        ensure_dir "$ws/tasks" || return 1
+        ensure_dir "$ws/snapshots" || return 1
+        ensure_dir "$ws/logs" || return 1
+        ensure_dir "$ws/templates" || return 1
+        ensure_dir "$ws/history" || return 1
+
+        return 0
+    }
+
+    # Try to create workspace structure at configured location
+    if ! try_create_workspace "$workspace"; then
         # If workspace creation fails (e.g., Termux storage not accessible),
         # fall back to .aiwb/workspace
         local fallback_workspace
@@ -50,7 +68,7 @@ init_workspace() {
         workspace="$fallback_workspace"
 
         # Try fallback location
-        if ! ensure_dir "$workspace"; then
+        if ! try_create_workspace "$workspace"; then
             err "CRITICAL: Cannot create workspace at $workspace"
             err "Please check filesystem permissions"
             return 1
@@ -65,14 +83,6 @@ init_workspace() {
             jq --arg ws "$workspace" '.workspace = $ws' "$config_file" > "$tmp" && mv "$tmp" "$config_file"
         fi
     fi
-
-    # Create subdirectories
-    ensure_dir "$workspace/projects" || return 1
-    ensure_dir "$workspace/tasks" || return 1
-    ensure_dir "$workspace/snapshots" || return 1
-    ensure_dir "$workspace/logs" || return 1
-    ensure_dir "$workspace/templates" || return 1
-    ensure_dir "$workspace/history" || return 1
 
     # Create default inbox task if doesn't exist
     local inbox="$workspace/tasks/inbox.prompt.md"

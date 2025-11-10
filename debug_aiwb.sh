@@ -103,13 +103,18 @@ test_workspace() {
         warn "No config file yet"
     fi
 
-    # Check directories
+    # Check directories using workspace from config
+    local check_workspace="$workspace"
+    if [[ -z "$check_workspace" || "$check_workspace" == "null" ]]; then
+        check_workspace="$HOME/.aiwb/workspace"
+    fi
+
     local dirs=(
-        "$HOME/.aiwb/workspace"
-        "$HOME/.aiwb/workspace/projects"
-        "$HOME/.aiwb/workspace/tasks"
-        "$HOME/.aiwb/workspace/logs"
-        "$HOME/.aiwb/workspace/templates"
+        "$check_workspace"
+        "$check_workspace/projects"
+        "$check_workspace/tasks"
+        "$check_workspace/logs"
+        "$check_workspace/templates"
     )
 
     TOTAL_TESTS=$((TOTAL_TESTS + ${#dirs[@]}))
