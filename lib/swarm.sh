@@ -226,24 +226,24 @@ swarm_execute() {
     local prompt="$1"
     local mode="$2"
 
-    echo ""
-    ui_header "🐝 Swarm Mode Execution"
-    echo ""
-    msg "DEBUG: swarm_execute called with mode=$mode"
-    msg "DEBUG: Prompt length: ${#prompt} characters"
+    echo "" >&2
+    ui_header "🐝 Swarm Mode Execution" >&2
+    echo "" >&2
+    echo "DEBUG: swarm_execute called with mode=$mode" >&2
+    echo "DEBUG: Prompt length: ${#prompt} characters" >&2
 
     # Auto-detect strategy if set to auto
     local strategy="$SWARM_STRATEGY"
-    msg "DEBUG: Current SWARM_STRATEGY=$SWARM_STRATEGY"
+    echo "DEBUG: Current SWARM_STRATEGY=$SWARM_STRATEGY" >&2
     if [[ "$strategy" = "auto" ]]; then
         strategy=$(swarm_auto_detect "$prompt")
-        msg "Auto-detected strategy: $strategy"
+        echo "Auto-detected strategy: $strategy" >&2
     fi
 
-    msg "Strategy: $strategy"
-    msg "Workers: $SWARM_WORKERS × $SWARM_WORKER_PROVIDER/$SWARM_WORKER_MODEL"
-    msg "Aggregator: $SWARM_AGGREGATOR_PROVIDER/$SWARM_AGGREGATOR_MODEL"
-    echo ""
+    echo "Strategy: $strategy" >&2
+    echo "Workers: $SWARM_WORKERS × $SWARM_WORKER_PROVIDER/$SWARM_WORKER_MODEL" >&2
+    echo "Aggregator: $SWARM_AGGREGATOR_PROVIDER/$SWARM_AGGREGATOR_MODEL" >&2
+    echo "" >&2
 
     # Execute based on strategy
     case "$strategy" in
@@ -254,11 +254,12 @@ swarm_execute() {
             swarm_hierarchical "$prompt" "$mode"
             ;;
         none)
-            warn "Context too small for swarm, using standard mode"
+            echo "⚠ Context too small for swarm, using standard mode" >&2
+            echo "DEBUG: Returning 1 to fall back to standard execution" >&2
             return 1  # Fall back to standard execution
             ;;
         *)
-            err "Unknown strategy: $strategy"
+            echo "ERROR: Unknown strategy: $strategy" >&2
             return 1
             ;;
     esac
@@ -287,18 +288,18 @@ swarm_mapreduce() {
     local prompt="$1"
     local mode="$2"
 
-    msg "DEBUG: Estimating tokens for prompt..."
+    echo "DEBUG: Estimating tokens for prompt..." >&2
     local tokens=$(estimate_tokens "$prompt")
-    msg "DEBUG: Estimated tokens: $tokens"
+    echo "DEBUG: Estimated tokens: $tokens" >&2
 
     local chunk_size=2500  # tokens per chunk
     local num_chunks=$(( (tokens + chunk_size - 1) / chunk_size ))
-    msg "DEBUG: Calculated $num_chunks chunks (chunk_size=$chunk_size)"
+    echo "DEBUG: Calculated $num_chunks chunks (chunk_size=$chunk_size)" >&2
 
     # If only 1-2 chunks, not worth the overhead
     if (( num_chunks <= 2 )); then
-        warn "Prompt small enough for standard mode ($num_chunks chunks)"
-        warn "DEBUG: tokens=$tokens, num_chunks=$num_chunks"
+        echo "⚠ Prompt small enough for standard mode ($num_chunks chunks)" >&2
+        echo "DEBUG: tokens=$tokens, num_chunks=$num_chunks" >&2
         return 1
     fi
 
