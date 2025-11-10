@@ -8,10 +8,7 @@
 # ============================================================================
 
 GUM_AVAILABLE=false
-# Disable gum in test mode (it reads from TTY, not stdin)
-if [[ "${AIWB_TEST_MODE:-0}" != "1" ]]; then
-    have gum && GUM_AVAILABLE=true
-fi
+have gum && GUM_AVAILABLE=true
 
 # ============================================================================
 # INPUT FUNCTIONS
@@ -23,7 +20,8 @@ ui_input() {
     local default="${2:-}"
     local placeholder="${3:-$prompt}"
 
-    if $GUM_AVAILABLE; then
+    # Check test mode at runtime, not source time
+    if [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
         gum input --placeholder "$placeholder" ${default:+--value "$default"}
     else
         local result

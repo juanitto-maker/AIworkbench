@@ -298,8 +298,8 @@ chat_loop() {
     while true; do
         local input
 
-        # Get input
-        if $GUM_AVAILABLE; then
+        # Get input (check test mode at runtime, not source time)
+        if [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
             input=$(gum input --placeholder "Message or /command..." --width 80) || continue
         else
             # Use safe_read helper for Termux compatibility
