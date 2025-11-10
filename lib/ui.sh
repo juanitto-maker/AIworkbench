@@ -224,6 +224,20 @@ ui_spinner() {
     fi
 }
 
+# Show blinking cursor animation (simpler, inline version)
+ui_blink() {
+    local message="$1"
+    local spinstr='⣾⣽⣻⢿⡿⣟⣯⣷'
+    local i=$((RANDOM % ${#spinstr}))
+    i=$(( (i+1) % ${#spinstr} ))
+    printf "\r${CYAN}${spinstr:$i:1}${RESET} %s" "$message"
+}
+
+# Clear spinner/blink line
+ui_clear_line() {
+    echo -ne "\r\033[K"
+}
+
 # ============================================================================
 # FORMATTING AND DISPLAY
 # ============================================================================

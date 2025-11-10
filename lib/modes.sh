@@ -102,22 +102,127 @@ menu_prompt() {
 
 # Instruct menu (file-based instruction)
 menu_instruct() {
-    local file
-    file=$(ui_input "Instruction file path:" "$MODE_INSTRUCT_FILE")
+    while true; do
+        local choice
+        local current_file="${MODE_INSTRUCT_FILE:-None}"
+        local current_display="Current: $current_file"
 
-    if [[ -z "$file" ]]; then
-        return 0
-    fi
+        choice=$(ui_choose "Instruction File ($current_display)" \
+            "Browse files" \
+            "Browse outputs" \
+            "Type path manually" \
+            "View current file" \
+            "Clear" \
+            "Back")
 
-    if [[ ! -f "$file" ]]; then
-        err "File not found: $file"
-        return 1
-    fi
+        case "$choice" in
+            "Browse files")
+                # Storage location selection
+                local storage_choice
+                storage_choice=$(ui_choose "Select Storage Location" \
+                    "Internal Storage ($HOME)" \
+                    "External Storage (SD Card)" \
+                    "Current Directory (.)" \
+                    "Back")
 
-    MODE_INSTRUCT_FILE="$file"
-    MODE_PROMPT=""  # Clear text if file is set
-    local size=$(wc -w < "$file" 2>/dev/null || echo 0)
-    success "Instructions loaded from file ($size words)"
+                case "$storage_choice" in
+                    "Internal Storage"*)
+                        local selected_file
+                        selected_file=$(menu_file_browser "$HOME")
+                        if [[ -f "$selected_file" ]]; then
+                            MODE_INSTRUCT_FILE="$selected_file"
+                            MODE_PROMPT=""  # Clear text if file is set
+                            local size=$(wc -w < "$selected_file" 2>/dev/null || echo 0)
+                            success "Instructions loaded from file ($size words)"
+                        fi
+                        ;;
+                    "External Storage"*)
+                        local ext_path=""
+                        if [[ -d "$HOME/storage/shared" ]]; then
+                            ext_path="$HOME/storage/shared"
+                        elif [[ -d "/storage/emulated/0" ]]; then
+                            ext_path="/storage/emulated/0"
+                        elif [[ -d "/sdcard" ]]; then
+                            ext_path="/sdcard"
+                        else
+                            warn "Auto-detection failed. Common paths not found."
+                            local custom_path
+                            custom_path=$(ui_input "Enter external storage path (or leave empty to cancel):")
+                            if [[ -n "$custom_path" ]] && [[ -d "$custom_path" ]]; then
+                                ext_path="$custom_path"
+                            fi
+                        fi
+                        if [[ -n "$ext_path" ]]; then
+                            local selected_file
+                            selected_file=$(menu_file_browser "$ext_path")
+                            if [[ -f "$selected_file" ]]; then
+                                MODE_INSTRUCT_FILE="$selected_file"
+                                MODE_PROMPT=""
+                                local size=$(wc -w < "$selected_file" 2>/dev/null || echo 0)
+                                success "Instructions loaded from file ($size words)"
+                            fi
+                        fi
+                        ;;
+                    "Current Directory"*)
+                        local selected_file
+                        selected_file=$(menu_file_browser ".")
+                        if [[ -f "$selected_file" ]]; then
+                            MODE_INSTRUCT_FILE="$selected_file"
+                            MODE_PROMPT=""
+                            local size=$(wc -w < "$selected_file" 2>/dev/null || echo 0)
+                            success "Instructions loaded from file ($size words)"
+                        fi
+                        ;;
+                esac
+                ;;
+            "Browse outputs")
+                local workspace output_dir
+                workspace="$(get_workspace)"
+                output_dir="$workspace/outputs"
+                local selected_file
+                selected_file=$(menu_file_browser "$output_dir")
+                if [[ -f "$selected_file" ]]; then
+                    MODE_INSTRUCT_FILE="$selected_file"
+                    MODE_PROMPT=""
+                    local size=$(wc -w < "$selected_file" 2>/dev/null || echo 0)
+                    success "Instructions loaded from file ($size words)"
+                fi
+                ;;
+            "Type path manually")
+                local file
+                file=$(ui_input "Instruction file path:" "$MODE_INSTRUCT_FILE")
+                if [[ -n "$file" ]]; then
+                    if [[ -f "$file" ]]; then
+                        MODE_INSTRUCT_FILE="$file"
+                        MODE_PROMPT=""
+                        local size=$(wc -w < "$file" 2>/dev/null || echo 0)
+                        success "Instructions loaded from file ($size words)"
+                    else
+                        err "File not found: $file"
+                    fi
+                fi
+                ;;
+            "View current file")
+                if [[ -n "$MODE_INSTRUCT_FILE" ]] && [[ -f "$MODE_INSTRUCT_FILE" ]]; then
+                    clear 2>/dev/null || true
+                    ui_header "Instruction File: $MODE_INSTRUCT_FILE"
+                    echo ""
+                    cat "$MODE_INSTRUCT_FILE"
+                    echo ""
+                    ui_confirm "Press enter to continue..."
+                else
+                    warn "No instruction file set"
+                fi
+                ;;
+            "Clear")
+                MODE_INSTRUCT_FILE=""
+                success "Instruction file cleared"
+                ;;
+            "Back"|"")
+                return 0
+                ;;
+        esac
+    done
 }
 
 # Model menu - nested navigation
@@ -225,15 +330,26 @@ menu_uploads() {
                         ;;
                     "External Storage"*)
                         # Try common Android/Termux external storage paths
+                        local ext_path=""
                         if [[ -d "$HOME/storage/shared" ]]; then
-                            menu_file_browser "$HOME/storage/shared"
+                            ext_path="$HOME/storage/shared"
                         elif [[ -d "/storage/emulated/0" ]]; then
-                            menu_file_browser "/storage/emulated/0"
+                            ext_path="/storage/emulated/0"
                         elif [[ -d "/sdcard" ]]; then
-                            menu_file_browser "/sdcard"
+                            ext_path="/sdcard"
                         else
-                            err "External storage not found"
+                            warn "Auto-detection failed. Common paths not found."
+                            local custom_path
+                            custom_path=$(ui_input "Enter external storage path (or leave empty to cancel):")
+                            if [[ -n "$custom_path" ]]; then
+                                if [[ -d "$custom_path" ]]; then
+                                    ext_path="$custom_path"
+                                else
+                                    err "Directory not found: $custom_path"
+                                fi
+                            fi
                         fi
+                        [[ -n "$ext_path" ]] && menu_file_browser "$ext_path"
                         ;;
                     "Current Directory"*)
                         menu_file_browser "."
@@ -585,6 +701,21 @@ menu_view_outputs() {
 
                     echo ""
                     echo "File location: $filepath"
+
+                    # Calculate and display total cost
+                    local workspace logs_dir usage_log
+                    workspace="$(get_workspace)"
+                    logs_dir="$workspace/logs"
+                    usage_log="$logs_dir/usage.jsonl"
+
+                    if [[ -f "$usage_log" ]]; then
+                        local total_cost=0
+                        while IFS= read -r line; do
+                            local cost=$(echo "$line" | jq -r '.cost // 0' 2>/dev/null)
+                            total_cost=$(awk "BEGIN {printf \"%.6f\", $total_cost + $cost}")
+                        done < "$usage_log"
+                        echo "Total cost (all operations): \$${total_cost}"
+                    fi
                     echo ""
 
                     # Add clipboard option if available
@@ -641,31 +772,69 @@ $final_prompt"
             ;;
     esac
 
+    # Separate images from text files in context
+    local context_images=()
+    local has_text_context=false
+
     # Add uploaded files context
     if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
-        final_prompt="$final_prompt
+        # First pass: identify images vs text files
+        for item in "${MODE_UPLOADS[@]}"; do
+            if [[ -f "$item" ]] && is_image_file "$item"; then
+                context_images+=("$item")
+            elif [[ -f "$item" ]] || [[ -d "$item" ]]; then
+                has_text_context=true
+            fi
+        done
+
+        # Second pass: add text content to prompt
+        if [[ "$has_text_context" = true ]]; then
+            final_prompt="$final_prompt
 
 === CONTEXT FILES ===
 "
-        for item in "${MODE_UPLOADS[@]}"; do
-            if [[ -f "$item" ]]; then
-                final_prompt="$final_prompt
+            for item in "${MODE_UPLOADS[@]}"; do
+                # Skip images - they'll be sent separately
+                if [[ -f "$item" ]] && is_image_file "$item"; then
+                    final_prompt="$final_prompt
+
+--- Image: $item ---
+[Image will be analyzed by vision model]
+"
+                    continue
+                fi
+
+                if [[ -f "$item" ]]; then
+                    final_prompt="$final_prompt
 
 --- File: $item ---
 $(cat "$item")
 "
-            elif [[ -d "$item" ]]; then
-                final_prompt="$final_prompt
+                elif [[ -d "$item" ]]; then
+                    final_prompt="$final_prompt
 
 --- Directory: $item ---
 $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.md" 2>/dev/null | head -5 | while read f; do
-                    echo "File: $f"
-                    head -20 "$f"
-                    echo "..."
-                done)
+                        echo "File: $f"
+                        head -20 "$f"
+                        echo "..."
+                    done)
 "
-            fi
-        done
+                fi
+            done
+        fi
+
+        # If we have images, add a note
+        if [[ ${#context_images[@]} -gt 0 ]]; then
+            final_prompt="$final_prompt
+
+=== CONTEXT IMAGES (${#context_images[@]}) ===
+"
+            for img in "${context_images[@]}"; do
+                final_prompt="$final_prompt- $img
+"
+            done
+        fi
     fi
 
     # Estimate cost
@@ -722,14 +891,42 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     echo ""
     msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
 
-    # Show simple message instead of spinner to avoid blocking
-    echo -n "Generating response..."
+    # Show spinner while generating
+    local output gen_exit
+    if $GUM_AVAILABLE; then
+        # Use gum spin with actual command - need to handle image array properly
+        if [[ ${#context_images[@]} -gt 0 ]]; then
+            # For vision calls, we can't easily pass arrays through bash -c, so fall back to spinner
+            ui_spinner "Generating response..." &
+            local spinner_pid=$!
+            output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
+            gen_exit=$?
+            kill $spinner_pid 2>/dev/null || true
+            wait $spinner_pid 2>/dev/null || true
+            ui_clear_line
+        else
+            output=$(gum spin --spinner dot --title "Generating response..." -- bash -c "call_api '$final_prompt' '$MODE_MODEL_PROVIDER' '$MODE_MODEL_NAME'")
+            gen_exit=$?
+        fi
+    else
+        # Show animated spinner in background
+        ui_spinner "Generating response..." &
+        local spinner_pid=$!
 
-    local output
-    output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
-    local gen_exit=$?
+        # Use vision API if we have images, otherwise use standard API
+        if [[ ${#context_images[@]} -gt 0 ]]; then
+            output=$(call_api_with_images "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "" "${context_images[@]}")
+        else
+            output=$(call_api "$final_prompt" "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME")
+        fi
+        gen_exit=$?
 
-    # Clear status message
+        # Stop spinner and clear line
+        kill $spinner_pid 2>/dev/null || true
+        wait $spinner_pid 2>/dev/null || true
+        ui_clear_line
+    fi
+
     echo ""
 
     # Check if interrupted

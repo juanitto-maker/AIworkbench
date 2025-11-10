@@ -120,6 +120,52 @@ has_api_key() {
 }
 
 # ============================================================================
+# IMAGE HANDLING
+# ============================================================================
+
+# Check if file is an image
+is_image_file() {
+    local file="$1"
+    local ext="${file##*.}"
+    ext="${ext,,}"  # Convert to lowercase
+
+    case "$ext" in
+        jpg|jpeg|png|gif|webp|bmp)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Get MIME type for image
+get_image_mime_type() {
+    local file="$1"
+    local ext="${file##*.}"
+    ext="${ext,,}"
+
+    case "$ext" in
+        jpg|jpeg) echo "image/jpeg" ;;
+        png) echo "image/png" ;;
+        gif) echo "image/gif" ;;
+        webp) echo "image/webp" ;;
+        bmp) echo "image/bmp" ;;
+        *) echo "image/jpeg" ;;  # default fallback
+    esac
+}
+
+# Encode image to base64
+encode_image_base64() {
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        err "Image file not found: $file"
+        return 1
+    fi
+    base64 < "$file" | tr -d '\n'
+}
+
+# ============================================================================
 # TOKEN ESTIMATION
 # ============================================================================
 
@@ -259,6 +305,122 @@ stream_gemini() {
     call_gemini "$prompt" "$model"
 }
 
+# Call Gemini with vision support (images)
+call_gemini_vision() {
+    local prompt="$1"
+    local model="${2:-gemini-2.0-flash-exp}"
+    local max_tokens="${3:-16000}"
+    local temperature="${4:-0.2}"
+    shift 4
+    local image_files=("$@")  # Remaining args are image file paths
+
+    local api_key
+    api_key="$(get_api_key gemini)"
+    [[ -z "$api_key" ]] && { err "GEMINI_API_KEY not set"; return 1; }
+
+    local url="https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${api_key}"
+
+    # Build parts array with text and images
+    local parts_json="["
+
+    # Add text part first
+    parts_json+="{\"text\": $(echo "$prompt" | jq -Rs .)}"
+
+    # Add image parts
+    for img_file in "${image_files[@]}"; do
+        if [[ -f "$img_file" ]] && is_image_file "$img_file"; then
+            local mime_type=$(get_image_mime_type "$img_file")
+            local base64_data=$(encode_image_base64 "$img_file")
+            parts_json+=",{\"inline_data\": {\"mime_type\": \"$mime_type\", \"data\": \"$base64_data\"}}"
+        fi
+    done
+
+    parts_json+="]"
+
+    local request_body
+    request_body=$(jq -n \
+        --argjson parts "$parts_json" \
+        --argjson max "$max_tokens" \
+        --argjson temp "$temperature" \
+        '{
+            contents: [{role: "user", parts: $parts}],
+            generationConfig: {
+                temperature: $temp,
+                maxOutputTokens: $max
+            }
+        }')
+
+    local response
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+
+    set +e
+    curl -fsS \
+        --max-time 300 \
+        --connect-timeout 10 \
+        --no-buffer \
+        -H "Content-Type: application/json" \
+        -X POST "$url" \
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
+
+    wait $curl_pid
+    local exit_code=$?
+    set -e
+
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
+
+    if [[ $exit_code -ne 0 ]]; then
+        local error_msg error_code
+        local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
+        local curl_error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+
+        if [[ -n "$response_data" ]] && echo "$response_data" | jq -e '.error' >/dev/null 2>&1; then
+            error_msg=$(echo "$response_data" | jq -r '.error.message // "Unknown error"' 2>/dev/null)
+            error_code=$(echo "$response_data" | jq -r '.error.code // ""' 2>/dev/null)
+        else
+            error_msg="$curl_error_msg"
+            error_code="$exit_code"
+        fi
+
+        rm -f "$curl_error" "$curl_output"
+        display_api_error "Gemini Vision" "$error_msg" "$response_data" "$model" "$error_code"
+        return 1
+    fi
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
+
+    if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+        local api_error_msg api_error_code
+        api_error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"')
+        api_error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
+        display_api_error "Gemini Vision" "$api_error_msg" "$response" "$model" "$api_error_code"
+        return 1
+    fi
+
+    local text
+    text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
+
+    if [[ -z "$text" ]]; then
+        local error_msg error_code
+        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
+        error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
+        display_api_error "Gemini Vision" "$error_msg" "$response" "$model" "$error_code"
+        return 1
+    fi
+
+    echo "$text"
+}
+
 # ============================================================================
 # API CALLS - CLAUDE
 # ============================================================================
@@ -353,6 +515,119 @@ call_claude() {
         local error_msg
         error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
         display_api_error "Claude" "$error_msg" "$response" "$model"
+        return 1
+    fi
+
+    echo "$text"
+}
+
+# Call Claude with vision support (images)
+call_claude_vision() {
+    local prompt="$1"
+    local model="${2:-claude-3-5-sonnet-20241022}"
+    local max_tokens="${3:-4096}"
+    local temperature="${4:-0.2}"
+    shift 4
+    local image_files=("$@")  # Remaining args are image file paths
+
+    local api_key
+    api_key="$(get_api_key claude)"
+    [[ -z "$api_key" ]] && { err "ANTHROPIC_API_KEY not set"; return 1; }
+
+    local url="https://api.anthropic.com/v1/messages"
+
+    # Build content array with text and images
+    local content_json="["
+
+    # Add image parts first (Claude prefers images before text)
+    local first=true
+    for img_file in "${image_files[@]}"; do
+        if [[ -f "$img_file" ]] && is_image_file "$img_file"; then
+            [[ "$first" = false ]] && content_json+=","
+            first=false
+
+            local mime_type=$(get_image_mime_type "$img_file")
+            local base64_data=$(encode_image_base64 "$img_file")
+            content_json+="{\"type\": \"image\", \"source\": {\"type\": \"base64\", \"media_type\": \"$mime_type\", \"data\": \"$base64_data\"}}"
+        fi
+    done
+
+    # Add text part last
+    [[ "$first" = false ]] && content_json+=","
+    content_json+="{\"type\": \"text\", \"text\": $(echo "$prompt" | jq -Rs .)}"
+    content_json+="]"
+
+    local request_body
+    request_body=$(jq -n \
+        --arg model "$model" \
+        --argjson content "$content_json" \
+        --argjson max "$max_tokens" \
+        --argjson temp "$temperature" \
+        '{
+            model: $model,
+            max_tokens: $max,
+            temperature: $temp,
+            messages: [{role: "user", content: $content}]
+        }')
+
+    local response
+    local curl_error curl_output
+    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+
+    set +e
+    curl -sS "$url" \
+        --max-time 300 \
+        --connect-timeout 10 \
+        --no-buffer \
+        -H "x-api-key: $api_key" \
+        -H "anthropic-version: 2023-06-01" \
+        -H "content-type: application/json" \
+        -d "$request_body" \
+        -o "$curl_output" \
+        2>"$curl_error" &
+    local curl_pid=$!
+
+    wait $curl_pid
+    local exit_code=$?
+    set -e
+
+    if [[ $exit_code -eq 130 ]]; then
+        rm -f "$curl_error" "$curl_output"
+        echo "" >&2
+        err "Request interrupted by user"
+        return 130
+    fi
+
+    if [[ $exit_code -ne 0 ]]; then
+        local error_msg
+        error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
+        local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
+        rm -f "$curl_error" "$curl_output"
+        display_api_error "Claude Vision" "$error_msg" "$response_data" "$model" "$exit_code"
+        return 1
+    fi
+
+    response=$(cat "$curl_output" 2>/dev/null || echo "")
+    rm -f "$curl_error" "$curl_output"
+
+    if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+        local api_error_type api_error_msg api_error_code
+        api_error_type=$(echo "$response" | jq -r '.error.type // ""')
+        api_error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"')
+        api_error_code=$(echo "$response" | jq -r '.error.status_code // ""' 2>/dev/null)
+        local full_error="$api_error_type: $api_error_msg"
+        display_api_error "Claude Vision" "$full_error" "$response" "$model" "$api_error_code"
+        return 1
+    fi
+
+    local text
+    text=$(echo "$response" | jq -r '.content[0].text // empty' 2>/dev/null)
+
+    if [[ -z "$text" ]]; then
+        local error_msg
+        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
+        display_api_error "Claude Vision" "$error_msg" "$response" "$model"
         return 1
     fi
 
@@ -845,6 +1120,69 @@ call_api() {
             call_xai "$prompt" "$model" "$max_tokens"
             ;;
         ollama)
+            call_ollama "$prompt" "$model"
+            ;;
+        *)
+            err "Unknown provider: $provider"
+            return 1
+            ;;
+    esac
+}
+
+# Call API with image support
+# Usage: call_api_with_images "prompt" "provider" "model" "max_tokens" image_file1 image_file2 ...
+call_api_with_images() {
+    local prompt="$1"
+    local provider="${2:-$(config_get model_provider)}"
+    local model="${3:-$(config_get model_name)}"
+    local max_tokens="${4:-}"
+    shift 4
+    local image_files=("$@")
+
+    # Set appropriate max_tokens based on provider/model if not specified
+    if [[ -z "$max_tokens" ]]; then
+        case "$provider" in
+            claude)
+                # Claude 3 Haiku has 4096 max, Sonnet/Opus have 8192
+                if [[ "$model" == *"haiku"* ]]; then
+                    max_tokens=4096
+                else
+                    max_tokens=8192
+                fi
+                ;;
+            *)
+                max_tokens=16000
+                ;;
+        esac
+    fi
+
+    debug "Calling $provider API with vision support, model $model (max_tokens: $max_tokens, images: ${#image_files[@]})"
+
+    case "$provider" in
+        gemini)
+            call_gemini_vision "$prompt" "gemini-${model}" "$max_tokens" 0.2 "${image_files[@]}"
+            ;;
+        claude)
+            call_claude_vision "$prompt" "claude-${model}" "$max_tokens" 0.2 "${image_files[@]}"
+            ;;
+        openai)
+            # TODO: Add OpenAI vision support
+            warn "Vision not yet implemented for OpenAI, falling back to text-only"
+            call_openai "$prompt" "$model" "$max_tokens"
+            ;;
+        groq)
+            # TODO: Add Groq vision support if available
+            warn "Vision not supported for Groq, falling back to text-only"
+            call_groq "$prompt" "$model" "$max_tokens"
+            ;;
+        xai)
+            # TODO: Add xAI vision support if available
+            warn "Vision not supported for xAI, falling back to text-only"
+            call_xai "$prompt" "$model" "$max_tokens"
+            ;;
+        ollama)
+            # TODO: Add Ollama vision support if available
+            warn "Vision not supported for Ollama, falling back to text-only"
             call_ollama "$prompt" "$model"
             ;;
         *)
