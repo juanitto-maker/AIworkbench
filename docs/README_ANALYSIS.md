@@ -49,6 +49,14 @@ Start here based on your needs:
 - Cost comparisons
 - Example workflows
 
+### I'm using Termux on Android/mobile
+→ Read: **[TERMUX_MOBILE_STRATEGY.md](TERMUX_MOBILE_STRATEGY.md)**
+- Mobile-optimized approach (Hierarchical + SQLite)
+- Why RAG is too heavy for mobile
+- Battery-friendly indexing strategy
+- Storage and performance comparisons
+- Lightweight alternatives
+
 ---
 
 ## Document Details
@@ -60,8 +68,9 @@ Start here based on your needs:
 | **CODE_MAP.md** | 16 KB | 12 | Code navigation, reference |
 | **CONTEXT_LIMITATION_SOLUTION_ANALYSIS.md** | 64 KB | 9 | Scaling to 100K+ LOC codebases |
 | **QUICK_START_RAG.md** | 8 KB | 8 | Quick RAG implementation |
+| **TERMUX_MOBILE_STRATEGY.md** | 18 KB | 9 | Mobile/Termux optimization |
 
-**Total**: 124 KB, 2,800+ lines of analysis
+**Total**: 142 KB, 3,200+ lines of analysis
 
 ---
 
