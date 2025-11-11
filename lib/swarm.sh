@@ -14,7 +14,7 @@
 SWARM_ENABLED=false
 SWARM_STRATEGY="auto"
 SWARM_WORKER_PROVIDER="gemini"
-SWARM_WORKER_MODEL="2.0-flash-exp"
+SWARM_WORKER_MODEL="2.5-flash"
 SWARM_AGGREGATOR_PROVIDER="claude"
 SWARM_AGGREGATOR_MODEL="3-5-sonnet-20241022"
 SWARM_WORKERS=5
@@ -24,7 +24,7 @@ swarm_init() {
     SWARM_ENABLED=$(config_get "swarm.enabled" "false")
     SWARM_STRATEGY=$(config_get "swarm.strategy" "auto")
     SWARM_WORKER_PROVIDER=$(config_get "swarm.worker_provider" "gemini")
-    SWARM_WORKER_MODEL=$(config_get "swarm.worker_model" "2.0-flash-exp")
+    SWARM_WORKER_MODEL=$(config_get "swarm.worker_model" "2.5-flash")
     SWARM_AGGREGATOR_PROVIDER=$(config_get "swarm.aggregator_provider" "claude")
     SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "3-5-sonnet-20241022")
     SWARM_WORKERS=$(config_get "swarm.workers" "5")
@@ -148,11 +148,11 @@ menu_swarm_worker_model() {
     case "$choice" in
         "gemini/2.5-flash"*)
             SWARM_WORKER_PROVIDER="gemini"
-            SWARM_WORKER_MODEL="2.0-flash-exp"
+            SWARM_WORKER_MODEL="2.5-flash"
             ;;
         "gemini/2.0-flash-lite"*)
             SWARM_WORKER_PROVIDER="gemini"
-            SWARM_WORKER_MODEL="2.0-flash-exp"
+            SWARM_WORKER_MODEL="2.0-flash-lite"
             ;;
         "groq/llama-3.3-70b"*)
             SWARM_WORKER_PROVIDER="groq"
