@@ -515,7 +515,7 @@ get_models_for_provider() {
             echo "2.5-flash 2.0-flash"
             ;;
         claude)
-            echo "3-haiku-20240307 3-5-sonnet-20241022"
+            echo "3-haiku-20240307 3-5-sonnet-20240620"
             ;;
         openai)
             echo "gpt-4o-mini gpt-4o"

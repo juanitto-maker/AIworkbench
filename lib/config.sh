@@ -287,7 +287,7 @@ get_available_models() {
             echo "2.5-flash 2.5-flash-lite 2.5-pro 2.0-flash 2.0-flash-lite 2.0-pro 2.0-pro-exp"
             ;;
         claude)
-            echo "3-haiku-20240307 3-5-haiku-20241022 3-5-sonnet-20240620 3-5-sonnet-20241022 3-opus-20240229 sonnet-4-5-20250929"
+            echo "3-haiku-20240307 3-5-haiku-20241022 3-5-sonnet-20240620 3-opus-20240229 sonnet-4-5-20250929"
             ;;
         openai)
             echo "gpt-4o-mini gpt-4o gpt-4-turbo o1-mini o1-preview o3-mini o3 o3-pro"

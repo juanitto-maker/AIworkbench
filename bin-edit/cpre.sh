@@ -41,7 +41,7 @@ WS_ROOT_DEFAULT="${AIWB_HOME}/workspace"
 TASKS_DIR_DEFAULT="${WS_ROOT_DEFAULT}/tasks"
 
 PROVIDER_DEFAULT="claude"
-MODEL_DEFAULT_CLAUDE="3-5-sonnet-20241022"
+MODEL_DEFAULT_CLAUDE="3-5-sonnet-20240620"
 
 # Pricing defaults (USD per 1K tokens) — override in ~/.aiwb/pricing.json
 # These are placeholders; adjust to your real pricing in your user pricing.json.

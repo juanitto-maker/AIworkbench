@@ -16,7 +16,7 @@ SWARM_STRATEGY="auto"
 SWARM_WORKER_PROVIDER="gemini"
 SWARM_WORKER_MODEL="2.5-flash"
 SWARM_AGGREGATOR_PROVIDER="claude"
-SWARM_AGGREGATOR_MODEL="3-5-sonnet-20241022"
+SWARM_AGGREGATOR_MODEL="3-5-sonnet-20240620"
 SWARM_WORKERS=5
 
 # Initialize swarm from config
@@ -26,7 +26,7 @@ swarm_init() {
     SWARM_WORKER_PROVIDER=$(config_get "swarm.worker_provider" "gemini")
     SWARM_WORKER_MODEL=$(config_get "swarm.worker_model" "2.5-flash")
     SWARM_AGGREGATOR_PROVIDER=$(config_get "swarm.aggregator_provider" "claude")
-    SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "3-5-sonnet-20241022")
+    SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "3-5-sonnet-20240620")
     SWARM_WORKERS=$(config_get "swarm.workers" "5")
 
     # Export swarm config so background workers can access it
@@ -185,7 +185,7 @@ menu_swarm_aggregator_model() {
     case "$choice" in
         "claude/3.5-sonnet"*)
             SWARM_AGGREGATOR_PROVIDER="claude"
-            SWARM_AGGREGATOR_MODEL="3-5-sonnet-20241022"
+            SWARM_AGGREGATOR_MODEL="3-5-sonnet-20240620"
             ;;
         "claude/3.5-haiku"*)
             SWARM_AGGREGATOR_PROVIDER="claude"

@@ -551,7 +551,7 @@ call_claude() {
 # Call Claude with vision support (images)
 call_claude_vision() {
     local prompt="$1"
-    local model="${2:-claude-3-5-sonnet-20241022}"
+    local model="${2:-claude-3-5-sonnet-20240620}"
     local max_tokens="${3:-4096}"
     local temperature="${4:-0.2}"
     shift 4
