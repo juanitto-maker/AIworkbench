@@ -14,9 +14,9 @@
 SWARM_ENABLED=false
 SWARM_STRATEGY="auto"
 SWARM_WORKER_PROVIDER="gemini"
-SWARM_WORKER_MODEL="gemini-2.0-flash-exp"
+SWARM_WORKER_MODEL="2.0-flash-exp"
 SWARM_AGGREGATOR_PROVIDER="claude"
-SWARM_AGGREGATOR_MODEL="claude-3-5-sonnet-20241022"
+SWARM_AGGREGATOR_MODEL="3-5-sonnet-20241022"
 SWARM_WORKERS=5
 
 # Initialize swarm from config
@@ -24,9 +24,9 @@ swarm_init() {
     SWARM_ENABLED=$(config_get "swarm.enabled" "false")
     SWARM_STRATEGY=$(config_get "swarm.strategy" "auto")
     SWARM_WORKER_PROVIDER=$(config_get "swarm.worker_provider" "gemini")
-    SWARM_WORKER_MODEL=$(config_get "swarm.worker_model" "gemini-2.0-flash-exp")
+    SWARM_WORKER_MODEL=$(config_get "swarm.worker_model" "2.0-flash-exp")
     SWARM_AGGREGATOR_PROVIDER=$(config_get "swarm.aggregator_provider" "claude")
-    SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "claude-3-5-sonnet-20241022")
+    SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "3-5-sonnet-20241022")
     SWARM_WORKERS=$(config_get "swarm.workers" "5")
 
     # Export swarm config so background workers can access it
@@ -34,6 +34,19 @@ swarm_init() {
     export SWARM_WORKER_PROVIDER SWARM_WORKER_MODEL
     export SWARM_AGGREGATOR_PROVIDER SWARM_AGGREGATOR_MODEL
     export SWARM_WORKERS
+
+    # Load and export API keys for background workers
+    local env_file
+    env_file="$(get_env_file)"
+    if [[ -f "$env_file" ]]; then
+        source "$env_file"
+        # Export all API keys so background workers can access them
+        [[ -n "${GEMINI_API_KEY:-}" ]] && export GEMINI_API_KEY
+        [[ -n "${ANTHROPIC_API_KEY:-}" ]] && export ANTHROPIC_API_KEY
+        [[ -n "${OPENAI_API_KEY:-}" ]] && export OPENAI_API_KEY
+        [[ -n "${GROQ_API_KEY:-}" ]] && export GROQ_API_KEY
+        [[ -n "${XAI_API_KEY:-}" ]] && export XAI_API_KEY
+    fi
 }
 
 # Get swarm display
@@ -135,11 +148,11 @@ menu_swarm_worker_model() {
     case "$choice" in
         "gemini/2.5-flash"*)
             SWARM_WORKER_PROVIDER="gemini"
-            SWARM_WORKER_MODEL="gemini-2.0-flash-exp"
+            SWARM_WORKER_MODEL="2.0-flash-exp"
             ;;
         "gemini/2.0-flash-lite"*)
             SWARM_WORKER_PROVIDER="gemini"
-            SWARM_WORKER_MODEL="gemini-2.0-flash-exp"
+            SWARM_WORKER_MODEL="2.0-flash-exp"
             ;;
         "groq/llama-3.3-70b"*)
             SWARM_WORKER_PROVIDER="groq"
@@ -147,7 +160,7 @@ menu_swarm_worker_model() {
             ;;
         "claude/3.5-haiku"*)
             SWARM_WORKER_PROVIDER="claude"
-            SWARM_WORKER_MODEL="claude-3-haiku-20240307"
+            SWARM_WORKER_MODEL="3-haiku-20240307"
             ;;
         "Back"|"")
             return 0
@@ -172,15 +185,15 @@ menu_swarm_aggregator_model() {
     case "$choice" in
         "claude/3.5-sonnet"*)
             SWARM_AGGREGATOR_PROVIDER="claude"
-            SWARM_AGGREGATOR_MODEL="claude-3-5-sonnet-20241022"
+            SWARM_AGGREGATOR_MODEL="3-5-sonnet-20241022"
             ;;
         "claude/3.5-haiku"*)
             SWARM_AGGREGATOR_PROVIDER="claude"
-            SWARM_AGGREGATOR_MODEL="claude-3-haiku-20240307"
+            SWARM_AGGREGATOR_MODEL="3-haiku-20240307"
             ;;
         "gemini/2.5-flash"*)
             SWARM_AGGREGATOR_PROVIDER="gemini"
-            SWARM_AGGREGATOR_MODEL="gemini-2.0-flash-exp"
+            SWARM_AGGREGATOR_MODEL="2.0-flash-exp"
             ;;
         "openai/gpt-4o"*)
             SWARM_AGGREGATOR_PROVIDER="openai"
