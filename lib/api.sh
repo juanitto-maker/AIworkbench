@@ -208,9 +208,13 @@ call_gemini() {
 
     local url="https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${api_key}"
 
+    # Handle large prompts by using a temp file instead of command-line args
     local request_body
+    local prompt_file=$(mktemp)
+    echo -n "$prompt" > "$prompt_file"
+
     request_body=$(jq -n \
-        --arg text "$prompt" \
+        --rawfile text "$prompt_file" \
         --argjson max "$max_tokens" \
         --argjson temp "$temperature" \
         '{
@@ -220,6 +224,7 @@ call_gemini() {
                 maxOutputTokens: $max
             }
         }')
+    rm -f "$prompt_file"
 
     local response
     local curl_error curl_output
