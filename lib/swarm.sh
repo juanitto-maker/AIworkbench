@@ -14,9 +14,9 @@
 SWARM_ENABLED=false
 SWARM_STRATEGY="auto"
 SWARM_WORKER_PROVIDER="gemini"
-SWARM_WORKER_MODEL="2.5-flash"
+SWARM_WORKER_MODEL="gemini-2.0-flash-exp"
 SWARM_AGGREGATOR_PROVIDER="claude"
-SWARM_AGGREGATOR_MODEL="3.5-haiku"
+SWARM_AGGREGATOR_MODEL="claude-3-5-sonnet-20241022"
 SWARM_WORKERS=5
 
 # Initialize swarm from config
@@ -24,10 +24,16 @@ swarm_init() {
     SWARM_ENABLED=$(config_get "swarm.enabled" "false")
     SWARM_STRATEGY=$(config_get "swarm.strategy" "auto")
     SWARM_WORKER_PROVIDER=$(config_get "swarm.worker_provider" "gemini")
-    SWARM_WORKER_MODEL=$(config_get "swarm.worker_model" "2.5-flash")
+    SWARM_WORKER_MODEL=$(config_get "swarm.worker_model" "gemini-2.0-flash-exp")
     SWARM_AGGREGATOR_PROVIDER=$(config_get "swarm.aggregator_provider" "claude")
-    SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "3.5-haiku")
+    SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "claude-3-5-sonnet-20241022")
     SWARM_WORKERS=$(config_get "swarm.workers" "5")
+
+    # Export swarm config so background workers can access it
+    export SWARM_ENABLED SWARM_STRATEGY
+    export SWARM_WORKER_PROVIDER SWARM_WORKER_MODEL
+    export SWARM_AGGREGATOR_PROVIDER SWARM_AGGREGATOR_MODEL
+    export SWARM_WORKERS
 }
 
 # Get swarm display
@@ -129,19 +135,19 @@ menu_swarm_worker_model() {
     case "$choice" in
         "gemini/2.5-flash"*)
             SWARM_WORKER_PROVIDER="gemini"
-            SWARM_WORKER_MODEL="2.5-flash"
+            SWARM_WORKER_MODEL="gemini-2.0-flash-exp"
             ;;
         "gemini/2.0-flash-lite"*)
             SWARM_WORKER_PROVIDER="gemini"
-            SWARM_WORKER_MODEL="2.0-flash-lite"
+            SWARM_WORKER_MODEL="gemini-2.0-flash-exp"
             ;;
         "groq/llama-3.3-70b"*)
             SWARM_WORKER_PROVIDER="groq"
-            SWARM_WORKER_MODEL="llama-3.3-70b"
+            SWARM_WORKER_MODEL="llama-3.3-70b-versatile"
             ;;
         "claude/3.5-haiku"*)
             SWARM_WORKER_PROVIDER="claude"
-            SWARM_WORKER_MODEL="3.5-haiku"
+            SWARM_WORKER_MODEL="claude-3-haiku-20240307"
             ;;
         "Back"|"")
             return 0
@@ -166,15 +172,15 @@ menu_swarm_aggregator_model() {
     case "$choice" in
         "claude/3.5-sonnet"*)
             SWARM_AGGREGATOR_PROVIDER="claude"
-            SWARM_AGGREGATOR_MODEL="3.5-sonnet"
+            SWARM_AGGREGATOR_MODEL="claude-3-5-sonnet-20241022"
             ;;
         "claude/3.5-haiku"*)
             SWARM_AGGREGATOR_PROVIDER="claude"
-            SWARM_AGGREGATOR_MODEL="3.5-haiku"
+            SWARM_AGGREGATOR_MODEL="claude-3-haiku-20240307"
             ;;
         "gemini/2.5-flash"*)
             SWARM_AGGREGATOR_PROVIDER="gemini"
-            SWARM_AGGREGATOR_MODEL="2.5-flash"
+            SWARM_AGGREGATOR_MODEL="gemini-2.0-flash-exp"
             ;;
         "openai/gpt-4o"*)
             SWARM_AGGREGATOR_PROVIDER="openai"
@@ -335,6 +341,12 @@ swarm_mapreduce() {
     local processed=0
     local total=$num_chunks
 
+    # Write chunks to temp files first (avoid ARG_MAX issues)
+    local chunk_dir=$(mktemp -d)
+    for (( i=0; i<num_chunks; i++ )); do
+        echo "${chunks[$i]}" > "$chunk_dir/chunk_$i.txt"
+    done
+
     for (( i=0; i<num_chunks; i++ )); do
         # Wait if we've hit max parallel workers
         while (( $(jobs -r | wc -l) >= SWARM_WORKERS )); do
@@ -344,12 +356,13 @@ swarm_mapreduce() {
         # Process chunk in background
         (
             local chunk_num=$((i + 1))
+            local chunk_content=$(cat "$chunk_dir/chunk_$i.txt")
             local chunk_prompt="Summarize this code chunk ($chunk_num/$total):
 
-${chunks[$i]}"
+$chunk_content"
 
             local summary=$(call_api "$chunk_prompt" "$SWARM_WORKER_PROVIDER" "$SWARM_WORKER_MODEL")
-            echo "$summary" > "/tmp/swarm_chunk_$i.txt"
+            echo "$summary" > "$chunk_dir/output_$i.txt"
         ) &
 
         msg "Worker launched for chunk $((i + 1))/$num_chunks"
@@ -360,12 +373,23 @@ ${chunks[$i]}"
     wait
 
     # Collect summaries
+    local failed_chunks=0
     for (( i=0; i<num_chunks; i++ )); do
-        if [[ -f "/tmp/swarm_chunk_$i.txt" ]]; then
-            summaries[$i]=$(cat "/tmp/swarm_chunk_$i.txt")
-            rm -f "/tmp/swarm_chunk_$i.txt"
+        if [[ -f "$chunk_dir/output_$i.txt" ]]; then
+            summaries[$i]=$(cat "$chunk_dir/output_$i.txt")
+        else
+            echo "ERROR: Chunk $i failed to process" >&2
+            failed_chunks=$((failed_chunks + 1))
+            summaries[$i]="[Chunk $i processing failed]"
         fi
     done
+
+    # Cleanup temp directory
+    rm -rf "$chunk_dir"
+
+    if (( failed_chunks > 0 )); then
+        echo "WARNING: $failed_chunks out of $num_chunks chunks failed" >&2
+    fi
 
     success "Phase 1 complete: $num_chunks chunks processed"
     echo ""
