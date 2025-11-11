@@ -1,0 +1,37 @@
+# Claude Code Instructions for AIWB
+
+**CRITICAL:** Before starting ANY task, read and follow: `context/docs/CLAUDE_QUICK_REF.md`
+
+## Project Context
+- **Name:** AIWB (AI Workbench)
+- **Type:** Command-line AI toolkit with multi-model orchestration
+- **Language:** Bash/Shell scripting
+- **Purpose:** Generator-Verifier loop for collaborative AI workflows
+
+## Key Principles
+1. **Load minimal context** - Start with 1-3 files maximum
+2. **Ask before expanding** - Request permission to load additional files
+3. **Focus on specifics** - Target exact files mentioned by user
+4. **Preserve rate limits** - User has limited credits, use them wisely
+
+## Project Structure
+- `/src/` - Core functionality
+- `/docs/` - Documentation
+- `/templates/` - Workflow templates
+- `/context/` - Local development context (not in git)
+
+## Working with This Codebase
+- This is a bash-based CLI tool
+- Focus on one script/function at a time
+- Test changes carefully (impacts user workflows)
+- Maintain backward compatibility when possible
+
+## Remember
+User works on **Android mobile** without terminal access:
+- Provide complete file contents (not diffs)
+- No terminal commands in solutions
+- Clear file paths for manual updates
+
+---
+
+**Follow context/docs/CLAUDE_QUICK_REF.md for detailed context management guidelines.**
