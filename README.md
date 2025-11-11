@@ -81,6 +81,23 @@ aiwb keys
 
 ---
 
+## 🤖 AI Assistant Usage
+
+When using Claude Code or similar AI assistants with this codebase:
+
+**IMPORTANT:** Read `context/docs/CLAUDE_QUICK_REF.md` before starting work.
+
+This ensures efficient context loading and preserves rate limits by instructing the AI to:
+- Load only 1-3 files initially
+- Expand context incrementally as needed
+- Focus on specific files mentioned in your request
+- Ask before loading additional dependencies
+
+**Quick start:** Begin your session with:
+Read context/docs/CLAUDE_QUICK_REF.md first, then [your task]
+
+---
+
 ## 🗺️ Roadmap
 
 We're on a mission to build the ultimate command-line AI assistant. Join us!
