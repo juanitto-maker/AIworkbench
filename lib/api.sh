@@ -227,9 +227,13 @@ call_gemini() {
     rm -f "$prompt_file"
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
@@ -239,7 +243,7 @@ call_gemini() {
         --no-buffer \
         -H "Content-Type: application/json" \
         -X POST "$url" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -251,7 +255,7 @@ call_gemini() {
 
     # Check if interrupted (exit code 130 is SIGINT)
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -272,13 +276,13 @@ call_gemini() {
             error_code="$exit_code"
         fi
 
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "Gemini" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     # Check for API errors in response
     if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
@@ -361,9 +365,13 @@ call_gemini_vision() {
         }')
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     set +e
     curl -fsS \
@@ -372,7 +380,7 @@ call_gemini_vision() {
         --no-buffer \
         -H "Content-Type: application/json" \
         -X POST "$url" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -382,7 +390,7 @@ call_gemini_vision() {
     set -e
 
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -401,13 +409,13 @@ call_gemini_vision() {
             error_code="$exit_code"
         fi
 
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "Gemini Vision" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
         local api_error_msg api_error_code
@@ -447,10 +455,14 @@ call_claude() {
 
     local url="https://api.anthropic.com/v1/messages"
 
+    # Handle large prompts by using a temp file
+    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    echo -n "$prompt" > "$prompt_file"
+
     local request_body
     request_body=$(jq -n \
         --arg model "$model" \
-        --arg content "$prompt" \
+        --rawfile content "$prompt_file" \
         --argjson max "$max_tokens" \
         --argjson temp "$temperature" \
         '{
@@ -459,11 +471,16 @@ call_claude() {
             temperature: $temp,
             messages: [{role: "user", content: $content}]
         }')
+    rm -f "$prompt_file"
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
@@ -474,7 +491,7 @@ call_claude() {
         -H "x-api-key: $api_key" \
         -H "anthropic-version: 2023-06-01" \
         -H "content-type: application/json" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -486,7 +503,7 @@ call_claude() {
 
     # Check if interrupted (exit code 130 is SIGINT)
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -497,13 +514,13 @@ call_claude() {
         local error_msg
         error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
         local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "Claude" "$error_msg" "$response_data" "$model" "$exit_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     # Check for API errors in response
     if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
@@ -581,9 +598,13 @@ call_claude_vision() {
         }')
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     set +e
     curl -sS "$url" \
@@ -593,7 +614,7 @@ call_claude_vision() {
         -H "x-api-key: $api_key" \
         -H "anthropic-version: 2023-06-01" \
         -H "content-type: application/json" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -603,7 +624,7 @@ call_claude_vision() {
     set -e
 
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -613,13 +634,13 @@ call_claude_vision() {
         local error_msg
         error_msg=$(cat "$curl_error" 2>/dev/null || echo "Curl failed with exit code $exit_code")
         local response_data=$(cat "$curl_output" 2>/dev/null || echo "")
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "Claude Vision" "$error_msg" "$response_data" "$model" "$exit_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
         local api_error_type api_error_msg api_error_code
@@ -660,10 +681,14 @@ call_openai() {
 
     local url="https://api.openai.com/v1/chat/completions"
 
+    # Handle large prompts by using a temp file
+    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    echo -n "$prompt" > "$prompt_file"
+
     local request_body
     request_body=$(jq -n \
         --arg model "$model" \
-        --arg content "$prompt" \
+        --rawfile content "$prompt_file" \
         --argjson max "$max_tokens" \
         --argjson temp "$temperature" \
         '{
@@ -672,11 +697,16 @@ call_openai() {
             temperature: $temp,
             messages: [{role: "user", content: $content}]
         }')
+    rm -f "$prompt_file"
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
@@ -686,7 +716,7 @@ call_openai() {
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -698,7 +728,7 @@ call_openai() {
 
     # Check if interrupted (exit code 130 is SIGINT)
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -731,13 +761,13 @@ Available OpenAI models: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o1-mini, o1-previ
             error_code="$exit_code"
         fi
 
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "OpenAI" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     # Check for API errors in response (even with 200 status)
     if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
@@ -780,10 +810,14 @@ call_groq() {
 
     local url="https://api.groq.com/openai/v1/chat/completions"
 
+    # Handle large prompts by using a temp file
+    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    echo -n "$prompt" > "$prompt_file"
+
     local request_body
     request_body=$(jq -n \
         --arg model "$model" \
-        --arg content "$prompt" \
+        --rawfile content "$prompt_file" \
         --argjson max "$max_tokens" \
         --argjson temp "$temperature" \
         '{
@@ -792,11 +826,16 @@ call_groq() {
             temperature: $temp,
             messages: [{role: "user", content: $content}]
         }')
+    rm -f "$prompt_file"
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
@@ -806,7 +845,7 @@ call_groq() {
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -818,7 +857,7 @@ call_groq() {
 
     # Check if interrupted (exit code 130 is SIGINT)
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -839,13 +878,13 @@ call_groq() {
             error_code="$exit_code"
         fi
 
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "Groq" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     # Validate JSON response
     if ! validate_json "$response"; then
@@ -893,10 +932,14 @@ call_xai() {
 
     local url="https://api.x.ai/v1/chat/completions"
 
+    # Handle large prompts by using a temp file
+    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    echo -n "$prompt" > "$prompt_file"
+
     local request_body
     request_body=$(jq -n \
         --arg model "$model" \
-        --arg content "$prompt" \
+        --rawfile content "$prompt_file" \
         --argjson max "$max_tokens" \
         --argjson temp "$temperature" \
         '{
@@ -905,11 +948,16 @@ call_xai() {
             temperature: $temp,
             messages: [{role: "user", content: $content}]
         }')
+    rm -f "$prompt_file"
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
@@ -919,7 +967,7 @@ call_xai() {
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -931,7 +979,7 @@ call_xai() {
 
     # Check if interrupted (exit code 130 is SIGINT)
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -952,13 +1000,13 @@ call_xai() {
             error_code="$exit_code"
         fi
 
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "xAI (Grok)" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     # Validate JSON response
     if ! validate_json "$response"; then
@@ -1006,20 +1054,29 @@ call_ollama() {
 
     local url="$endpoint/api/generate"
 
+    # Handle large prompts by using a temp file
+    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    echo -n "$prompt" > "$prompt_file"
+
     local request_body
     request_body=$(jq -n \
         --arg model "$model" \
-        --arg prompt "$prompt" \
+        --rawfile prompt "$prompt_file" \
         '{
             model: $model,
             prompt: $prompt,
             stream: false
         }')
+    rm -f "$prompt_file"
 
     local response
-    local curl_error curl_output
+    local curl_error curl_output request_file
     curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
     curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+
+    # Write request body to file to avoid ARG_MAX limits
+    echo "$request_body" > "$request_file"
 
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
@@ -1028,7 +1085,7 @@ call_ollama() {
         --connect-timeout 10 \
         --no-buffer \
         -H "Content-Type: application/json" \
-        -d "$request_body" \
+        -d @"$request_file" \
         -o "$curl_output" \
         2>"$curl_error" &
     local curl_pid=$!
@@ -1040,7 +1097,7 @@ call_ollama() {
 
     # Check if interrupted (exit code 130 is SIGINT)
     if [[ $exit_code -eq 130 ]]; then
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
         return 130
@@ -1061,13 +1118,13 @@ call_ollama() {
             error_code="$exit_code"
         fi
 
-        rm -f "$curl_error" "$curl_output"
+        rm -f "$curl_error" "$curl_output" "$request_file"
         display_api_error "Ollama" "$error_msg" "$response_data" "$model" "$error_code"
         return 1
     fi
 
     response=$(cat "$curl_output" 2>/dev/null || echo "")
-    rm -f "$curl_error" "$curl_output"
+    rm -f "$curl_error" "$curl_output" "$request_file"
 
     # Extract response
     local text
