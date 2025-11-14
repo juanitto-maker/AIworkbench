@@ -961,6 +961,13 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
 
         # If swarm returns 0, it means context is too small, use standard mode
         if [[ "$swarm_cost" = "0" || "$swarm_cost" = "0.0000" ]]; then
+            # Validate that model is configured for fallback
+            if [[ -z "$MODE_MODEL_PROVIDER" || -z "$MODE_MODEL_NAME" ]]; then
+                echo ""
+                err "Swarm mode requires fallback, but no standard model is configured"
+                err "Please configure a model in the 'Model' menu"
+                return 1
+            fi
             gen_cost=$(calculate_cost "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "$input_tokens" "$output_tokens")
             echo "Standard Generation (context too small for swarm):"
             echo "  Provider: $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)"
@@ -972,6 +979,13 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
             gen_cost="$swarm_cost"
         fi
     else
+        # Validate that model is configured
+        if [[ -z "$MODE_MODEL_PROVIDER" || -z "$MODE_MODEL_NAME" ]]; then
+            echo ""
+            err "No model configured"
+            err "Please configure a model in the 'Model' menu"
+            return 1
+        fi
         gen_cost=$(calculate_cost "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "$input_tokens" "$output_tokens")
         echo "Generation:"
         echo "  Provider: $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)"
@@ -1043,6 +1057,14 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
         # If swarm returns non-zero, fall back to standard mode
         if [[ $gen_exit -ne 0 ]]; then
             warn "Swarm execution failed or not applicable, falling back to standard mode"
+
+            # Validate that model is configured for fallback
+            if [[ -z "$MODE_MODEL_PROVIDER" || -z "$MODE_MODEL_NAME" ]]; then
+                err "Cannot fall back to standard mode: No model configured"
+                err "Please configure a model in the 'Model' menu before running"
+                return 1
+            fi
+
             msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
             ui_blink "Generating response..."
 
@@ -1056,6 +1078,13 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
         fi
     else
         # Standard mode execution
+        # Validate that model is configured
+        if [[ -z "$MODE_MODEL_PROVIDER" || -z "$MODE_MODEL_NAME" ]]; then
+            err "No model configured"
+            err "Please configure a model in the 'Model' menu before running"
+            return 1
+        fi
+
         msg "Generating with $MODE_MODEL_PROVIDER ($MODE_MODEL_NAME)..."
         ui_blink "Generating response..."
 
