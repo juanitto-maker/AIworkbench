@@ -223,7 +223,7 @@ if [[ ! -f "$CONFIG_JSON" ]]; then
   "models": {
     "default_provider": "gemini",
     "gemini_default": "2.5-flash",
-    "claude_default": "3-5-sonnet-20240620"
+    "claude_default": "sonnet-4-5-20250929"
   },
   "ui": {
     "chat_first": true,
