@@ -269,10 +269,10 @@ get_default_model() {
 
     case "$provider" in
         gemini) echo "2.5-flash" ;;
-        claude) echo "3-haiku-20240307" ;;
-        openai) echo "gpt-4o-mini" ;;
+        claude) echo "haiku-4-5-20251001" ;;
+        openai) echo "gpt-4o-mini-2024-07-18" ;;
         groq) echo "llama-3.3-70b-versatile" ;;
-        xai) echo "grok-beta" ;;
+        xai) echo "grok-3" ;;
         ollama) echo "llama3.2:latest" ;;
         *) echo "" ;;
     esac
@@ -283,22 +283,24 @@ get_available_models() {
 
     case "$provider" in
         gemini)
-            # Gemini 2.x models (1.x models retired Sept 2025)
-            echo "2.5-flash 2.5-flash-lite 2.5-pro 2.0-flash 2.0-flash-lite 2.0-pro 2.0-pro-exp"
+            # Gemini 2.x models (updated from working_code_models_14.11.txt)
+            echo "2.5-flash 2.5-pro 2.5-flash-lite 2.0-flash 2.0-flash-001 2.0-flash-lite-001 2.0-flash-lite"
             ;;
         claude)
-            echo "3-haiku-20240307 3-5-haiku-20241022 3-5-sonnet-20240620 3-opus-20240229 sonnet-4-5-20250929"
+            # Claude models (updated from working_code_models_14.11.txt)
+            echo "haiku-4-5-20251001 sonnet-4-5-20250929 opus-4-1-20250805 opus-4-20250514 sonnet-4-20250514 3-7-sonnet-20250219 3-5-haiku-20241022 3-haiku-20240307"
             ;;
         openai)
-            echo "gpt-4o-mini gpt-4o gpt-4-turbo o1-mini o1-preview o3-mini o3 o3-pro"
+            # OpenAI models (updated from working_code_models_14.11.txt)
+            echo "gpt-5-nano-2025-08-07 gpt-5-mini-2025-08-07 gpt-5-2025-08-07 gpt-5-pro-2025-10-06 gpt-5-codex gpt-5.1-2025-11-13 gpt-5.1-codex gpt-5.1-codex-mini gpt-4.1-2025-04-14 gpt-4.1-mini gpt-4o gpt-4o-mini-2024-07-18 gpt-3.5-turbo gpt-3.5-turbo-0125 gpt-3.5-turbo-instruct codex-mini-latest"
             ;;
         groq)
-            # Groq models including Llama-4 (verified available - released April 2025)
-            echo "llama-3.3-70b-versatile meta-llama/llama-4-scout-17b-16e-instruct meta-llama/llama-4-maverick-17b-128e-instruct llama-3.2-1b-preview llama-3.2-3b-preview llama-3.2-11b-vision-preview llama-3.2-90b-vision-preview llama-3.1-70b-versatile llama-3.1-8b-instant mixtral-8x7b-32768 gemma2-9b-it gemma-7b-it"
+            # Groq models (updated from working_code_models_14.11.txt)
+            echo "llama-3.3-70b-versatile openai/gpt-oss-120b openai/gpt-oss-20b groq/compound-min"
             ;;
         xai)
-            # xAI Grok models (verified against official API docs - all working)
-            echo "grok-beta grok-4 grok-4-latest grok-4-fast-reasoning grok-4-fast-non-reasoning grok-3 grok-3-latest grok-3-fast grok-3-mini-fast grok-code-fast-1 grok-vision-beta grok-2-1212 grok-2"
+            # xAI Grok models (updated from working_code_models_14.11.txt)
+            echo "grok-2-1212 grok-2-vision-1212 grok-3 grok-3-mini grok-4-0709 grok-4-fast-non-reasoning grok-4-fast-reasoning grok-code-fast-1"
             ;;
         ollama)
             if have ollama; then
