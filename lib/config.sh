@@ -291,12 +291,12 @@ get_available_models() {
             echo "haiku-4-5-20251001 sonnet-4-5-20250929 opus-4-1-20250805 opus-4-20250514 sonnet-4-20250514 3-7-sonnet-20250219 3-5-haiku-20241022 3-haiku-20240307"
             ;;
         openai)
-            # OpenAI models (updated from working_code_models_14.11.txt)
-            echo "gpt-5-nano-2025-08-07 gpt-5-mini-2025-08-07 gpt-5-2025-08-07 gpt-5-pro-2025-10-06 gpt-5-codex gpt-5.1-2025-11-13 gpt-5.1-codex gpt-5.1-codex-mini gpt-4.1-2025-04-14 gpt-4.1-mini gpt-4o gpt-4o-mini-2024-07-18 gpt-3.5-turbo gpt-3.5-turbo-0125 gpt-3.5-turbo-instruct codex-mini-latest"
+            # OpenAI models (verified working)
+            echo "gpt-4.1-2025-04-14 gpt-4.1-mini gpt-4o gpt-4o-mini-2024-07-18"
             ;;
         groq)
-            # Groq models (updated from working_code_models_14.11.txt)
-            echo "llama-3.3-70b-versatile openai/gpt-oss-120b openai/gpt-oss-20b groq/compound-min"
+            # Groq models (verified working)
+            echo "llama-3.3-70b-versatile openai/gpt-oss-120b openai/gpt-oss-20b"
             ;;
         xai)
             # xAI Grok models (updated from working_code_models_14.11.txt)
