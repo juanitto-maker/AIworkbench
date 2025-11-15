@@ -964,8 +964,19 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
             # Validate that model is configured for fallback
             if [[ -z "$MODE_MODEL_PROVIDER" || -z "$MODE_MODEL_NAME" ]]; then
                 echo ""
-                err "Swarm mode requires fallback, but no standard model is configured"
-                err "Please configure a model in the 'Model' menu"
+                err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                err "SWARM MODE ERROR: Fallback model not configured"
+                err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo ""
+                echo "Swarm mode needs a fallback model for small contexts, but"
+                echo "no model is currently configured."
+                echo ""
+                echo "To fix this:"
+                echo "  1. Return to the mode menu"
+                echo "  2. Select 'Model' and choose a provider/model"
+                echo "  3. Or use the default model from /settings"
+                echo ""
+                read -p "Press Enter to continue..." -r
                 return 1
             fi
             gen_cost=$(calculate_cost "$MODE_MODEL_PROVIDER" "$MODE_MODEL_NAME" "$input_tokens" "$output_tokens")
@@ -1060,8 +1071,20 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
 
             # Validate that model is configured for fallback
             if [[ -z "$MODE_MODEL_PROVIDER" || -z "$MODE_MODEL_NAME" ]]; then
-                err "Cannot fall back to standard mode: No model configured"
-                err "Please configure a model in the 'Model' menu before running"
+                echo ""
+                err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                err "SWARM MODE ERROR: Cannot fall back to standard mode"
+                err "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo ""
+                echo "Swarm execution failed and needs to fall back to standard mode,"
+                echo "but no fallback model is configured."
+                echo ""
+                echo "To fix this:"
+                echo "  1. Return to the mode menu"
+                echo "  2. Select 'Model' and choose a provider/model"
+                echo "  3. Or use the default model from /settings"
+                echo ""
+                read -p "Press Enter to continue..." -r
                 return 1
             fi
 

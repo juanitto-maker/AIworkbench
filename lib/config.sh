@@ -156,6 +156,13 @@ load_config() {
 
     if [[ ! -f "$config_file" ]]; then
         debug "Creating new config file"
+        # Ensure parent directory exists before creating config file
+        local config_dir
+        config_dir="$(dirname "$config_file")"
+        ensure_dir "$config_dir" || {
+            err "Failed to create config directory: $config_dir"
+            return 1
+        }
         get_default_config > "$config_file"
     fi
 
