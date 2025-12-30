@@ -39,6 +39,7 @@ graph TD
 | **Mode-Based Workflows** | Powerful `/make`, `/tweak`, and `/debug` modes with structured, multi-step AI workflows for complex tasks. |
 | **Hybrid AI Engine** | Go beyond single-model prompting. Our unique Generator-Verifier loop uses multiple AIs to create, critique, and improve work autonomously. |
 | **Multi-Provider Support** | Support for Gemini, Claude, OpenAI, Groq, xAI/Grok, and Ollama (local models) - switch providers on the fly. |
+| **GitHub Integration** | Full GitHub support like Claude Code - clone repos, manage issues, create PRs, commit & push, all from the command line. |
 | **Smart Cost Control** | Built-in cost estimation and tracking. View real-time spending breakdown by provider and never get surprised by API bills. |
 | **Context Management** | Upload files and directories to provide context to AI. Supports multiple file types and intelligent context building. |
 | **Built for the Command Line** | Fast, keyboard-driven interface with beautiful TUI using `gum`, designed for power users on Linux, macOS, and Android (Termux). |
@@ -143,9 +144,26 @@ aiwb wizard
 aiwb doctor
 ```
 
+### GitHub Integration (Like Claude Code)
+```bash
+# Interactive GitHub menu
+aiwb github
+
+# Quick commands
+aiwb github status          # Show git status
+aiwb github commit "msg"    # Commit changes
+aiwb github push            # Push to remote
+aiwb github pr create       # Create pull request
+aiwb github issue create    # Create issue
+
+# In chat mode
+> /github                   # Open GitHub menu
+> /github status            # Quick status check
+```
+
 ### Configuration
 ```bash
-# Manage API keys
+# Manage API keys (includes GitHub token)
 aiwb keys
 
 # Configure settings
@@ -155,7 +173,7 @@ aiwb settings
 aiwb costs
 ```
 
-For detailed documentation, see [QUICKSTART.md](QUICKSTART.md) and [docs/](docs/).
+For detailed documentation, see [QUICKSTART.md](QUICKSTART.md), [docs/GITHUB_INTEGRATION.md](docs/GITHUB_INTEGRATION.md), and [docs/](docs/).
 
 ## ❤️ Join the Crew & Support
 
