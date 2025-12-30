@@ -7,11 +7,9 @@
 
 # Load swarm.sh with error checking
 if [[ -z "${AIWB_LIB_SWARM_LOADED:-}" ]]; then
-    if source "$(dirname "${BASH_SOURCE[0]}")/swarm.sh"; then
-        echo "DEBUG: swarm.sh loaded successfully (AIWB_LIB_SWARM_LOADED=$AIWB_LIB_SWARM_LOADED)" >&2
-    else
+    source "$(dirname "${BASH_SOURCE[0]}")/swarm.sh" || {
         echo "ERROR: Failed to load swarm.sh!" >&2
-    fi
+    }
 fi
 
 # ============================================================================
