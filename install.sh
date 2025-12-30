@@ -18,7 +18,8 @@ AIWB_REPO_DIR="${AIWB_HOME}/aiworkbench"
 WORKSPACE_DIR="${AIWB_HOME}/workspace"
 DEST_BIN_DEFAULT="${HOME}/.local/bin"
 DEST_BIN_FALLBACK="${HOME}/bin"
-NEEDED_CMDS=(bash jq curl git fzf sed awk tar)
+# Note: awk is provided by 'gawk' in Termux, handled separately
+NEEDED_CMDS=(bash jq curl git fzf sed tar)
 OPT_CMDS=(gum age)
 
 # Pin a known-good gum if we must fetch manually (used as last resort)
@@ -160,6 +161,16 @@ msg "Binary install dir: ${DEST_BIN}"
 # Ensure core deps
 msg "Ensuring core dependencies: ${NEEDED_CMDS[*]}"
 install_pkgs "$PM" "${NEEDED_CMDS[@]}" || true
+
+# Handle awk separately (Termux uses gawk package name)
+if ! have awk; then
+  if is_termux; then
+    msg "Installing gawk (provides awk) for Termux"
+    pkg install -y gawk || true
+  else
+    install_pkgs "$PM" awk || true
+  fi
+fi
 
 # Optional deps (age for encrypted key vault)
 msg "Ensuring optional dependencies: ${OPT_CMDS[*]}"
