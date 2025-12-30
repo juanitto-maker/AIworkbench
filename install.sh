@@ -215,6 +215,15 @@ else
   chmod +x "${DEST_BIN}/"*.sh 2>/dev/null || true
 fi
 
+# Install main aiwb script
+if [[ -f "${AIWB_REPO_DIR}/aiwb" ]]; then
+  msg "Installing main aiwb script → ${DEST_BIN}/aiwb"
+  cp -f "${AIWB_REPO_DIR}/aiwb" "${DEST_BIN}/aiwb"
+  chmod +x "${DEST_BIN}/aiwb"
+else
+  err "Main aiwb script not found in repo!"
+fi
+
 # Ensure PATH
 ensure_path_export "${DEST_BIN}"
 
