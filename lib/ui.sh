@@ -371,23 +371,36 @@ ui_show_status() {
     local platform
     platform="$(get_platform)"
 
+    # Get repo status if available
+    local repo_status="none"
+    if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
+        repo_status="${AIWB_REPO_NAME:-unknown}"
+        [[ -n "${AIWB_REPO_BRANCH:-}" ]] && repo_status="$repo_status (${AIWB_REPO_BRANCH})"
+        # Check for uncommitted changes
+        if have git && git rev-parse --git-dir >/dev/null 2>&1; then
+            if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+                repo_status="$repo_status *"
+            fi
+        fi
+    fi
+
     if $GUM_AVAILABLE; then
         local left right
         left=$(cat <<EOF
 $(ui_style "AIWB Status" cyan true)
 
 Platform:   $platform
-Workspace:  ${workspace/#$HOME/\~}
 Provider:   $provider
 Model:      $model
+Repository: $repo_status
 EOF
 )
         right=$(cat <<EOF
 
 
+
 Project:    ${project:-none}
 Task:       ${task:-inbox}
-
 EOF
 )
         gum join --horizontal "$left" "  " "$right" || {
@@ -397,12 +410,12 @@ EOF
         }
     else
         echo "${CYAN}${BOLD}═══ AIWB Status ═══${RESET}"
-        echo "Platform:  $platform"
-        echo "Workspace: ${workspace/#$HOME/\~}"
-        echo "Provider:  $provider"
-        echo "Model:     $model"
-        echo "Project:   ${project:-none}"
-        echo "Task:      ${task:-inbox}"
+        echo "Platform:   $platform"
+        echo "Provider:   $provider"
+        echo "Model:      $model"
+        echo "Repository: $repo_status"
+        echo "Project:    ${project:-none}"
+        echo "Task:       ${task:-inbox}"
         echo ""
     fi
 }

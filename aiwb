@@ -52,7 +52,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
 # Load libraries
-for lib in common config ui api error security modes github; do
+for lib in common config ui api error security modes github editor; do
     lib_file="${LIB_DIR}/${lib}.sh"
     if [[ -f "$lib_file" ]]; then
         source "$lib_file"
@@ -121,6 +121,10 @@ initialize() {
     if is_termux && [[ -d "$HOME/.local/bin" ]]; then
         fix_crlf_scripts
     fi
+
+    # Detect git repository context
+    detect_repo
+    debug "After detect_repo... (enabled: $AIWB_REPO_ENABLED)"
 }
 
 # Fix CRLF line endings (Termux compatibility)
@@ -427,6 +431,12 @@ handle_slash_command() {
         /github|/gh)
             cmd_github "$args"
             ;;
+        /edit)
+            cmd_edit "$args"
+            ;;
+        /repo)
+            cmd_repo "$args"
+            ;;
         /quick)
             cmd_quick "$args"
             ;;
@@ -475,42 +485,37 @@ handle_slash_command() {
 # Show chat help
 show_chat_help() {
     cat <<'EOF'
-MODE-BASED WORKFLOWS (Recommended! 🎯):
+CODE EDITING (Like Claude Code!):
+  /edit <file> <task>   Edit a specific file with AI
+  /edit <task>          Smart edit (AI finds files to modify)
+  /repo                 Show current repository info
+  /repo none            Disable repo mode
+
+  Just type what you want changed, and AI will edit your files directly!
+  Example: "Add dark mode to the settings page"
+
+MODE-BASED WORKFLOWS:
   /make       Generate code from scratch (enter mode)
   /tweak      Modify/update existing code (enter mode)
   /debug      Find and fix errors (enter mode)
 
-  Inside each mode use:
-    prompt <text>          - Set text instructions
-    instruct <file.md>     - Load instructions from file
-    model                  - Choose model interactively
-    uploads <files/dirs>   - Upload context
-    check [instructions]   - Configure verification
-    status                 - Show mode status
-    run                    - Execute (with cost estimation)
-    exit                   - Leave mode
-
 QUICK COMMANDS:
   /quick <description>    One-shot generation with auto-verify
   /wizard                 Interactive guided workflow
-  /make <description>     Quick generate (shortcut, not mode)
   /improve <suggestion>   Improve last output
   /templates              Browse and use templates
 
-MANAGEMENT:
-  /status     Show overall status (modes + costs + context)
-  /context    Manage context files (add/list/remove/clear)
-  /history    Show chat history
-  /costs      Show cost breakdown
-
-GITHUB (like Claude Code):
+GITHUB:
   /github            Interactive GitHub menu
   /github status     Show git status
-  /github commit     Commit changes interactively
+  /github commit     Commit changes
   /github push       Push to remote
   /github pr create  Create pull request
-  /github issue      Manage issues
-  /github auth       Set up GitHub token
+
+MANAGEMENT:
+  /status     Show overall status
+  /history    Show chat history
+  /costs      Show cost breakdown
 
 CONFIGURATION:
   /keys       Manage API keys
@@ -519,12 +524,13 @@ CONFIGURATION:
   /help       Show this help
   /exit       Quit
 
-TIPS:
-  - Press Ctrl+Y after a response to copy it to clipboard
-  - Old chat logs are auto-rotated to save storage (keeps last 10)
-  - Long responses are truncated in logs to save space
-
-Just type normally to chat with the AI!
+WORKFLOW:
+  1. cd into your repo
+  2. Run: aiwb
+  3. Ask for changes: "Add feature X to file Y"
+  4. Review diff and confirm
+  5. /github commit "message"
+  6. /github push
 EOF
 }
 
@@ -1969,6 +1975,59 @@ EXAMPLES:
 
 For interactive mode: aiwb github (or aiwb gh)
 EOF
+}
+
+# Repo context command
+cmd_repo() {
+    local subcmd="${1:-status}"
+
+    case "$subcmd" in
+        status|"")
+            if is_repo_mode; then
+                ui_header "Repository Context"
+                echo "Repository: ${AIWB_REPO_NAME}"
+                echo "Path:       ${AIWB_REPO_PATH}"
+                echo "Branch:     ${AIWB_REPO_BRANCH}"
+                echo "Remote:     ${AIWB_REPO_REMOTE:-none}"
+                echo ""
+                # Show git status
+                if have git; then
+                    echo "Status:"
+                    git -C "$AIWB_REPO_PATH" status --short 2>/dev/null | head -10
+                fi
+            else
+                info "No repository context active"
+                echo ""
+                echo "To enable repo mode:"
+                echo "  1. Navigate to a git repository: cd /path/to/repo"
+                echo "  2. Start AIWB: aiwb"
+                echo ""
+                echo "Or clone a repo: aiwb github clone owner/repo"
+            fi
+            ;;
+        none|disable|off)
+            AIWB_REPO_ENABLED=false
+            AIWB_REPO_PATH=""
+            AIWB_REPO_NAME=""
+            success "Repository context disabled"
+            ;;
+        refresh|detect)
+            detect_repo
+            if is_repo_mode; then
+                success "Detected repo: $AIWB_REPO_NAME ($AIWB_REPO_BRANCH)"
+            else
+                info "No git repository found in current directory"
+            fi
+            ;;
+        *)
+            echo "Usage: /repo [status|none|refresh]"
+            echo ""
+            echo "Commands:"
+            echo "  status   Show current repo context (default)"
+            echo "  none     Disable repo mode"
+            echo "  refresh  Re-detect repository"
+            ;;
+    esac
 }
 
 # ============================================================================
