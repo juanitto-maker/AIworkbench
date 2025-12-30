@@ -34,6 +34,11 @@ for bin_dir in "$DEST_BIN_DEFAULT" "$DEST_BIN_FALLBACK"; do
         rm -f "${bin_dir}/aiwb"
         msg "Removed ${bin_dir}/aiwb"
     fi
+    # Remove lib directory
+    if [[ -d "${bin_dir}/lib" ]]; then
+        rm -rf "${bin_dir}/lib"
+        msg "Removed ${bin_dir}/lib/"
+    fi
     # Remove any bin-edit scripts
     for script in "${bin_dir}/"*.sh; do
         if [[ -f "$script" ]] && grep -q "AIworkbench\|aiwb" "$script" 2>/dev/null; then
@@ -77,6 +82,7 @@ echo
 echo "Removed:"
 echo "  • AIWB home directory (~/.aiwb/)"
 echo "  • Binary files (~/.local/bin/aiwb)"
+echo "  • Libraries (~/.local/bin/lib/)"
 echo "  • PATH exports from shell rc files"
 echo
 echo "Note: Dependencies (jq, curl, fzf, gum, etc.) were NOT removed."

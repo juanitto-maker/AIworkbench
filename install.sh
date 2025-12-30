@@ -215,11 +215,21 @@ else
   chmod +x "${DEST_BIN}/"*.sh 2>/dev/null || true
 fi
 
-# Install main aiwb script
+# Install main aiwb script and libraries
 if [[ -f "${AIWB_REPO_DIR}/aiwb" ]]; then
   msg "Installing main aiwb script → ${DEST_BIN}/aiwb"
   cp -f "${AIWB_REPO_DIR}/aiwb" "${DEST_BIN}/aiwb"
   chmod +x "${DEST_BIN}/aiwb"
+
+  # Copy lib directory (required for aiwb to work)
+  if [[ -d "${AIWB_REPO_DIR}/lib" ]]; then
+    msg "Installing libraries → ${DEST_BIN}/lib/"
+    mkdir -p "${DEST_BIN}/lib"
+    cp -f "${AIWB_REPO_DIR}/lib/"*.sh "${DEST_BIN}/lib/"
+    chmod +x "${DEST_BIN}/lib/"*.sh 2>/dev/null || true
+  else
+    err "lib/ directory not found in repo!"
+  fi
 else
   err "Main aiwb script not found in repo!"
 fi
