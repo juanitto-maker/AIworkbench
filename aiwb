@@ -52,7 +52,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
 # Load libraries
-for lib in common config ui api error security modes; do
+for lib in common config ui api error security modes github; do
     lib_file="${LIB_DIR}/${lib}.sh"
     if [[ -f "$lib_file" ]]; then
         source "$lib_file"
@@ -189,6 +189,15 @@ CONFIGURATION:
   settings             Configure provider/model
   status               Show overall status
   doctor               Check system health
+
+GITHUB (like Claude Code):
+  github               Interactive GitHub menu
+  github status        Show git status
+  github clone <repo>  Clone a repository
+  github commit <msg>  Commit changes
+  github push          Push to remote
+  github pr create     Create pull request
+  github issue create  Create issue
 
 UTILITY:
   history              Session history
@@ -415,6 +424,9 @@ handle_slash_command() {
         /costs)
             cmd_costs
             ;;
+        /github|/gh)
+            cmd_github "$args"
+            ;;
         /quick)
             cmd_quick "$args"
             ;;
@@ -490,6 +502,15 @@ MANAGEMENT:
   /context    Manage context files (add/list/remove/clear)
   /history    Show chat history
   /costs      Show cost breakdown
+
+GITHUB (like Claude Code):
+  /github            Interactive GitHub menu
+  /github status     Show git status
+  /github commit     Commit changes interactively
+  /github push       Push to remote
+  /github pr create  Create pull request
+  /github issue      Manage issues
+  /github auth       Set up GitHub token
 
 CONFIGURATION:
   /keys       Manage API keys
@@ -1754,6 +1775,15 @@ cmd_doctor() {
         fi
     done
 
+    # Check GitHub token
+    echo ""
+    echo "GitHub Integration:"
+    if has_github_token; then
+        success "✓ GitHub token configured"
+    else
+        info "○ GitHub token not configured (run: aiwb github auth)"
+    fi
+
     echo ""
 
     # Check workspace
@@ -1776,6 +1806,169 @@ cmd_doctor() {
 
     echo ""
     success "Health check complete"
+}
+
+# GitHub command handler
+cmd_github() {
+    local subcmd="${1:-}"
+    shift || true
+
+    case "$subcmd" in
+        ""|menu)
+            github_menu
+            ;;
+        status|stat)
+            github_status
+            ;;
+        clone)
+            github_clone "$@"
+            ;;
+        commit)
+            github_commit "$@"
+            ;;
+        push)
+            github_push "$@"
+            ;;
+        pull)
+            github_pull "$@"
+            ;;
+        fetch)
+            github_fetch "$@"
+            ;;
+        add|stage)
+            github_add "$@"
+            ;;
+        branch|br)
+            local branch_cmd="${1:-list}"
+            shift || true
+            case "$branch_cmd" in
+                list)   github_branches "${1:-false}" ;;
+                create) github_branch_create "$@" ;;
+                switch) github_branch_switch "$@" ;;
+                delete) github_branch_delete "$@" ;;
+                *)      github_branches ;;
+            esac
+            ;;
+        issue|issues)
+            local issue_cmd="${1:-list}"
+            shift || true
+            case "$issue_cmd" in
+                list)    github_issues_list "$@" ;;
+                view)    github_issue_view "" "$@" ;;
+                create)  github_issue_create "" "$@" ;;
+                close)   github_issue_close "" "$@" ;;
+                reopen)  github_issue_reopen "" "$@" ;;
+                comment) github_issue_comment "" "$@" ;;
+                *)       github_issues_list ;;
+            esac
+            ;;
+        pr|prs)
+            local pr_cmd="${1:-list}"
+            shift || true
+            case "$pr_cmd" in
+                list)   github_pr_list "$@" ;;
+                view)   github_pr_view "" "$@" ;;
+                create) github_pr_create "" "$@" ;;
+                merge)  github_pr_merge "" "$@" ;;
+                close)  github_pr_close "" "$@" ;;
+                files)  github_pr_files "" "$@" ;;
+                *)      github_pr_list ;;
+            esac
+            ;;
+        workflow|workflows|ci)
+            local wf_cmd="${1:-list}"
+            shift || true
+            case "$wf_cmd" in
+                list)  github_workflows_list "$@" ;;
+                view)  github_workflow_view "" "$@" ;;
+                rerun) github_workflow_rerun "" "$@" ;;
+                *)     github_workflows_list ;;
+            esac
+            ;;
+        auth|login)
+            github_auth_setup
+            ;;
+        whoami|me)
+            github_whoami
+            ;;
+        repo|info)
+            github_repo_info "$@"
+            ;;
+        fork)
+            github_fork "$@"
+            ;;
+        help|--help|-h)
+            cmd_github_help
+            ;;
+        *)
+            err "Unknown GitHub command: $subcmd"
+            cmd_github_help
+            return 1
+            ;;
+    esac
+}
+
+# GitHub help
+cmd_github_help() {
+    cat <<'EOF'
+GitHub Integration Commands
+
+USAGE:
+  aiwb github [command] [options]
+
+REPOSITORY:
+  status              Show git status
+  clone <repo>        Clone a repository
+  commit <message>    Commit changes
+  push [remote] [branch]   Push to remote
+  pull [remote] [branch]   Pull from remote
+  fetch [remote]      Fetch updates
+  add [files...]      Stage files (or all if none specified)
+
+BRANCHES:
+  branch list         List branches
+  branch create <name> [base]  Create new branch
+  branch switch <name>         Switch branch
+  branch delete <name>         Delete branch
+
+ISSUES:
+  issue list [state]  List issues (open/closed/all)
+  issue view <num>    View issue details
+  issue create <title> [body]  Create issue
+  issue close <num>   Close issue
+  issue reopen <num>  Reopen issue
+  issue comment <num> <body>  Add comment
+
+PULL REQUESTS:
+  pr list [state]     List pull requests
+  pr view <num>       View PR details
+  pr create <title> [body] [base]  Create PR
+  pr merge <num> [method]  Merge PR (merge/squash/rebase)
+  pr close <num>      Close PR without merging
+  pr files <num>      List changed files
+
+WORKFLOWS (CI/CD):
+  workflow list       List recent workflow runs
+  workflow view <id>  View workflow run details
+  workflow rerun <id> Re-run a workflow
+
+USER:
+  auth                Set up GitHub authentication
+  whoami              Show authenticated user info
+  repo [owner/repo]   Show repository info
+  fork <owner/repo>   Fork a repository
+
+EXAMPLES:
+  aiwb github status
+  aiwb github clone octocat/Hello-World
+  aiwb github commit "Add new feature"
+  aiwb github push
+  aiwb github issue create "Bug report" "Description here"
+  aiwb github pr create "New feature" "PR description" main
+  aiwb github auth
+
+For interactive mode: aiwb github (or aiwb gh)
+EOF
 }
 
 # ============================================================================
@@ -1870,6 +2063,9 @@ main() {
             ;;
         security-audit|audit)
             security_audit "$@"
+            ;;
+        github|gh)
+            cmd_github "$@"
             ;;
         help|--help|-h)
             cmd_help
