@@ -403,11 +403,12 @@ Project:    ${project:-none}
 Task:       ${task:-inbox}
 EOF
 )
-        gum join --horizontal "$left" "  " "$right" || {
-            # Fallback if gum join fails
-            echo "$left"
-            echo "$right"
-        }
+        # Ensure TTY is forced for Termux stability
+gum join --horizontal "$left" "  " "$right" 2>/dev/null || {
+    echo -e "$left"
+    echo -e "$right"
+}
+
     else
         echo "${CYAN}${BOLD}═══ AIWB Status ═══${RESET}"
         echo "Platform:   $platform"
