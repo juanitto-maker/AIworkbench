@@ -29,6 +29,7 @@ set_api_key() {
         openai)  var_name="OPENAI_API_KEY" ;;
         groq)    var_name="GROQ_API_KEY" ;;
         xai)     var_name="XAI_API_KEY" ;;
+        github)  var_name="GITHUB_TOKEN" ;;
         *)
             err "Unknown provider: $provider"
             return 1
@@ -84,6 +85,7 @@ setup_keys_interactive() {
         local status_openai="${OPENAI_API_KEY:+✓ Set}"
         local status_groq="${GROQ_API_KEY:+✓ Set}"
         local status_xai="${XAI_API_KEY:+✓ Set}"
+        local status_github="${GITHUB_TOKEN:+✓ Set}"
 
         choice=$(ui_choose "Which API key would you like to configure?" \
             "Gemini ${status_gemini:-○ Not set}" \
@@ -91,6 +93,7 @@ setup_keys_interactive() {
             "OpenAI ${status_openai:-○ Not set}" \
             "Groq ${status_groq:-○ Not set}" \
             "xAI (Grok) ${status_xai:-○ Not set}" \
+            "GitHub ${status_github:-○ Not set}" \
             "Done")
 
         case "$choice" in
@@ -130,6 +133,16 @@ setup_keys_interactive() {
                 local key
                 key=$(ui_password "Enter xAI API key")
                 [[ -n "$key" ]] && set_api_key "xai" "$key"
+                ;;
+            "GitHub"*)
+                echo ""
+                echo "Get your GitHub Personal Access Token from:"
+                echo "  https://github.com/settings/tokens/new"
+                echo ""
+                echo "Required scopes: repo, workflow"
+                local key
+                key=$(ui_password "Enter GitHub Personal Access Token")
+                [[ -n "$key" ]] && set_api_key "github" "$key"
                 ;;
             "Done"|"Skip"|"")
                 break
@@ -273,6 +286,10 @@ validate_key_format() {
             # xAI keys start with xai-
             [[ "$key" =~ ^xai- ]]
             ;;
+        github)
+            # GitHub PAT tokens start with ghp_ (classic) or github_pat_ (fine-grained)
+            [[ "$key" =~ ^ghp_ ]] || [[ "$key" =~ ^github_pat_ ]] || [[ ${#key} -ge 30 ]]
+            ;;
         *)
             return 1
             ;;
@@ -337,11 +354,15 @@ audit_git_exposure() {
         "sk-[A-Za-z0-9]{32,}"
         "gsk_[A-Za-z0-9_-]{30,}"
         "xai-[A-Za-z0-9_-]{30,}"
+        "ghp_[A-Za-z0-9]{30,}"
+        "github_pat_[A-Za-z0-9_]{30,}"
         "GEMINI_API_KEY.*=.*[A-Za-z0-9_-]{30,}"
         "ANTHROPIC_API_KEY.*=.*sk-ant-"
         "OPENAI_API_KEY.*=.*sk-"
         "GROQ_API_KEY.*=.*gsk_"
         "XAI_API_KEY.*=.*xai-"
+        "GITHUB_TOKEN.*=.*ghp_"
+        "GITHUB_TOKEN.*=.*github_pat_"
     )
 
     local found=false

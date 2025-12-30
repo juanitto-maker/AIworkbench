@@ -2,9 +2,9 @@
 
 ## Quick Navigation
 
-**Total Lines of Code**: 6,209  
-**Main Language**: Bash  
-**Architecture**: Modular CLI with 6 core libraries
+**Total Lines of Code**: ~7,700
+**Main Language**: Bash
+**Architecture**: Modular CLI with 7 core libraries
 
 ---
 
@@ -283,6 +283,44 @@ MODE_CHECK_MODEL=""          # Verification model
 
 ---
 
+### `lib/github.sh` (~1,200 lines)
+**GitHub integration - repositories, issues, PRs, workflows**
+
+| Section | Lines | Purpose |
+|---------|-------|---------|
+| Configuration | 1-65 | Token management, get/set/has functions |
+| API helpers | 67-120 | github_api() authenticated requests |
+| Repository ops | 122-220 | clone, info, list, fork |
+| Git operations | 222-380 | status, add, commit, push, pull, fetch |
+| Branch operations | 382-480 | list, create, switch, delete |
+| Issue operations | 482-620 | list, view, create, close, reopen, comment |
+| PR operations | 622-800 | list, view, create, merge, close, files |
+| Workflow operations | 802-900 | list, view, rerun |
+| User operations | 902-950 | whoami |
+| Interactive menus | 952-1200 | All menu functions |
+
+**Key Functions**:
+- `get_github_token()` - Get token from config/env
+- `github_api(method, endpoint, data)` - Authenticated API calls
+- `github_get_current_repo()` - Parse owner/repo from git remote
+- `github_status()` - Beautiful git status display
+- `github_commit(message, files...)` - Stage and commit
+- `github_push(remote, branch, force)` - Push with options
+- `github_issues_list(repo, state)` - List issues
+- `github_issue_create(repo, title, body, labels)` - Create issue
+- `github_pr_create(repo, title, body, head, base)` - Create PR
+- `github_pr_merge(repo, number, method)` - Merge PR
+- `github_menu()` - Interactive menu
+
+**GitHub API**:
+- Endpoint: `https://api.github.com`
+- Auth: Bearer token (GITHUB_TOKEN)
+- Version: 2022-11-28
+
+**Dependencies**: common.sh, config.sh, ui.sh, jq, curl, git
+
+---
+
 ## Configuration Files
 
 ### `~/.aiwb/config.json`
@@ -338,6 +376,7 @@ export ANTHROPIC_API_KEY="..."
 export OPENAI_API_KEY="..."
 export GROQ_API_KEY="..."
 export XAI_API_KEY="..."
+export GITHUB_TOKEN="..."
 ```
 
 ### `~/.aiwb/.keys.age`
@@ -487,6 +526,19 @@ aiwb (main)
 ├─ cmd_keys()
 │  └─ load_keys() / encrypt_keys_interactive()
 │
+├─ cmd_github()
+│  └─ GitHub subcommands
+│     ├─ github_status()
+│     ├─ github_clone()
+│     ├─ github_commit()
+│     ├─ github_push() / github_pull()
+│     ├─ github_branch_*()
+│     ├─ github_issue_*()
+│     │  └─ github_api()
+│     ├─ github_pr_*()
+│     │  └─ github_api()
+│     └─ github_menu() [interactive]
+│
 └─ cmd_settings()
    └─ Configuration UI
 ```
@@ -526,17 +578,20 @@ shellcheck aiwb lib/*.sh
 ```
 File              Lines    % of Total
 ────────────────────────────────────
-aiwb              1,886    30.4%
-lib/api.sh        1,304    21.0%
-lib/modes.sh      1,146    18.4%
-lib/security.sh     416     6.7%
-lib/ui.sh           414     6.7%
-lib/common.sh       384     6.2%
-lib/config.sh       320     5.2%
-lib/error.sh        339     5.5%
+aiwb              2,000    26.0%
+lib/api.sh        1,385    18.0%
+lib/github.sh     1,200    15.6%
+lib/modes.sh      1,146    14.9%
+lib/security.sh     430     5.6%
+lib/ui.sh           414     5.4%
+lib/common.sh       384     5.0%
+lib/error.sh        339     4.4%
+lib/config.sh       323     4.2%
 ────────────────────────────────────
-TOTAL             6,209   100.0%
+TOTAL             7,700   100.0%
 ```
 
 **Architecture Score**: Excellent modularity, clear separation of concerns, easy to extend.
+
+**New in v2.1**: GitHub integration adds comprehensive repository management, similar to Claude Code.
 
