@@ -16,7 +16,12 @@ REPO_URL="${AIWB_REPO_URL:-$REPO_URL_DEFAULT}"
 AIWB_HOME="${HOME}/.aiwb"
 AIWB_REPO_DIR="${AIWB_HOME}/aiworkbench"
 WORKSPACE_DIR="${AIWB_HOME}/workspace"
-DEST_BIN_DEFAULT="${HOME}/.local/bin"
+# Use Termux prefix if available, otherwise standard local bin
+if [[ -n "${PREFIX:-}" ]]; then
+  DEST_BIN_DEFAULT="${PREFIX}/bin"
+else
+  DEST_BIN_DEFAULT="${HOME}/.local/bin"
+fi
 DEST_BIN_FALLBACK="${HOME}/bin"
 # Note: awk is provided by 'gawk' in Termux, handled separately
 NEEDED_CMDS=(bash jq curl git fzf sed tar)
