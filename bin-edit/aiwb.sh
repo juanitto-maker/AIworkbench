@@ -8,7 +8,7 @@
 # - Slash commands still work: /help /keys /settings /estimate /generate /debug /exit
 # - Cross-platform: Termux/Linux/macOS. Requires: bash, jq, curl; optional: gum, fzf, git.
 
-set -euo pipefail
+set -uo pipefail
 
 have()       { command -v "$1" >/dev/null 2>&1; }
 err()        { printf "\033[1;31mEE\033[0m %s\n" "$*" >&2; }
@@ -244,3 +244,4 @@ chat_loop_cli() {
 # ---------- entry ----------
 save_session
 if $GUM; then chat_loop_gum; else chat_loop_cli; fi
+
