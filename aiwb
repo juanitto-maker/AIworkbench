@@ -122,9 +122,9 @@ initialize() {
         fix_crlf_scripts
     fi
 
-    # Detect git repository context
-    detect_repo
-    debug "After detect_repo... (enabled: $AIWB_REPO_ENABLED)"
+    # Detect git repository context (don't fail if not in a repo)
+    detect_repo || true
+    debug "After detect_repo... (enabled: ${AIWB_REPO_ENABLED:-false})"
 }
 
 # Fix CRLF line endings (Termux compatibility)
