@@ -47,20 +47,15 @@ trap cleanup_on_interrupt INT TERM
 # BOOTSTRAP & LIBRARY LOADING
 # ============================================================================
 
-# Provide safe defaults to avoid "unbound variable" errors
+# Load libraries - FIXED VERSION
 AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
-TERMUX_LIB="/data/data/com.termux/files/usr/bin/lib"
-
-# Load libraries from all possible locations
-for lib_path in "$AIWB_LIB_DIR" "$TERMUX_LIB" "./lib"; do
-    if [[ -d "$lib_path" ]]; then
-        for lib in "$lib_path"/*.sh; do
-            if [[ -f "$lib" ]]; then
-                source "$lib"
-            fi
-        done
+# We use a simple loop that won't crash if variables are unset
+for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
+    if [ -f "$lib" ]; then
+        source "$lib"
     fi
 done
+
 
 
 # ============================================================================
@@ -253,34 +248,27 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # 1. Show User Prompt in green
+    # 1. VISIBILITY: Show User Prompt
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
     fi
 
-    # 2. Persistence: Refresh the repo scan
+    # 2. PERSISTENCE: Refresh the repo scan so AI sees your files
     if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
         build_repo_context >/dev/null 2>&1
     fi
 
-    # 3. Execution Logic
+    # 3. LOGIC: If message exists, send it. If not, open TUI.
     if [[ -n "$input_text" ]]; then
-        # Bundle files + question
         local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
-        
-        # Call the existing engine
         process_chat_input "$final_prompt"
     else
-        # If no message, launch UI (TUI)
-        # Check if function exists to avoid 'command not found'
-        if command -v ui_chat_loop >/dev/null 2>&1; then
-            ui_chat_loop
-        else
-            AIWB_INTERACTIVE=true process_chat_input ""
-        fi
+        # This is the standard command to open the UI
+        ui_chat_loop
     fi
 }
+
 
 
 
