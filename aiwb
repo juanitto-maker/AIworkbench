@@ -144,9 +144,10 @@ initialize() {
         fix_crlf_scripts
     fi
 
-    # Detect git repository context (don't fail if not in a repo)
-    detect_repo || true
-    debug "After detect_repo... (enabled: ${AIWB_REPO_ENABLED:-false})"
+    # Skip automatic git detection to avoid delays in Termux
+    # Users can manually scan repos with /scanrepo or /smartscan commands
+    AIWB_REPO_ENABLED=false
+    debug "Skipped detect_repo for faster startup"
 }
 
 # Fix CRLF line endings (Termux compatibility)
