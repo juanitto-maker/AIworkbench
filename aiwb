@@ -496,6 +496,8 @@ CODE EDITING (Like Claude Code!):
   /edit <task>          Smart edit (AI finds files to modify)
   /repo                 Show current repository info
   /repo none            Disable repo mode
+  /scanrepo             Deep scan entire repository (initial context)
+  /smartscan            Quick scan (configs, docs, main files only)
 
   Just type what you want changed, and AI will edit your files directly!
   Example: "Add dark mode to the settings page"
