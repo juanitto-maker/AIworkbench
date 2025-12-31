@@ -437,6 +437,12 @@ handle_slash_command() {
         /repo)
             cmd_repo "$args"
             ;;
+        /scanrepo)
+            cmd_scanrepo
+            ;;
+        /smartscan)
+            cmd_smartscan
+            ;;
         /quick)
             cmd_quick "$args"
             ;;
