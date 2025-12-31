@@ -1001,16 +1001,23 @@ build_repo_context() {
             -not -path '*/.venv/*' \
             -not -path '*/venv/*' \
             2>/dev/null | while IFS= read -r file; do
-            
-            # Only process text files
-            if file "$file" 2>/dev/null | grep -q "text"; then
-                local content
-                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
-                if [[ -n "$content" ]]; then
-                    context+=$'\n'"--- FILE: $file ---"$'\n'
-                    context+="$content"$'\n'
-                    ((file_count++))
-                fi
+
+            # Skip binary files by extension
+            case "$file" in
+                *.jpg|*.jpeg|*.png|*.gif|*.ico|*.svg|*.webp) continue ;;
+                *.pdf|*.zip|*.tar|*.gz|*.bz2|*.xz|*.7z) continue ;;
+                *.exe|*.dll|*.so|*.dylib|*.o|*.a) continue ;;
+                *.mp4|*.mp3|*.avi|*.mov|*.wav) continue ;;
+                *.woff|*.woff2|*.ttf|*.eot|*.otf) continue ;;
+            esac
+
+            # Try to read file content
+            local content
+            content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+            if [[ -n "$content" ]]; then
+                context+=$'\n'"--- FILE: $file ---"$'\n'
+                context+="$content"$'\n'
+                ((file_count++))
             fi
         done
         
