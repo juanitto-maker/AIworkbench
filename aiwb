@@ -251,32 +251,45 @@ EOF
 
 # Main interactive chat interface
 cmd_chat() {
-    clear 2>/dev/null || true  # Don't fail if TERM not set
-    ui_header "AIWB Interactive Chat"
+    local input_text="$*"
 
-    # Show status
-    ui_show_status
-    echo ""
-
-    # Check if keys are set
-    local provider
-    provider="$(config_get model_provider)"
-
-    if ! has_api_key "$provider"; then
-        echo ""
-        echo "⚠️  No API key found for $provider."
-        echo "   Please set up your API keys to use AIWB."
-        echo ""
-        echo "   Run: aiwb keys"
-        echo "   Or use /keys command in chat"
-        echo ""
-        # Launch keys setup directly instead of asking
-        cmd_keys
+    # --- FIX 1: Show User Prompt ---
+    # This prints your own question in the terminal so you can see it
+    if [[ -n "$input_text" ]]; then
+        echo -e "\n\033[1;32mUser:\033[0m $input_text"
     fi
 
-    # Start chat loop
-    chat_loop
+    # --- FIX 2: Rebuild Persistence ---
+    # This forces the script to "slurp" your files right before talking to Gemini
+    if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
+        # We call the function that scans your local directory
+        build_repo_context >/dev/null 2>&1
+    fi
+
+    # --- FIX 3: Combine Files + Question ---
+    local final_prompt=""
+    if [[ -n "${AIWB_CONTEXT:-}" ]]; then
+        # This injects the file contents directly into the message
+        final_prompt="[LOCAL PROJECT CONTEXT]\n$AIWB_CONTEXT\n\n[USER QUESTION]\n$input_text"
+    else
+        final_prompt="$input_text"
+    fi
+
+    # Execute the request using the script's internal logic
+    if [[ -n "$input_text" ]]; then
+        export AIWB_LAST_PROMPT="$final_prompt"
+        # This sends the bundled context and question to the API
+        process_chat_input "$final_prompt"
+    else
+        # Handle the interactive mode
+        if [[ "${AIWB_INTERACTIVE:-false}" == "true" ]]; then
+            ui_chat_loop
+        else
+            err "No message provided. Try: aiwb chat 'hello'"
+        fi
+    fi
 }
+
 
 # Rotate old log files to save storage
 rotate_logs() {
