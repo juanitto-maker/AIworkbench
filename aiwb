@@ -538,7 +538,7 @@ CODE EDITING (Like Claude Code!):
   /edit <task>          Smart edit (AI finds files to modify)
   /repo                 Show current repository info
   /repo none            Disable repo mode
-  /scanrepo             Deep scan entire repository (initial context)
+  /scanrepo             Deep scan current folder (works in ANY directory!)
   /smartscan            Quick scan (configs, docs, main files only)
 
   Just type what you want changed, and AI will edit your files directly!
@@ -1079,17 +1079,21 @@ build_repo_context() {
 # Scan repository - full deep scan
 cmd_scanrepo() {
     ui_header "Full Repository Scan"
-    
-    if ! is_repo_mode; then
-        warn "Not in a git repository"
-        echo "Navigate to a repo first: cd /path/to/repo"
-        return 1
+
+    # Always enable repo mode for current directory
+    detect_repo
+
+    echo "Folder: ${AIWB_REPO_NAME}"
+    echo "Path: ${AIWB_REPO_PATH}"
+    if [[ -n "$AIWB_REPO_REMOTE" ]]; then
+        echo "Git: ${AIWB_REPO_BRANCH} (${AIWB_REPO_REMOTE})"
+    else
+        echo "Type: Local directory (not a git repository)"
     fi
-    
-    echo "Repository: ${AIWB_REPO_NAME}"
-    echo "This will scan ALL source files in the repository."
     echo ""
-    
+    echo "This will scan ALL source files in this folder."
+    echo ""
+
     if ! ui_confirm "Proceed with full scan?" "yes"; then
         msg "Cancelled"
         return 0

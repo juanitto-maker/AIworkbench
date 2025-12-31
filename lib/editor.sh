@@ -18,23 +18,22 @@ AIWB_REPO_BRANCH=""
 AIWB_REPO_REMOTE=""
 AIWB_REPO_ENABLED=false
 
-# Detect if we're in a git repository
+# Detect if we're in a git repository OR any directory
 detect_repo() {
-    # Default to disabled - not being in a repo is fine
-    AIWB_REPO_ENABLED=false
+    # Default to current directory - ANY folder can be contextualized
+    AIWB_REPO_ENABLED=true
+    AIWB_REPO_PATH="$(pwd)"
+    AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH")"
+    AIWB_REPO_BRANCH="local"
+    AIWB_REPO_REMOTE=""
 
-    # Check if git is available
-    if ! have git; then
-        return 0  # Not an error
-    fi
-
-    # Check if in a git repo
-    if git rev-parse --git-dir >/dev/null 2>&1; then
-        AIWB_REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
-        AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || echo "")"
-        AIWB_REPO_BRANCH="$(git branch --show-current 2>/dev/null || echo "HEAD")"
+    # Check if git is available and if we're in a git repo
+    if have git && git rev-parse --git-dir >/dev/null 2>&1; then
+        # Override with git info if available
+        AIWB_REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+        AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || basename "$(pwd)")"
+        AIWB_REPO_BRANCH="$(git branch --show-current 2>/dev/null || echo "local")"
         AIWB_REPO_REMOTE="$(git remote get-url origin 2>/dev/null || echo "")"
-        AIWB_REPO_ENABLED=true
     fi
 
     return 0  # Always succeed
