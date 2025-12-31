@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Snapshot prompt/draft/output into history/<task>/<timestamp>/
-set -euo pipefail
+set -eo pipefail
 T="${1:-}"; [ -z "$T" ] && { echo "Usage: ai-snap.sh <TASK_ID>"; exit 1; }
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 ts="$(date -u +"%Y%m%d-%H%M%S")"

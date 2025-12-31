@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 . ~/bin/paths.sh
 
 P="$( [ -f "$CURRENT_PROJECT_FILE" ] && cat "$CURRENT_PROJECT_FILE" || echo "(none)" )"

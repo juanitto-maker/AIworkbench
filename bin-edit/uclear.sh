@@ -6,7 +6,7 @@
 #   uclear.sh -o DAYS        # delete files older than DAYS
 #   uclear.sh -y ...         # no prompts
 
-set -euo pipefail
+set -eo pipefail
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 UP="$AIWB/uploads"; mkdir -p "$UP"
 

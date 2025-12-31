@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# binpush.sh — install sanitized scripts from bin-edit/ to ~/.local/bin
+# binpush.sh ï¿½ install sanitized scripts from bin-edit/ to ~/.local/bin
 # Supports: --all and specific files, CRLF fix, host shebang rewrite
-set -euo pipefail
+set -eo pipefail
 
 # --- config ---
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -33,9 +33,9 @@ Examples:
   bash bin-edit/binpush.sh --all
   bash bin-edit/binpush.sh aiwb.sh gpre.sh cpre.sh
 Notes:
-  • Normalizes CRLF to LF (repo stays portable)
-  • Rewrites the INSTALLED shebang to match the host (Termux/Linux/macOS)
-  • Installs to ~/.local/bin
+  ï¿½ Normalizes CRLF to LF (repo stays portable)
+  ï¿½ Rewrites the INSTALLED shebang to match the host (Termux/Linux/macOS)
+  ï¿½ Installs to ~/.local/bin
 HLP
 }
 
@@ -115,6 +115,6 @@ log
 log "Sanity:"
 for name in aiwb gpre.sh cpre.sh ggo.sh cgo.sh binpush.sh; do
   if command -v "$name" >/dev/null 2>&1; then
-    printf "  • %-9s %s\n" "$name" "$(command -v "$name")"
+    printf "  ï¿½ %-9s %s\n" "$name" "$(command -v "$name")"
   fi
 done

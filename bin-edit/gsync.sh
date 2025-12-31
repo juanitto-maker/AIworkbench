@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sync the current task's prompt into gemini-prompts folder
-set -euo pipefail
+set -eo pipefail
 
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 

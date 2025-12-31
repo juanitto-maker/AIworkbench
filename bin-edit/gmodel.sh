@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 if [ -n "${1:-}" ]; then
   export GEMINI_MODEL="$1"
   echo "🔁 GEMINI_MODEL=$GEMINI_MODEL"

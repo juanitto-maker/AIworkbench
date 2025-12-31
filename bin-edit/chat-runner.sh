@@ -8,7 +8,7 @@
 #     debug     -> gout.sh / cout.sh
 # - Cross-platform: Termux/Linux/macOS. Needs: bash, jq, curl. Optional: gum.
 
-set -euo pipefail
+set -eo pipefail
 
 have() { command -v "$1" >/dev/null 2>&1; }
 err()  { printf "\033[1;31mEE\033[0m %s\n" "$*" >&2; }
