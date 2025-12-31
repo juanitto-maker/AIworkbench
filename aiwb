@@ -249,24 +249,28 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # 1. If you typed a message, show it
+    # Fix: Print your message so you can see the conversation
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
         
-        # Force context scan so AI sees your files
+        # Fix: Force file scan so the AI has context
         if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
             build_repo_context >/dev/null 2>&1
         fi
 
-        # Bundle and send
-        local final_prompt="[CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
+        local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
         process_chat_input "$final_prompt"
     else
-        # 2. IMPORTANT: If you just typed 'aiwb', start the UI!
-        ui_chat_loop
+        # Fix: If no message, start the UI safely
+        if command -v ui_chat_loop >/dev/null 2>&1; then
+            ui_chat_loop
+        else
+            AIWB_INTERACTIVE=true process_chat_input ""
+        fi
     fi
 }
+
 
 
 # Rotate old log files to save storage
