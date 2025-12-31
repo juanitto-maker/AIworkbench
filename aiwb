@@ -253,42 +253,34 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # --- FIX 1: Show User Prompt ---
-    # This prints your own question in the terminal so you can see it
+    # 1. FIX: Show your message in the terminal
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
     fi
 
-    # --- FIX 2: Rebuild Persistence ---
-    # This forces the script to "slurp" your files right before talking to Gemini
+    # 2. FIX: Force the file scan so the AI is never "blind"
     if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
-        # We call the function that scans your local directory
         build_repo_context >/dev/null 2>&1
     fi
 
-    # --- FIX 3: Combine Files + Question ---
+    # 3. FIX: Bundle files and your question together
     local final_prompt=""
     if [[ -n "${AIWB_CONTEXT:-}" ]]; then
-        # This injects the file contents directly into the message
         final_prompt="[LOCAL PROJECT CONTEXT]\n$AIWB_CONTEXT\n\n[USER QUESTION]\n$input_text"
     else
         final_prompt="$input_text"
     fi
 
-    # Execute the request using the script's internal logic
+    # 4. FIX: If you typed a message, send it. If you typed nothing, open the Chat UI.
     if [[ -n "$input_text" ]]; then
         export AIWB_LAST_PROMPT="$final_prompt"
-        # This sends the bundled context and question to the API
         process_chat_input "$final_prompt"
     else
-        # Handle the interactive mode
-        if [[ "${AIWB_INTERACTIVE:-false}" == "true" ]]; then
-            ui_chat_loop
-        else
-            err "No message provided. Try: aiwb chat 'hello'"
-        fi
+        # This is the line that was missing!
+        ui_chat_loop
     fi
 }
+
 
 
 # Rotate old log files to save storage
