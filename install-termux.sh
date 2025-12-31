@@ -15,12 +15,19 @@ pkg install -y git curl jq gum age
 echo "✓ Dependencies installed"
 echo ""
 
-# 2. Remove ALL old installations
-echo "🧹 Removing any old installations..."
-rm -rf ~/.local/bin/aiwb ~/.local/bin/lib 2>/dev/null || true
-rm -rf $PREFIX/bin/aiwb $PREFIX/bin/lib 2>/dev/null || true
+# 2. NUCLEAR CLEANUP - Remove ALL old installations and cached files
+echo "🧹 NUCLEAR CLEANUP - Removing all old installations..."
 rm -rf ~/.aiwb/aiworkbench 2>/dev/null || true
-echo "✓ Cleanup complete"
+rm -rf ~/.aiwb/.cache 2>/dev/null || true
+rm -rf $PREFIX/bin/aiwb 2>/dev/null || true
+rm -rf $PREFIX/bin/lib 2>/dev/null || true
+rm -rf ~/.local/bin/aiwb 2>/dev/null || true
+rm -rf ~/.local/bin/lib 2>/dev/null || true
+rm -rf /data/data/com.termux/files/usr/bin/aiwb 2>/dev/null || true
+rm -rf /data/data/com.termux/files/usr/bin/lib 2>/dev/null || true
+# Clear any cached binaries
+hash -r 2>/dev/null || true
+echo "✓ Complete cleanup done"
 echo ""
 
 # 3. Create directories
