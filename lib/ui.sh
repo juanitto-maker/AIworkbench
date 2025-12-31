@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # ui.sh - Beautiful TUI components for AIWB
 
+# Guard: prevent multiple sourcing
+[[ -n "${AIWB_LIB_UI_LOADED:-}" ]] && return 0
+
 [[ -z "${AIWB_LIB_COMMON_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 # ============================================================================

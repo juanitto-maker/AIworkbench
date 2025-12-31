@@ -64,17 +64,24 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 LIB_DIR="${SCRIPT_DIR}/lib"
 AIWB_LIB_DIR="${AIWB_LIB_DIR:-$LIB_DIR}"
 
-# 3. Source all libraries found
+# 3. Source all libraries found (with deduplication)
 # We check LIB_DIR first (standard install), then fallback to local
+declare -A seen_paths
 for path in "$LIB_DIR" "$AIWB_LIB_DIR" "$HOME/.local/bin/lib"; do
+    # Resolve to absolute path and deduplicate
     if [[ -d "$path" ]]; then
-        for lib in "$path"/*.sh; do
-            if [[ -f "$lib" ]]; then
-                source "$lib"
-            fi
-        done
+        abs_path=$(cd "$path" 2>/dev/null && pwd)
+        if [[ -n "$abs_path" ]] && [[ -z "${seen_paths[$abs_path]:-}" ]]; then
+            seen_paths[$abs_path]=1
+            for lib in "$abs_path"/*.sh; do
+                if [[ -f "$lib" ]]; then
+                    source "$lib"
+                fi
+            done
+        fi
     fi
 done
+unset seen_paths abs_path
 
 
 

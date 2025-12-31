@@ -2,6 +2,9 @@
 # common.sh - Shared utilities for AIWB
 # Universal compatibility layer for Linux, macOS, and Termux
 
+# Guard: prevent multiple sourcing
+[[ -n "${AIWB_LIB_COMMON_LOADED:-}" ]] && return 0
+
 # ============================================================================
 # PLATFORM DETECTION
 # ============================================================================
