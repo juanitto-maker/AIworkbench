@@ -2399,15 +2399,11 @@ main() {
         help|--help|-h)
             cmd_help
             ;;
-                *)
-            if [[ -n "$cmd" && "$cmd" != "aiwb" ]]; then
-                # If you typed something that isn't a command, treat it as chat
-                cmd_chat "$cmd" "$@"
-            else
-                # If you just typed 'aiwb', launch the interactive chat
-                cmd_chat
-            fi
+            *)
+            # If no command or an unknown command is given, launch chat
+            cmd_chat "$@"
             ;;
+
 
     esac
 }
