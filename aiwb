@@ -982,14 +982,43 @@ build_repo_context() {
     local max_file_size=50000
     local context=""
     local file_count=0
-    
+
     msg "Building $mode context for $(basename "$(pwd)")..."
-    
+
+    # Helper function to check if file is binary by extension
+    is_binary_extension() {
+        local file="$1"
+        case "$file" in
+            *.jpg|*.jpeg|*.png|*.gif|*.ico|*.svg|*.webp) return 0 ;;
+            *.pdf|*.zip|*.tar|*.gz|*.bz2|*.xz|*.7z) return 0 ;;
+            *.exe|*.dll|*.so|*.dylib|*.o|*.a) return 0 ;;
+            *.mp4|*.mp3|*.avi|*.mov|*.wav) return 0 ;;
+            *.woff|*.woff2|*.ttf|*.eot|*.otf) return 0 ;;
+            *.class|*.jar|*.war|*.pyc|*.pyo) return 0 ;;
+            *) return 1 ;;
+        esac
+    }
+
     if [[ "$mode" == "full" ]]; then
         # Full scan: all text files except in excluded dirs
         msg "Deep scan: reading all source files..."
-        
-        find . -type f \
+
+        # Use process substitution to avoid subshell variable issues
+        while IFS= read -r file; do
+            # Skip binary files by extension
+            if is_binary_extension "$file"; then
+                continue
+            fi
+
+            # Try to read file content
+            local file_content
+            file_content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+            if [[ -n "$file_content" ]]; then
+                context+=$'\n'"--- FILE: $file ---"$'\n'
+                context+="$file_content"$'\n'
+                ((file_count++))
+            fi
+        done < <(find . -type f \
             -not -path '*/.git/*' \
             -not -path '*/node_modules/*' \
             -not -path '*/dist/*' \
@@ -1000,85 +1029,66 @@ build_repo_context() {
             -not -path '*/target/*' \
             -not -path '*/.venv/*' \
             -not -path '*/venv/*' \
-            2>/dev/null | while IFS= read -r file; do
+            2>/dev/null)
 
-            # Skip binary files by extension
-            case "$file" in
-                *.jpg|*.jpeg|*.png|*.gif|*.ico|*.svg|*.webp) continue ;;
-                *.pdf|*.zip|*.tar|*.gz|*.bz2|*.xz|*.7z) continue ;;
-                *.exe|*.dll|*.so|*.dylib|*.o|*.a) continue ;;
-                *.mp4|*.mp3|*.avi|*.mov|*.wav) continue ;;
-                *.woff|*.woff2|*.ttf|*.eot|*.otf) continue ;;
-            esac
-
-            # Try to read file content
-            local content
-            content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
-            if [[ -n "$content" ]]; then
-                context+=$'\n'"--- FILE: $file ---"$'\n'
-                context+="$content"$'\n'
-                ((file_count++))
-            fi
-        done
-        
     else
         # Selective: key files only
         msg "Smart scan: reading key files..."
-        
+
         # Config files
         for pattern in "package.json" "tsconfig.json" "vite.config.*" "*.config.js" "*.config.ts" "Cargo.toml" "go.mod" "requirements.txt" ".env.example"; do
-            find . -maxdepth 2 -type f -name "$pattern" \
+            while IFS= read -r file; do
+                local file_content
+                file_content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$file_content" ]]; then
+                    context+=$'\n'"--- FILE: $file ---"$'\n'
+                    context+="$file_content"$'\n'
+                    ((file_count++))
+                fi
+            done < <(find . -maxdepth 2 -type f -name "$pattern" \
                 -not -path '*/.git/*' \
                 -not -path '*/node_modules/*' \
-                2>/dev/null | while IFS= read -r file; do
-                
-                local content
-                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
-                if [[ -n "$content" ]]; then
-                    context+=$'\n'"--- FILE: $file ---"$'\n'
-                    context+="$content"$'\n'
-                    ((file_count++))
-                fi
-            done
+                2>/dev/null)
         done
-        
+
         # Documentation
         for pattern in "README*" "CHANGELOG*" "LICENSE*"; do
-            find . -maxdepth 2 -type f -name "$pattern" \
-                -not -path '*/.git/*' \
-                2>/dev/null | while IFS= read -r file; do
-                
-                local content
-                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
-                if [[ -n "$content" ]]; then
+            while IFS= read -r file; do
+                local file_content
+                file_content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$file_content" ]]; then
                     context+=$'\n'"--- FILE: $file ---"$'\n'
-                    context+="$content"$'\n'
+                    context+="$file_content"$'\n'
                     ((file_count++))
                 fi
-            done
+            done < <(find . -maxdepth 2 -type f -name "$pattern" \
+                -not -path '*/.git/*' \
+                2>/dev/null)
         done
-        
-        # Main source files
+
+        # Main source files - NO MORE file command!
         for pattern in "main.*" "index.*" "app.*" "App.*" "server.*" "__init__.py" "mod.rs"; do
-            find . -maxdepth 3 -type f -name "$pattern" \
+            while IFS= read -r file; do
+                # Skip binary extensions
+                if is_binary_extension "$file"; then
+                    continue
+                fi
+
+                local file_content
+                file_content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$file_content" ]]; then
+                    context+=$'\n'"--- FILE: $file ---"$'\n'
+                    context+="$file_content"$'\n'
+                    ((file_count++))
+                fi
+            done < <(find . -maxdepth 3 -type f -name "$pattern" \
                 -not -path '*/.git/*' \
                 -not -path '*/node_modules/*' \
                 -not -path '*/dist/*' \
-                2>/dev/null | while IFS= read -r file; do
-                
-                if file "$file" 2>/dev/null | grep -q "text"; then
-                    local content
-                    content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
-                    if [[ -n "$content" ]]; then
-                        context+=$'\n'"--- FILE: $file ---"$'\n'
-                        context+="$content"$'\n'
-                        ((file_count++))
-                    fi
-                fi
-            done
+                2>/dev/null)
         done
     fi
-    
+
     msg "Context built: $file_count files scanned"
     echo "$context"
 }
