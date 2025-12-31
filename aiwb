@@ -49,7 +49,8 @@ trap cleanup_on_interrupt INT TERM
 
 # Load libraries - FIXED VERSION
 AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
-# We use a simple loop that won't crash if variables are unset
+
+# This loop safely checks for files without creating unbound variables
 for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
     if [ -f "$lib" ]; then
         source "$lib"
@@ -248,7 +249,7 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # 1. VISIBILITY: Show User Prompt
+    # 1. VISIBILITY: Show User Prompt in Green
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
     fi
@@ -258,16 +259,17 @@ cmd_chat() {
         build_repo_context >/dev/null 2>&1
     fi
 
-    # 3. LOGIC: If message exists, send it. If not, open TUI.
+    # 3. EXECUTION: If text provided, send it. Otherwise, open TUI.
     if [[ -n "$input_text" ]]; then
-        local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
+        local final_prompt="[LOCAL PROJECT CONTEXT]\n${AIWB_CONTEXT:-}\n\n[USER QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
         process_chat_input "$final_prompt"
     else
-        # This is the standard command to open the UI
+        # Launch the interface if no question was typed
         ui_chat_loop
     fi
 }
+
 
 
 
