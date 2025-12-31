@@ -51,7 +51,9 @@ trap cleanup_on_interrupt INT TERM
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
-# Load libraries - Enhanced for Termux compatibility
+# Load libraries - Fixed for Termux & Unbound Variable Error
+AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
+
 for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
     if [ -f "$lib" ]; then
         source "$lib"
@@ -249,27 +251,30 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # Fix: Print your message so you can see the conversation
+    # Show User Prompt in green
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
         
-        # Fix: Force file scan so the AI has context
+        # Refresh local file context
         if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
             build_repo_context >/dev/null 2>&1
         fi
 
+        # Bundle files + question
         local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
         process_chat_input "$final_prompt"
     else
-        # Fix: If no message, start the UI safely
+        # If no message, launch UI safely
         if command -v ui_chat_loop >/dev/null 2>&1; then
             ui_chat_loop
         else
+            # Fallback if UI function isn't found
             AIWB_INTERACTIVE=true process_chat_input ""
         fi
     fi
 }
+
 
 
 
@@ -2388,11 +2393,12 @@ main() {
             ;;
         help|--help|-h)
             cmd_help
-            ;;
-                    *)
-            # This ensures running 'aiwb' always opens the chat
+            ;;        
+              *)
+            # If no command is found, default to chat
             cmd_chat "$@"
             ;;
+
 
 
 
