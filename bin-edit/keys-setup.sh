@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Creates ~/.aiwb.env if missing and ensures it's sourced by ~/.bashrc
 
-set -euo pipefail
+set -eo pipefail
 ENVFILE="$HOME/.aiwb.env"
 BASHRC="$HOME/.bashrc"
 

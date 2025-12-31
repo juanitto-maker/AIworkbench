@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 . ~/bin/paths.sh
 
 P="${1:-$(cat "$CURRENT_PROJECT_FILE" 2>/dev/null || true)}"

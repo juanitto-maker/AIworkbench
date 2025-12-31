@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compose temp/<T>.prompt.built.md from optional temp/<T>.instruct.md + base prompt
-set -euo pipefail
+set -eo pipefail
 T="${1:-}"; [ -z "$T" ] && { echo "Usage: ai-buildprompt.sh <TASK_ID>"; exit 1; }
 
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"

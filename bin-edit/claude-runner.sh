@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude API runner — calls Anthropic chat model
-set -euo pipefail
+set -eo pipefail
 : "${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in ~/.bashrc}"
 
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"

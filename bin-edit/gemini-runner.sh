@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Calls Google Generative Language API (v1beta) text-only
-set -euo pipefail
+set -eo pipefail
 : "${GEMINI_API_KEY:?Set GEMINI_API_KEY in ~/.bashrc}"
 
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"

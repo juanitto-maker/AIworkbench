@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Normalize every file in ~/bin: CRLF→LF, fix shebang, +x
-set -euo pipefail
+set -eo pipefail
 DST="$HOME/bin"
 BASH_PATH="$(command -v bash)"
 shopt -s nullglob
