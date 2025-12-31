@@ -221,6 +221,10 @@ OPTIONS:
   --version, -v        Show version
 
 EXAMPLES:
+  # Repository analysis
+  cd my-repo && aiwb scanrepo    # Deep scan
+  cd my-repo && aiwb smartscan   # Quick overview
+
   # Mode-based (powerful and flexible!)
   aiwb
   > /make
