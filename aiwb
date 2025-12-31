@@ -51,16 +51,13 @@ trap cleanup_on_interrupt INT TERM
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
-# Load libraries - Fixed for Termux & Unbound Variable Error
-# Provide a safe default so 'set -u' doesn't crash the script
-AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
-
+# Load libraries
+# Explicitly include the Termux local bin path to ensure libraries are found
 for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
     if [ -f "$lib" ]; then
         source "$lib"
     fi
 done
-
 
 # ============================================================================
 # INITIALIZATION
@@ -252,27 +249,29 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # Fix 1: Show User Prompt (Green)
-    if [[ -n "$input_text" ]]; then
-        echo -e "\n\033[1;32mUser:\033[0m $input_text"
-        
-        # Fix 2: Persistence - Refresh the repo scan
-        # This uses the function we already confirmed works!
-        if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
-            build_repo_context >/dev/null 2>&1
-        fi
+    # 1. Persistence: Refresh the repo scan so the AI is never "blind"
+    if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
+        build_repo_context >/dev/null 2>&1
+    fi
 
-        # Fix 3: Bundle context + question
-        local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
+    # 2. Bundle files + question if text was provided
+    if [[ -n "$input_text" ]]; then
+        local final_prompt="[LOCAL PROJECT CONTEXT]\n${AIWB_CONTEXT:-}\n\n[USER QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
-        
-        # Use your script's existing engine to send the message
+        # Send to the engine
         process_chat_input "$final_prompt"
     else
-        # If no message, just enter the standard chat loop
-        ui_chat_loop
+        # 3. If no text, enter the TUI
+        # We check if it exists to prevent the "command not found" error
+        if command -v ui_chat_loop >/dev/null 2>&1; then
+            ui_chat_loop
+        else
+            # Native fallback if UI library is missing
+            AIWB_INTERACTIVE=true process_chat_input ""
+        fi
     fi
 }
+
 
 
 
