@@ -274,88 +274,29 @@ EOF
 
 # Main interactive chat interface
 cmd_chat() {
-    debug "cmd_chat called with args: $*"
-    local input_text="$*"
+    clear 2>/dev/null || true  # Don't fail if TERM not set
+    ui_header "AIWB Interactive Chat"
 
-    # 1. VISIBILITY: Show User Prompt
-    if [[ -n "$input_text" ]]; then
-        echo -e "\n\033[1;32mUser:\033[0m $input_text"
-    fi
+    # Show status
+    ui_show_status
+    echo ""
 
-    # 2. PERSISTENCE: Repository context is built on-demand
-    # Users can explicitly run /scanrepo or /smartscan to build context
-    # This avoids startup delays/hangs, especially in Termux
+    # Check if keys are set
+    local provider
+    provider="$(config_get model_provider)"
 
-    # 3. EXECUTION
-    debug "Input text check: '${input_text}'"
-    if [[ -n "$input_text" ]]; then
-        debug "Processing direct input"
-        local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
-        export AIWB_LAST_PROMPT="$final_prompt"
-        process_chat_input "$final_prompt"
-    else
-        # 4. INTERACTIVE MODE
-        debug "Entering interactive mode"
-
-        # Clear screen and show header (don't fail if TERM not set)
-        debug "Clearing screen..."
-        clear 2>/dev/null || true
-        debug "Screen cleared"
-
-        # Refresh repository detection (in case we're in a subdirectory)
-        debug "Refreshing repo detection..."
-        if command -v detect_repo >/dev/null 2>&1; then
-            detect_repo || true
-        fi
-        debug "Repo detection done"
-
-        # Show header and status
-        debug "Showing header..."
-        if command -v ui_header >/dev/null 2>&1; then
-            ui_header "AIWB Interactive Chat"
-        fi
-        debug "Header shown"
-
-        debug "Showing status..."
-        if command -v ui_show_status >/dev/null 2>&1; then
-            ui_show_status
-        fi
-        debug "Status shown"
+    if ! has_api_key "$provider"; then
         echo ""
-
-        # Check if API keys are set
-        debug "Checking API keys..."
-        local provider
-        provider="$(config_get model_provider 2>/dev/null || echo "gemini")"
-
-        if command -v has_api_key >/dev/null 2>&1 && ! has_api_key "$provider"; then
-            echo ""
-            echo "⚠️  No API key found for $provider."
-            echo "   Please set up your API keys to use AIWB."
-            echo ""
-            echo "   Run: aiwb keys"
-            echo "   Or use /keys command in chat"
-            echo ""
-        fi
-        debug "API key check done"
-
-        # Try the standard UI loop first
-        debug "Looking for chat loop function..."
-        if command -v ui_chat_loop >/dev/null 2>&1; then
-            debug "Calling ui_chat_loop"
-            ui_chat_loop
-        # Fallback to internal loop if UI is missing
-        elif command -v chat_loop >/dev/null 2>&1; then
-            debug "Calling chat_loop"
-            chat_loop
-        else
-            # Ultimate fallback: use the engine's interactive mode
-            debug "Using fallback interactive mode"
-            AIWB_INTERACTIVE=true process_chat_input ""
-        fi
-        debug "Chat loop exited"
+        echo "⚠️  No API key found for $provider."
+        echo "   Please set up your API keys to use AIWB."
+        echo ""
+        echo "   Run: aiwb keys"
+        echo "   Or use /keys command in chat"
+        echo ""
     fi
-    debug "cmd_chat finished"
+
+    # Start chat loop
+    chat_loop
 }
 
 
