@@ -253,34 +253,24 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # 1. FIX: Show your message in the terminal
+    # 1. If you typed a message, show it
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
-    fi
+        
+        # Force context scan so AI sees your files
+        if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
+            build_repo_context >/dev/null 2>&1
+        fi
 
-    # 2. FIX: Force the file scan so the AI is never "blind"
-    if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
-        build_repo_context >/dev/null 2>&1
-    fi
-
-    # 3. FIX: Bundle files and your question together
-    local final_prompt=""
-    if [[ -n "${AIWB_CONTEXT:-}" ]]; then
-        final_prompt="[LOCAL PROJECT CONTEXT]\n$AIWB_CONTEXT\n\n[USER QUESTION]\n$input_text"
-    else
-        final_prompt="$input_text"
-    fi
-
-    # 4. FIX: If you typed a message, send it. If you typed nothing, open the Chat UI.
-    if [[ -n "$input_text" ]]; then
+        # Bundle and send
+        local final_prompt="[CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
         process_chat_input "$final_prompt"
     else
-        # This is the line that was missing!
+        # 2. IMPORTANT: If you just typed 'aiwb', start the UI!
         ui_chat_loop
     fi
 }
-
 
 
 # Rotate old log files to save storage
