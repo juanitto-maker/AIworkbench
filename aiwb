@@ -1085,6 +1085,95 @@ build_repo_context() {
                         context+=$'\n'"--- FILE: $file ---"$'\n'
                         context+="$content"$'\n'
                         ((file_count++))
+build_repo_context() {
+    local mode="${1:-selective}"
+    local max_file_size=50000
+    local context=""
+    local file_count=0
+    
+    msg "Building $mode context for $(basename "$(pwd)")..."
+    
+    if [[ "$mode" == "full" ]]; then
+        # Full scan: all text files except in excluded dirs
+        msg "Deep scan: reading all source files..."
+        
+        find . -type f \
+            -not -path '*/.git/*' \
+            -not -path '*/node_modules/*' \
+            -not -path '*/dist/*' \
+            -not -path '*/build/*' \
+            -not -path '*/__pycache__/*' \
+            -not -path '*/.next/*' \
+            -not -path '*/vendor/*' \
+            -not -path '*/target/*' \
+            -not -path '*/.venv/*' \
+            -not -path '*/venv/*' \
+            2>/dev/null | while IFS= read -r file; do
+            
+            # Only process text files
+            if file "$file" 2>/dev/null | grep -q "text"; then
+                local content
+                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$content" ]]; then
+                    context+=$'\n'"--- FILE: $file ---"$'\n'
+                    context+="$content"$'\n'
+                    ((file_count++))
+                fi
+            fi
+        done
+        
+    else
+        # Selective: key files only
+        msg "Smart scan: reading key files..."
+        
+        # Config files
+        for pattern in "package.json" "tsconfig.json" "vite.config.*" "*.config.js" "*.config.ts" "Cargo.toml" "go.mod" "requirements.txt" ".env.example"; do
+            find . -maxdepth 2 -type f -name "$pattern" \
+                -not -path '*/.git/*' \
+                -not -path '*/node_modules/*' \
+                2>/dev/null | while IFS= read -r file; do
+                
+                local content
+                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$content" ]]; then
+                    context+=$'\n'"--- FILE: $file ---"$'\n'
+                    context+="$content"$'\n'
+                    ((file_count++))
+                fi
+            done
+        done
+        
+        # Documentation
+        for pattern in "README*" "CHANGELOG*" "LICENSE*"; do
+            find . -maxdepth 2 -type f -name "$pattern" \
+                -not -path '*/.git/*' \
+                2>/dev/null | while IFS= read -r file; do
+                
+                local content
+                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$content" ]]; then
+                    context+=$'\n'"--- FILE: $file ---"$'\n'
+                    context+="$content"$'\n'
+                    ((file_count++))
+                fi
+            done
+        done
+        
+        # Main source files
+        for pattern in "main.*" "index.*" "app.*" "App.*" "server.*" "__init__.py" "mod.rs"; do
+            find . -maxdepth 3 -type f -name "$pattern" \
+                -not -path '*/.git/*' \
+                -not -path '*/node_modules/*' \
+                -not -path '*/dist/*' \
+                2>/dev/null | while IFS= read -r file; do
+                
+                if file "$file" 2>/dev/null | grep -q "text"; then
+                    local content
+                    content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                    if [[ -n "$content" ]]; then
+                        context+=$'\n'"--- FILE: $file ---"$'\n'
+                        context+="$content"$'\n'
+                        ((file_count++))
                     fi
                 fi
             done
