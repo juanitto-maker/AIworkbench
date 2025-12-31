@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -o pipefail
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 UP="$AIWB/uploads"
 mkdir -p "$UP"

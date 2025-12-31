@@ -8,7 +8,7 @@
 # - Ensures PATH contains install dir for current shell
 # - Idempotent; safe to re-run
 
-set -eo pipefail
+set -o pipefail
 
 # ------------------------------- CONFIG ---------------------------------------
 REPO_URL_DEFAULT="https://github.com/juanitto-maker/AIworkbench.git"

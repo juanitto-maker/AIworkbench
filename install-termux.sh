@@ -2,7 +2,7 @@
 # AIworkbench Simple Installation for Termux
 # Works from scratch - no prior installation needed
 
-set -e
+set -o pipefail
 
 echo "🚀 AIworkbench Installation for Termux"
 echo "======================================"

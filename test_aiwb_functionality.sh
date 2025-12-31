@@ -3,7 +3,7 @@
 # Tests: APIs, workspace functionality, dialogs, output handling, mode behavior
 # Generates detailed logs for debugging
 
-set -eo pipefail
+set -o pipefail
 
 # ============================================================================
 # CONFIGURATION

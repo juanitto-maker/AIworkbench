@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pick a file with Android file picker and copy into $AIWB/uploads
 
-set -eo pipefail
+set -o pipefail
 
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"
 UP="$AIWB/uploads"

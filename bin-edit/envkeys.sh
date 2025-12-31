@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shows current key env; optional --edit opens the env file in nano
 
-set -eo pipefail
+set -o pipefail
 
 ENVFILE="$HOME/.aiwb.env"
 [ -f "$ENVFILE" ] || touch "$ENVFILE"
