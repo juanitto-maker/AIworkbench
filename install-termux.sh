@@ -96,12 +96,26 @@ JSON
     echo ""
 fi
 
-# 8. Success
+# 8. Configure terminal colors for better code display
+echo "🎨 Configuring terminal colors..."
+if ! grep -q "export TERM=xterm-256color" ~/.bashrc 2>/dev/null; then
+    echo "export TERM=xterm-256color" >> ~/.bashrc
+    echo "✓ Added TERM=xterm-256color to ~/.bashrc"
+else
+    echo "✓ TERM already configured in ~/.bashrc"
+fi
+# Apply for current session
+export TERM=xterm-256color
+echo "✓ Color support enabled for better code highlighting"
+echo ""
+
+# 9. Success
 echo "✅ Installation successful!"
 echo ""
 echo "📍 Installed at: $AIWB_PATH"
 echo "🏠 Workspace: /storage/emulated/0/aiwb"
 echo "⚙️  Config: ~/.aiwb/config.json"
+echo "🎨 Colors: TERM=xterm-256color (for nice code display)"
 echo ""
 echo "🎯 Next steps:"
 echo ""
@@ -114,5 +128,8 @@ echo ""
 echo "3. Works from ANY directory:"
 echo "   cd ~/SpellChecker"
 echo "   aiwb"
+echo ""
+echo "💡 To apply color settings in current shell:"
+echo "   source ~/.bashrc"
 echo ""
 echo "📚 For help: aiwb help"
