@@ -290,31 +290,44 @@ cmd_chat() {
     fi
 
     # 3. EXECUTION
+    debug "Input text check: '${input_text}'"
     if [[ -n "$input_text" ]]; then
+        debug "Processing direct input"
         local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
         process_chat_input "$final_prompt"
     else
         # 4. INTERACTIVE MODE
+        debug "Entering interactive mode"
+
         # Clear screen and show header (don't fail if TERM not set)
+        debug "Clearing screen..."
         clear 2>/dev/null || true
+        debug "Screen cleared"
 
         # Refresh repository detection (in case we're in a subdirectory)
+        debug "Refreshing repo detection..."
         if command -v detect_repo >/dev/null 2>&1; then
             detect_repo || true
         fi
+        debug "Repo detection done"
 
         # Show header and status
+        debug "Showing header..."
         if command -v ui_header >/dev/null 2>&1; then
             ui_header "AIWB Interactive Chat"
         fi
+        debug "Header shown"
 
+        debug "Showing status..."
         if command -v ui_show_status >/dev/null 2>&1; then
             ui_show_status
         fi
+        debug "Status shown"
         echo ""
 
         # Check if API keys are set
+        debug "Checking API keys..."
         local provider
         provider="$(config_get model_provider 2>/dev/null || echo "gemini")"
 
@@ -327,18 +340,25 @@ cmd_chat() {
             echo "   Or use /keys command in chat"
             echo ""
         fi
+        debug "API key check done"
 
         # Try the standard UI loop first
+        debug "Looking for chat loop function..."
         if command -v ui_chat_loop >/dev/null 2>&1; then
+            debug "Calling ui_chat_loop"
             ui_chat_loop
         # Fallback to internal loop if UI is missing
         elif command -v chat_loop >/dev/null 2>&1; then
+            debug "Calling chat_loop"
             chat_loop
         else
             # Ultimate fallback: use the engine's interactive mode
+            debug "Using fallback interactive mode"
             AIWB_INTERACTIVE=true process_chat_input ""
         fi
+        debug "Chat loop exited"
     fi
+    debug "cmd_chat finished"
 }
 
 
