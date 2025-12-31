@@ -24,7 +24,7 @@
 #   "chosen_tier": "Medium"
 # }
 
-set -eo pipefail
+set -o pipefail
 
 # ---------- utils ----------
 have() { command -v "$1" >/dev/null 2>&1; }

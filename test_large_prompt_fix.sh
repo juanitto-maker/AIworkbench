@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test script to verify large prompt handling fix
 
-set -eo pipefail
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

@@ -2,7 +2,7 @@
 # uninstall.sh — Uninstaller for AIworkbench
 # Removes all installed components
 
-set -eo pipefail
+set -o pipefail
 
 # Colors
 msg()  { printf "\033[1;32m==>\033[0m %s\n" "$*"; }

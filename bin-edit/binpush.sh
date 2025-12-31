@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # binpush.sh � install sanitized scripts from bin-edit/ to ~/.local/bin
 # Supports: --all and specific files, CRLF fix, host shebang rewrite
-set -eo pipefail
+set -o pipefail
 
 # --- config ---
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"

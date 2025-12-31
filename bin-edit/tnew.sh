@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -o pipefail
 . ~/bin/paths.sh
 
 # require a current project

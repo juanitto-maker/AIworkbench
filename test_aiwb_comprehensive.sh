@@ -3,7 +3,7 @@
 # Tests ALL features: modes, menus, dialogs, workflows, error handling
 # Uses AI to validate outputs and detect issues
 
-set -eo pipefail
+set -o pipefail
 
 # ============================================================================
 # CONFIGURATION

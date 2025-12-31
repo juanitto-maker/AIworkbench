@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ai-cost.sh <model> <prompt_file> <out_tokens>
-set -eo pipefail
+set -o pipefail
 
 MODEL="${1:-}"; PROMPT="${2:-}"; OUT_TOK="${3:-1000}"
 AIWB="${AIWB:-$HOME/.aiwb/workspace}"

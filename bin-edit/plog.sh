@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -o pipefail
 . ~/bin/paths.sh
 
 [ -s "$CURRENT_PROJECT_FILE" ] || { echo "No active project. Use pset."; exit 1; }

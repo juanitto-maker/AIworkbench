@@ -3,7 +3,7 @@
 # Interactive debugging and functionality testing tool
 # Exits cleanly when done - no hanging!
 
-set -eo pipefail
+set -o pipefail
 
 # ============================================================================
 # CONFIGURATION

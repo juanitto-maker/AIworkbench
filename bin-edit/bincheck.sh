@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Audit ~/bin for common breakages
-set -eo pipefail
+set -o pipefail
 DST="$HOME/bin"
 BASH_PATH="$(command -v bash)"
 echo "🔎 Auditing $DST"
