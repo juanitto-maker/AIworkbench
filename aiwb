@@ -281,11 +281,11 @@ cmd_chat() {
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
     fi
 
-    # 2. PERSISTENCE: Refresh the repo scan and capture context
+    # 2. PERSISTENCE: Refresh the repo scan
     if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
         # Check if function exists before calling to prevent errors
         if command -v build_repo_context >/dev/null 2>&1; then
-            AIWB_CONTEXT=$(build_repo_context) || true
+            build_repo_context >/dev/null 2>&1 || true
         fi
     fi
 
@@ -1044,15 +1044,13 @@ build_repo_context() {
     local max_file_size=50000
     local context=""
     local file_count=0
-
-    msg "Building $mode context for $(basename "$(pwd)")..." >&2
+    
+    msg "Building $mode context for $(basename "$(pwd)")..."
     
     if [[ "$mode" == "full" ]]; then
         # Full scan: all text files except in excluded dirs
-        msg "Deep scan: reading all source files..." >&2
-
-        # Use temp file for Termux compatibility (process substitution can hang)
-        local tmp_files=$(mktemp)
+        msg "Deep scan: reading all source files..."
+        
         find . -type f \
             -not -path '*/.git/*' \
             -not -path '*/node_modules/*' \
@@ -1064,9 +1062,8 @@ build_repo_context() {
             -not -path '*/target/*' \
             -not -path '*/.venv/*' \
             -not -path '*/venv/*' \
-            2>/dev/null > "$tmp_files"
-
-        while IFS= read -r file; do
+            2>/dev/null | while IFS= read -r file; do
+            
             # Only process text files
             if file "$file" 2>/dev/null | grep -q "text"; then
                 local content
@@ -1077,22 +1074,19 @@ build_repo_context() {
                     ((file_count++))
                 fi
             fi
-        done < "$tmp_files"
-        rm -f "$tmp_files"
+        done
         
     else
         # Selective: key files only
-        msg "Smart scan: reading key files..." >&2
+        msg "Smart scan: reading key files..."
         
         # Config files
         for pattern in "package.json" "tsconfig.json" "vite.config.*" "*.config.js" "*.config.ts" "Cargo.toml" "go.mod" "requirements.txt" ".env.example"; do
-            local tmp_files=$(mktemp)
             find . -maxdepth 2 -type f -name "$pattern" \
                 -not -path '*/.git/*' \
                 -not -path '*/node_modules/*' \
-                2>/dev/null > "$tmp_files"
-
-            while IFS= read -r file; do
+                2>/dev/null | while IFS= read -r file; do
+                
                 local content
                 content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
                 if [[ -n "$content" ]]; then
@@ -1100,18 +1094,15 @@ build_repo_context() {
                     context+="$content"$'\n'
                     ((file_count++))
                 fi
-            done < "$tmp_files"
-            rm -f "$tmp_files"
+            done
         done
         
         # Documentation
         for pattern in "README*" "CHANGELOG*" "LICENSE*"; do
-            local tmp_files=$(mktemp)
             find . -maxdepth 2 -type f -name "$pattern" \
                 -not -path '*/.git/*' \
-                2>/dev/null > "$tmp_files"
-
-            while IFS= read -r file; do
+                2>/dev/null | while IFS= read -r file; do
+                
                 local content
                 content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
                 if [[ -n "$content" ]]; then
@@ -1119,20 +1110,17 @@ build_repo_context() {
                     context+="$content"$'\n'
                     ((file_count++))
                 fi
-            done < "$tmp_files"
-            rm -f "$tmp_files"
+            done
         done
         
         # Main source files
         for pattern in "main.*" "index.*" "app.*" "App.*" "server.*" "__init__.py" "mod.rs"; do
-            local tmp_files=$(mktemp)
             find . -maxdepth 3 -type f -name "$pattern" \
                 -not -path '*/.git/*' \
                 -not -path '*/node_modules/*' \
                 -not -path '*/dist/*' \
-                2>/dev/null > "$tmp_files"
-
-            while IFS= read -r file; do
+                2>/dev/null | while IFS= read -r file; do
+                
                 if file "$file" 2>/dev/null | grep -q "text"; then
                     local content
                     content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
@@ -1142,12 +1130,11 @@ build_repo_context() {
                         ((file_count++))
                     fi
                 fi
-            done < "$tmp_files"
-            rm -f "$tmp_files"
+            done
         done
     fi
-
-    msg "Context built: $file_count files scanned" >&2
+    
+    msg "Context built: $file_count files scanned"
     echo "$context"
 }
 
