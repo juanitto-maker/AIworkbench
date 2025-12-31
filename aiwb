@@ -52,6 +52,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
 # Load libraries - Fixed for Termux & Unbound Variable Error
+# Provide a safe default so 'set -u' doesn't crash the script
 AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
 
 for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
@@ -251,29 +252,28 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # Show User Prompt in green
+    # Fix 1: Show User Prompt (Green)
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
         
-        # Refresh local file context
+        # Fix 2: Persistence - Refresh the repo scan
+        # This uses the function we already confirmed works!
         if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
             build_repo_context >/dev/null 2>&1
         fi
 
-        # Bundle files + question
+        # Fix 3: Bundle context + question
         local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
+        
+        # Use your script's existing engine to send the message
         process_chat_input "$final_prompt"
     else
-        # If no message, launch UI safely
-        if command -v ui_chat_loop >/dev/null 2>&1; then
-            ui_chat_loop
-        else
-            # Fallback if UI function isn't found
-            AIWB_INTERACTIVE=true process_chat_input ""
-        fi
+        # If no message, just enter the standard chat loop
+        ui_chat_loop
     fi
 }
+
 
 
 
