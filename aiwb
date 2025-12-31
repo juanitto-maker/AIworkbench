@@ -51,17 +51,13 @@ trap cleanup_on_interrupt INT TERM
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
-# Load libraries
-for lib in common config ui api error security modes github editor; do
-    lib_file="${LIB_DIR}/${lib}.sh"
-    if [[ -f "$lib_file" ]]; then
-        source "$lib_file"
-    else
-        echo "ERROR: Missing library: $lib_file" >&2
-        echo "Please reinstall AIWB or run from the repository directory." >&2
-        exit 1
+# Load libraries - Enhanced for Termux compatibility
+for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
+    if [ -f "$lib" ]; then
+        source "$lib"
     fi
 done
+
 
 # ============================================================================
 # INITIALIZATION
