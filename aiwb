@@ -2431,6 +2431,12 @@ main() {
         security-audit|audit)
             security_audit "$@"
             ;;
+        scanrepo|scan)
+            cmd_scanrepo "$@"
+            ;;
+        smartscan|smart)
+            cmd_smartscan "$@"
+            ;;
         github|gh)
             cmd_github "$@"
             ;;
