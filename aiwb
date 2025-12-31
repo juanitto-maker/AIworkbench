@@ -194,6 +194,10 @@ CONFIGURATION:
   status               Show overall status
   doctor               Check system health
 
+REPOSITORY SCANNING:
+  scanrepo             Deep scan entire repository for full context
+  smartscan            Quick scan of key files (configs, docs, main files)
+
 GITHUB (like Claude Code):
   github               Interactive GitHub menu
   github status        Show git status
