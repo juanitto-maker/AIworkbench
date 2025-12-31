@@ -47,16 +47,14 @@ trap cleanup_on_interrupt INT TERM
 # BOOTSTRAP & LIBRARY LOADING
 # ============================================================================
 
-# Load libraries - FIXED VERSION
+# Load libraries - Fixed for Termux & Unbound Variable Error
 AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
 
-# This loop safely checks for files without creating unbound variables
 for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
     if [ -f "$lib" ]; then
         source "$lib"
     fi
 done
-
 
 
 # ============================================================================
@@ -249,26 +247,24 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # 1. VISIBILITY: Show User Prompt in Green
-    if [[ -n "$input_text" ]]; then
-        echo -e "\n\033[1;32mUser:\033[0m $input_text"
-    fi
-
-    # 2. PERSISTENCE: Refresh the repo scan so AI sees your files
+    # 1. Refresh the repo scan so the AI "sees" your code
     if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
         build_repo_context >/dev/null 2>&1
     fi
 
-    # 3. EXECUTION: If text provided, send it. Otherwise, open TUI.
+    # 2. If you typed a message, send it
     if [[ -n "$input_text" ]]; then
-        local final_prompt="[LOCAL PROJECT CONTEXT]\n${AIWB_CONTEXT:-}\n\n[USER QUESTION]\n$input_text"
+        echo -e "\n\033[1;32mUser:\033[0m $input_text"
+        local final_prompt="[CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
         process_chat_input "$final_prompt"
     else
-        # Launch the interface if no question was typed
-        ui_chat_loop
+        # 3. FIX: Call the correct function name found in your file
+        # It is named 'chat_loop', NOT 'ui_chat_loop'
+        chat_loop
     fi
 }
+
 
 
 
