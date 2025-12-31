@@ -47,14 +47,35 @@ trap cleanup_on_interrupt INT TERM
 # BOOTSTRAP & LIBRARY LOADING
 # ============================================================================
 
-# Load libraries - Fixed for Termux & Unbound Variable Error
-AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
+# ============================================================================
+# BOOTSTRAP & LIBRARIES
+# ============================================================================
 
-for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
-    if [ -f "$lib" ]; then
-        source "$lib"
+# 1. Resolve where this script is actually located
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do 
+    DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" 
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
+# 2. Define Library Directory relative to script
+LIB_DIR="${SCRIPT_DIR}/lib"
+AIWB_LIB_DIR="${AIWB_LIB_DIR:-$LIB_DIR}"
+
+# 3. Source all libraries found
+# We check LIB_DIR first (standard install), then fallback to local
+for path in "$LIB_DIR" "$AIWB_LIB_DIR" "$HOME/.local/bin/lib"; do
+    if [[ -d "$path" ]]; then
+        for lib in "$path"/*.sh; do
+            if [[ -f "$lib" ]]; then
+                source "$lib"
+            fi
+        done
     fi
 done
+
 
 
 # ============================================================================
@@ -247,23 +268,39 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # 1. Refresh the repo scan so the AI "sees" your code
-    if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
-        build_repo_context >/dev/null 2>&1
-    fi
-
-    # 2. If you typed a message, send it
+    # 1. VISIBILITY: Show User Prompt
     if [[ -n "$input_text" ]]; then
         echo -e "\n\033[1;32mUser:\033[0m $input_text"
-        local final_prompt="[CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
+    fi
+
+    # 2. PERSISTENCE: Refresh the repo scan
+    if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
+        # Check if function exists before calling to prevent errors
+        if command -v build_repo_context >/dev/null 2>&1; then
+            build_repo_context >/dev/null 2>&1
+        fi
+    fi
+
+    # 3. EXECUTION
+    if [[ -n "$input_text" ]]; then
+        local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
         process_chat_input "$final_prompt"
     else
-        # 3. FIX: Call the correct function name found in your file
-        # It is named 'chat_loop', NOT 'ui_chat_loop'
-        chat_loop
+        # 4. INTERACTIVE MODE
+        # Try the standard UI loop first
+        if command -v ui_chat_loop >/dev/null 2>&1; then
+            ui_chat_loop
+        # Fallback to internal loop if UI is missing
+        elif command -v chat_loop >/dev/null 2>&1; then
+            chat_loop
+        else
+            # Ultimate fallback: use the engine's interactive mode
+            AIWB_INTERACTIVE=true process_chat_input ""
+        fi
     fi
 }
+
 
 
 
