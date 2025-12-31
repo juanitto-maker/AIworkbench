@@ -44,20 +44,24 @@ cleanup_on_interrupt() {
 trap cleanup_on_interrupt INT TERM
 
 # ============================================================================
-# BOOTSTRAP
+# BOOTSTRAP & LIBRARY LOADING
 # ============================================================================
 
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIB_DIR="${SCRIPT_DIR}/lib"
+# Provide safe defaults to avoid "unbound variable" errors
+AIWB_LIB_DIR="${AIWB_LIB_DIR:-$HOME/.local/bin/lib}"
+TERMUX_LIB="/data/data/com.termux/files/usr/bin/lib"
 
-# Load libraries
-# Explicitly include the Termux local bin path to ensure libraries are found
-for lib in "$AIWB_LIB_DIR"/*.sh "/data/data/com.termux/files/usr/bin/lib"/*.sh; do
-    if [ -f "$lib" ]; then
-        source "$lib"
+# Load libraries from all possible locations
+for lib_path in "$AIWB_LIB_DIR" "$TERMUX_LIB" "./lib"; do
+    if [[ -d "$lib_path" ]]; then
+        for lib in "$lib_path"/*.sh; do
+            if [[ -f "$lib" ]]; then
+                source "$lib"
+            fi
+        done
     fi
 done
+
 
 # ============================================================================
 # INITIALIZATION
@@ -249,28 +253,35 @@ EOF
 cmd_chat() {
     local input_text="$*"
 
-    # 1. Persistence: Refresh the repo scan so the AI is never "blind"
+    # 1. Show User Prompt in green
+    if [[ -n "$input_text" ]]; then
+        echo -e "\n\033[1;32mUser:\033[0m $input_text"
+    fi
+
+    # 2. Persistence: Refresh the repo scan
     if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
         build_repo_context >/dev/null 2>&1
     fi
 
-    # 2. Bundle files + question if text was provided
+    # 3. Execution Logic
     if [[ -n "$input_text" ]]; then
-        local final_prompt="[LOCAL PROJECT CONTEXT]\n${AIWB_CONTEXT:-}\n\n[USER QUESTION]\n$input_text"
+        # Bundle files + question
+        local final_prompt="[LOCAL CONTEXT]\n${AIWB_CONTEXT:-}\n\n[QUESTION]\n$input_text"
         export AIWB_LAST_PROMPT="$final_prompt"
-        # Send to the engine
+        
+        # Call the existing engine
         process_chat_input "$final_prompt"
     else
-        # 3. If no text, enter the TUI
-        # We check if it exists to prevent the "command not found" error
+        # If no message, launch UI (TUI)
+        # Check if function exists to avoid 'command not found'
         if command -v ui_chat_loop >/dev/null 2>&1; then
             ui_chat_loop
         else
-            # Native fallback if UI library is missing
             AIWB_INTERACTIVE=true process_chat_input ""
         fi
     fi
 }
+
 
 
 
