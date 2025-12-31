@@ -298,6 +298,11 @@ cmd_chat() {
         # Clear screen and show header (don't fail if TERM not set)
         clear 2>/dev/null || true
 
+        # Refresh repository detection (in case we're in a subdirectory)
+        if command -v detect_repo >/dev/null 2>&1; then
+            detect_repo || true
+        fi
+
         # Show header and status
         if command -v ui_header >/dev/null 2>&1; then
             ui_header "AIWB Interactive Chat"
