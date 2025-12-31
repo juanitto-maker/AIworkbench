@@ -4,7 +4,7 @@
 # Universal compatibility: Linux, macOS, Termux
 # License: GPL-3.0
 
-set -euo pipefail
+set -eo pipefail
 
 # ============================================================================
 # INTERRUPT HANDLING
