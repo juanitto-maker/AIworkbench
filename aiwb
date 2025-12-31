@@ -921,6 +921,302 @@ cmd_refine() {
 # STATUS AND CONTEXT COMMANDS
 # ============================================================================
 
+# ============================================================================
+# AUTOMATIC REPO CONTEXT SCANNING
+# ============================================================================
+
+# Build repository context automatically
+build_repo_context() {
+    local mode="${1:-selective}"  # selective or full
+    local max_file_size=50000     # 50KB per file limit
+    local context=""
+    local file_count=0
+    
+    msg "Building $mode context for $(basename "$(pwd)")..."
+    
+    # Common exclusions (universal across all repo types)
+    local exclude_patterns=(
+        ".git"
+        "node_modules"
+        "dist"
+        "build"
+        "__pycache__"
+        ".next"
+        ".nuxt"
+        "vendor"
+        "target"
+        "out"
+        "bin"
+        ".venv"
+        "venv"
+        "env"
+        ".pytest_cache"
+        ".mypy_cache"
+        "coverage"
+        ".DS_Store"
+    )
+    
+    # Build find exclusions
+    local find_exclude=""
+    for pattern in "${exclude_patterns[@]}"; do
+        find_exclude+=" -not -path '*/$pattern/*'"
+    done
+    
+    if [[ "$mode" == "full" ]]; then
+        # Full context: read most source files
+        msg "Deep scan: reading all source files (this may take a moment)..."
+        
+        # Find source files (common extensions across languages)
+        local source_extensions=(
+            "*.js" "*.ts" "*.jsx" "*.tsx"
+            "*.py" "*.go" "*.rs" "*.java"
+            "*.c" "*.cpp" "*.h" "*.hpp"
+            "*.rb" "*.php" "*.swift" "*.kt"
+            "*.json" "*.yaml" "*.yml" "*.toml"
+            "*.md" "*.txt" "*.sh" "*.bash"
+            "Makefile" "Dockerfile" ".env*"
+        )
+        
+        # Build name patterns for find
+        local name_pattern=""
+        for ext in "${source_extensions[@]}"; do
+            [[ -n "$name_pattern" ]] && name_pattern+=" -o "
+            name_pattern+="-name '$ext'"
+        done
+        
+        # Execute find and process files
+        eval "find . -type f $find_exclude \( $name_pattern \) 2>/dev/null" | while IFS= read -r file; do
+            # Skip binary files
+            if file "$file" 2>/dev/null | grep -q "text"; then
+                local content
+                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$content" ]]; then
+                    context+=$'\n'"--- FILE: $file ---"$'\n'
+                    context+="$content"$'\n'
+                    ((file_count++))
+                fi
+            fi
+        done
+        
+    else
+        # Selective context: only key files (default mode)
+        msg "Smart scan: reading key configuration and documentation files..."
+        
+        # Priority 1: Config files (always important)
+        local config_files=(
+            "package.json"
+            "tsconfig.json"
+            "*.config.js"
+            "*.config.ts"
+            "vite.config.*"
+            "webpack.config.*"
+            "rollup.config.*"
+            "Cargo.toml"
+            "go.mod"
+            "go.sum"
+            "requirements.txt"
+            "Pipfile"
+            "poetry.lock"
+            "Gemfile"
+            "composer.json"
+            "pom.xml"
+            "build.gradle"
+            ".env.example"
+            "config.yaml"
+            "config.yml"
+        )
+        
+        for pattern in "${config_files[@]}"; do
+            eval "find . -maxdepth 2 -type f -name '$pattern' $find_exclude 2>/dev/null" | while IFS= read -r file; do
+                local content
+                content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                if [[ -n "$content" ]]; then
+                    context+=$'\n'"--- FILE: $file ---"$'\n'
+                    context+="$content"$'\n'
+                    ((file_count++))
+                fi
+            done
+        done
+        
+        # Priority 2: Documentation
+        eval "find . -maxdepth 2 -type f \( -name 'README*' -o -name 'CHANGELOG*' -o -name 'LICENSE*' -o -name 'CONTRIBUTING*' \) $find_exclude 2>/dev/null" | while IFS= read -r file; do
+            local content
+            content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+            if [[ -n "$content" ]]; then
+                context+=$'\n'"--- FILE: $file ---"$'\n'
+                context+="$content"$'\n'
+                ((file_count++))
+            fi
+        done
+        
+        # Priority 3: Main source files (limited depth)
+        local main_patterns=(
+            "main.*"
+            "index.*"
+            "app.*"
+            "server.*"
+            "__init__.py"
+            "mod.rs"
+            "lib.rs"
+        )
+        
+        for pattern in "${main_patterns[@]}"; do
+            eval "find . -maxdepth 3 -type f -name '$pattern' $find_exclude 2>/dev/null" | while IFS= read -r file; do
+                if file "$file" 2>/dev/null | grep -q "text"; then
+                    local content
+                    content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
+                    if [[ -n "$content" ]]; then
+                        context+=$'\n'"--- FILE: $file ---"$'\n'
+                        context+="$content"$'\n'
+                        ((file_count++))
+                    fi
+                fi
+            done
+        done
+    fi
+    
+    msg "Context built: $file_count files scanned"
+    echo "$context"
+}
+
+# Scan repository - full deep scan
+cmd_scanrepo() {
+    ui_header "Full Repository Scan"
+    
+    if ! is_repo_mode; then
+        warn "Not in a git repository"
+        echo "Navigate to a repo first: cd /path/to/repo"
+        return 1
+    fi
+    
+    echo "Repository: ${AIWB_REPO_NAME}"
+    echo "This will scan ALL source files in the repository."
+    echo ""
+    
+    if ! ui_confirm "Proceed with full scan?" "yes"; then
+        msg "Cancelled"
+        return 0
+    fi
+    
+    # Build full context
+    local context
+    context=$(build_repo_context "full")
+    
+    if [[ -z "$context" ]]; then
+        warn "No files found to scan"
+        return 1
+    fi
+    
+    # Create analysis prompt
+    local prompt="Analyze this repository and provide a comprehensive overview:
+
+Repository: ${AIWB_REPO_NAME}
+Branch: ${AIWB_REPO_BRANCH}
+
+$context
+
+Please provide:
+1. Project type and purpose
+2. Technology stack and dependencies
+3. Architecture and key components
+4. Main features and functionality
+5. Code quality observations
+6. Suggestions for improvements"
+    
+    # Get provider and model
+    local provider model
+    provider="$(config_get model_provider)"
+    model="$(config_get model_name)"
+    
+    echo ""
+    msg "Analyzing with $provider ($model)..."
+    echo ""
+    
+    # Call API
+    local analysis
+    analysis=$(call_api "$prompt" "$provider" "$model")
+    
+    # Display results
+    echo ""
+    ui_header "Repository Analysis"
+    echo "$analysis"
+    echo ""
+    
+    # Save analysis
+    local workspace output_dir
+    workspace="$(get_workspace)"
+    output_dir="$workspace/outputs"
+    ensure_dir "$output_dir"
+    
+    local analysis_file="$output_dir/repo_analysis_$(date +%Y%m%d_%H%M%S).md"
+    echo "$analysis" > "$analysis_file"
+    
+    success "Analysis saved to: $analysis_file"
+    
+    # Track usage
+    track_usage "$provider" "$model" "$prompt" "$analysis"
+}
+
+# Smart scan - selective key files only
+cmd_smartscan() {
+    ui_header "Smart Repository Scan"
+    
+    if ! is_repo_mode; then
+        warn "Not in a git repository"
+        echo "Navigate to a repo first: cd /path/to/repo"
+        return 1
+    fi
+    
+    echo "Repository: ${AIWB_REPO_NAME}"
+    echo "This will scan configuration files, documentation, and main entry points."
+    echo ""
+    
+    # Build selective context
+    local context
+    context=$(build_repo_context "selective")
+    
+    if [[ -z "$context" ]]; then
+        warn "No key files found to scan"
+        return 1
+    fi
+    
+    # Create analysis prompt
+    local prompt="Provide a quick overview of this repository based on key files:
+
+Repository: ${AIWB_REPO_NAME}
+Branch: ${AIWB_REPO_BRANCH}
+
+$context
+
+Please summarize:
+1. Project type and main purpose
+2. Key technologies used
+3. Main dependencies
+4. Entry points and structure"
+    
+    # Get provider and model
+    local provider model
+    provider="$(config_get model_provider)"
+    model="$(config_get model_name)"
+    
+    echo ""
+    msg "Analyzing with $provider ($model)..."
+    echo ""
+    
+    # Call API
+    local analysis
+    analysis=$(call_api "$prompt" "$provider" "$model")
+    
+    # Display results
+    echo ""
+    ui_header "Quick Analysis"
+    echo "$analysis"
+    echo ""
+    
+    # Track usage
+    track_usage "$provider" "$model" "$prompt" "$analysis"
+}
+
 # Overall status overview
 cmd_status_overview() {
     ui_header "AIWB Status Overview"
