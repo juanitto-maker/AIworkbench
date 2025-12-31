@@ -273,6 +273,7 @@ EOF
 
 # Main interactive chat interface
 cmd_chat() {
+    debug "cmd_chat called with args: $*"
     local input_text="$*"
 
     # 1. VISIBILITY: Show User Prompt
@@ -2401,6 +2402,8 @@ main() {
     # Route command
     local cmd="${1:-chat}"
     shift || true
+
+    debug "Routing to command: $cmd"
 
     case "$cmd" in
         chat|c)
