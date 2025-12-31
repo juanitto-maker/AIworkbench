@@ -2389,10 +2389,11 @@ main() {
         help|--help|-h)
             cmd_help
             ;;
-            *)
-            # If no command or an unknown command is given, launch chat
+                    *)
+            # This ensures running 'aiwb' always opens the chat
             cmd_chat "$@"
             ;;
+
 
 
     esac
