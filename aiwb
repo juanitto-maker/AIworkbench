@@ -285,7 +285,7 @@ cmd_chat() {
     if [[ "${AIWB_REPO_ENABLED:-false}" == "true" ]]; then
         # Check if function exists before calling to prevent errors
         if command -v build_repo_context >/dev/null 2>&1; then
-            build_repo_context >/dev/null 2>&1
+            build_repo_context >/dev/null 2>&1 || true
         fi
     fi
 
