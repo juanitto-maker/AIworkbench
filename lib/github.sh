@@ -424,6 +424,158 @@ github_fetch() {
     fi
 }
 
+# Sync with remote (fetch, pull, push as needed)
+github_sync() {
+    local remote="${1:-origin}"
+
+    if ! have git; then
+        err "Git is not installed"
+        return 1
+    fi
+
+    if ! git rev-parse --git-dir >/dev/null 2>&1; then
+        err "Not in a git repository"
+        return 1
+    fi
+
+    # Get current branch
+    local branch
+    branch=$(git branch --show-current 2>/dev/null)
+    if [[ -z "$branch" ]]; then
+        err "HEAD is detached, cannot sync"
+        return 1
+    fi
+
+    msg "Syncing with remote..."
+
+    # Fetch from remote silently
+    if ! git fetch "$remote" --quiet 2>/dev/null; then
+        err "Failed to fetch from $remote (network issue?)"
+        return 1
+    fi
+
+    # Check if remote branch exists
+    if ! git rev-parse --verify "$remote/$branch" >/dev/null 2>&1; then
+        warn "Remote branch $remote/$branch does not exist"
+        echo "Branch: ${CYAN}$branch${RESET}"
+        echo ""
+        if ui_confirm "Push local branch to remote?" "yes"; then
+            github_push "$remote" "$branch"
+        fi
+        return 0
+    fi
+
+    # Calculate ahead/behind
+    local ahead behind
+    ahead=$(git rev-list --count "$remote/$branch..HEAD" 2>/dev/null || echo "0")
+    behind=$(git rev-list --count "HEAD..$remote/$branch" 2>/dev/null || echo "0")
+
+    echo "Branch: ${CYAN}$branch${RESET}"
+
+    # Handle different scenarios
+    if [[ "$ahead" -eq 0 && "$behind" -eq 0 ]]; then
+        # In sync
+        success "Already in sync with remote"
+        return 0
+
+    elif [[ "$ahead" -eq 0 && "$behind" -gt 0 ]]; then
+        # Behind only
+        echo "Behind: ${YELLOW}$behind${RESET} commits"
+        echo ""
+        echo "Commits to pull:"
+        git log HEAD.."$remote/$branch" --oneline --no-decorate 2>/dev/null | while IFS= read -r commit; do
+            echo "  $commit"
+        done
+        echo ""
+
+        if ui_confirm "Pull these $behind commit(s) from remote?" "yes"; then
+            msg "Pulling from $remote/$branch..."
+            if git pull "$remote" "$branch"; then
+                success "Pulled successfully"
+                success "Sync complete!"
+            else
+                err "Pull failed (possible conflicts)"
+                return 1
+            fi
+        else
+            warn "Sync cancelled"
+        fi
+
+    elif [[ "$ahead" -gt 0 && "$behind" -eq 0 ]]; then
+        # Ahead only
+        echo "Ahead: ${GREEN}$ahead${RESET} commits"
+        echo ""
+        echo "Commits to push:"
+        git log "$remote/$branch..HEAD" --oneline --no-decorate 2>/dev/null | while IFS= read -r commit; do
+            echo "  $commit"
+        done
+        echo ""
+
+        if ui_confirm "Push these $ahead commit(s) to remote?" "yes"; then
+            msg "Pushing to $remote/$branch..."
+            if git push "$remote" "$branch"; then
+                success "Pushed successfully"
+                success "Sync complete!"
+            else
+                err "Push failed"
+                return 1
+            fi
+        else
+            warn "Sync cancelled"
+        fi
+
+    else
+        # Both ahead and behind (diverged)
+        echo "Ahead: ${GREEN}$ahead${RESET}, Behind: ${YELLOW}$behind${RESET}"
+        echo ""
+        warn "Branches have diverged!"
+        echo ""
+
+        echo "Commits to pull:"
+        git log HEAD.."$remote/$branch" --oneline --no-decorate 2>/dev/null | while IFS= read -r commit; do
+            echo "  $commit"
+        done
+        echo ""
+
+        echo "Commits to push:"
+        git log "$remote/$branch..HEAD" --oneline --no-decorate 2>/dev/null | while IFS= read -r commit; do
+            echo "  $commit"
+        done
+        echo ""
+
+        if ui_confirm "Pull first, then push?" "yes"; then
+            msg "Pulling from $remote/$branch..."
+            if git pull "$remote" "$branch"; then
+                success "Pulled successfully"
+
+                # After pull, check if we still need to push
+                local new_ahead
+                new_ahead=$(git rev-list --count "$remote/$branch..HEAD" 2>/dev/null || echo "0")
+
+                if [[ "$new_ahead" -gt 0 ]]; then
+                    msg "Pushing to $remote/$branch..."
+                    if git push "$remote" "$branch"; then
+                        success "Pushed successfully"
+                        success "Sync complete!"
+                    else
+                        err "Push failed"
+                        return 1
+                    fi
+                else
+                    success "Sync complete!"
+                fi
+            else
+                err "Pull failed (possible conflicts)"
+                echo ""
+                warn "Please resolve conflicts manually and try again"
+                return 1
+            fi
+        else
+            warn "Sync cancelled"
+        fi
+    fi
+}
+
 # ============================================================================
 # BRANCH OPERATIONS
 # ============================================================================
