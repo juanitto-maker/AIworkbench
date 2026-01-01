@@ -688,6 +688,110 @@ copy_to_clipboard() {
     fi
 }
 
+# ============================================================================
+# STATUS FOOTER HELPERS
+# ============================================================================
+
+# Get context summary for status display
+get_context_summary() {
+    if type context_state_exists &>/dev/null && context_state_exists; then
+        local scan_file scan_count manual_count
+        scan_file=$(context_state_get "last_scan.output_file" 2>/dev/null)
+        scan_count=$(context_state_get "last_scan.file_count" 2>/dev/null)
+
+        if command -v jq &>/dev/null; then
+            manual_count=$(context_state_get "context_files" 2>/dev/null | jq 'length' 2>/dev/null || echo "0")
+        else
+            manual_count=0
+        fi
+
+        if [[ -n "$scan_file" && -f "$scan_file" ]]; then
+            if [[ $manual_count -gt 0 ]]; then
+                echo "scan ($scan_count files) + $manual_count manual"
+            else
+                echo "scan ($scan_count files)"
+            fi
+        elif [[ $manual_count -gt 0 ]]; then
+            echo "$manual_count file(s)"
+        else
+            echo "none"
+        fi
+    else
+        echo "none"
+    fi
+}
+
+# Get total session cost
+get_session_cost() {
+    local workspace logs_dir usage_log
+    workspace="$(get_workspace 2>/dev/null)" || workspace="$HOME/.aiwb/workspace"
+    logs_dir="$workspace/logs"
+    usage_log="$logs_dir/usage.jsonl"
+
+    if [[ ! -f "$usage_log" ]]; then
+        echo "0.00"
+        return
+    fi
+
+    # Sum costs from current session (today's entries)
+    local total_cost
+    if command -v jq &>/dev/null; then
+        total_cost=$(jq -s 'map(.cost) | add // 0' "$usage_log" 2>/dev/null)
+        printf "%.2f" "$total_cost" 2>/dev/null || echo "0.00"
+    else
+        echo "0.00"
+    fi
+}
+
+# Get message count for current session
+get_message_count() {
+    local workspace logs_dir
+    workspace="$(get_workspace 2>/dev/null)" || workspace="$HOME/.aiwb/workspace"
+    logs_dir="$workspace/logs"
+
+    # Count "USER:" lines in most recent chat log
+    local latest_log
+    latest_log=$(ls -t "$logs_dir"/chat_*.log 2>/dev/null | head -1)
+
+    if [[ -f "$latest_log" ]]; then
+        grep -c "^\\[.*\\] USER:" "$latest_log" 2>/dev/null || echo "0"
+    else
+        echo "0"
+    fi
+}
+
+# Show status footer after AI response
+show_status_footer() {
+    local provider model
+    provider="$(config_get model_provider)"
+    model="$(config_get model_name)"
+
+    # Build model display (provider/model)
+    local model_display="${provider}/${model}"
+
+    # Get context summary
+    local context_summary
+    context_summary=$(get_context_summary)
+
+    # Get session stats
+    local session_cost message_count
+    session_cost=$(get_session_cost)
+    message_count=$(get_message_count)
+
+    # Line 1: Model & Context
+    echo "Model: $model_display | Context: $context_summary"
+
+    # Line 2: Session stats with optional warning
+    local cost_warning=""
+    if command -v bc &>/dev/null; then
+        if (( $(echo "$session_cost > 1.00" | bc -l 2>/dev/null) )); then
+            cost_warning=" | WARNING: High cost - Type /costs"
+        fi
+    fi
+
+    echo "Session: \$$session_cost | Messages: $message_count | Type /status for details${cost_warning}"
+}
+
 # Handle chat message
 handle_chat_message() {
     local message="$1"
@@ -744,6 +848,10 @@ User Question: $message"
     echo ""
     echo "${CYAN}${BOLD}AI:${RESET}"
     echo "$response"
+    echo ""
+
+    # Show status footer
+    show_status_footer
     echo ""
 
     # Offer to copy to clipboard
