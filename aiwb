@@ -2155,6 +2155,9 @@ cmd_github() {
         fetch)
             github_fetch "$@"
             ;;
+        sync)
+            github_sync "$@"
+            ;;
         add|stage)
             github_add "$@"
             ;;
@@ -2243,6 +2246,7 @@ REPOSITORY:
   push [remote] [branch]   Push to remote
   pull [remote] [branch]   Pull from remote
   fetch [remote]      Fetch updates
+  sync [remote]       Sync with remote (fetch, pull/push as needed)
   add [files...]      Stage files (or all if none specified)
 
 BRANCHES:
