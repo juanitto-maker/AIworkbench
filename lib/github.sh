@@ -1157,6 +1157,7 @@ github_menu() {
             "Commit - Commit changes" \
             "Push - Push to remote" \
             "Pull - Pull from remote" \
+            "Sync - Sync with remote (fetch, pull/push as needed)" \
             "Branches - Manage branches" \
             "Issues - Manage issues" \
             "PRs - Manage pull requests" \
@@ -1170,6 +1171,7 @@ github_menu() {
             "Commit"*)   github_commit_interactive ;;
             "Push"*)     github_push ;;
             "Pull"*)     github_pull ;;
+            "Sync"*)     github_sync ;;
             "Branches"*) github_branches_menu ;;
             "Issues"*)   github_issues_menu ;;
             "PRs"*)      github_pr_menu ;;

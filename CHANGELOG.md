@@ -2,6 +2,130 @@
 
 All notable changes to AIWB will be documented in this file.
 
+## [3.0.0] - 2026-01-01
+
+### 🎉 Major Release - GitHub Integration & Enhanced Workflows
+
+This major release introduces comprehensive GitHub integration and significant UX improvements to mode-based workflows.
+
+### ✨ Added
+
+**GitHub Integration (v3.0):**
+- ✅ **Unified `/github sync` Command** - Intelligent sync workflow replaces status/pull/push dance
+  - Fetches from remote silently in background
+  - Shows ahead/behind status with commit details
+  - Intelligently handles 4 scenarios: in sync, behind, ahead, or diverged
+  - Interactive prompts for pull/push operations (Y/n with yes default)
+  - Lists commits with `git log --oneline --no-decorate` for clarity
+  - Auto-resolves diverged branches with pull-then-push workflow
+- ✅ **Comprehensive Git Operations** - Full git command suite:
+  - `github status` - Enhanced status with auto-fetch for accurate ahead/behind
+  - `github clone` - Clone repositories
+  - `github add/commit/push/pull/fetch` - All basic git operations
+  - `github sync` - NEW: Unified sync workflow
+- ✅ **Branch Management** - Create, switch, delete, list branches
+- ✅ **Issue Management** - List, view, create, close, comment on issues
+- ✅ **Pull Request Management** - List, view, create, merge, close PRs
+- ✅ **Workflow/CI Operations** - View and re-run GitHub Actions workflows
+- ✅ **Interactive Menus** - Full TUI menus for `/github` command
+  - Main menu with all operations
+  - Sync option in interactive menu
+  - Sub-menus for branches, issues, PRs, workflows
+- ✅ **Secure Authentication** - GitHub PAT storage with encryption support
+- ✅ **Documentation** - Comprehensive 820-line guide (docs/GITHUB_INTEGRATION.md)
+
+**Enhanced Mode System:**
+- ✅ **Renamed "Uploads" to "Context/Uploads"** - Clearer labeling throughout mode menus
+- ✅ **"Current repo/folder" Quick-Add** - One-click option to add `pwd` to context
+  - First option in Context/Uploads menu
+  - No need to browse or type path manually
+  - Instant context addition for current working directory
+- ✅ **Updated Status Display** - Shows "Context/Uploads:" in mode status
+
+**Universal Folder Scanning:**
+- ✅ **`/smartscan` for ANY Folder** - No longer requires git repository
+  - Works with local directories, not just git repos
+  - Uses `detect_repo` for consistency with `/scanrepo`
+  - Shows folder info whether git or not
+  - Updated prompts to say "folder" instead of "repository"
+- ✅ **Consistent Scanning** - Both `/smartscan` and `/scanrepo` work anywhere
+
+### 🔧 Fixed
+
+**GitHub Integration:**
+- ✅ Auto-fetch in `github status` for accurate ahead/behind counts
+- ✅ Proper error handling for network issues
+- ✅ Conflict detection and user guidance
+- ✅ Detached HEAD handling in sync command
+
+**Mode System:**
+- ✅ Clearer context file labeling (Context/Uploads vs Uploads)
+- ✅ Faster workflow when working in current directory
+
+**Scanning:**
+- ✅ `/smartscan` no longer fails on non-git folders
+- ✅ Consistent behavior between smart and full scans
+
+### 🚀 Improved
+
+**Developer Experience:**
+- ✅ **Streamlined Git Workflow** - Single `sync` command replaces multiple steps
+  - Old way: `status` → `pull` (if behind) → `push` (if ahead)
+  - New way: `sync` (handles everything intelligently)
+- ✅ **Better Context Management** - Quick-add current folder option
+- ✅ **Flexible Scanning** - Analyze any folder structure
+- ✅ **Comprehensive Help** - Updated help text in 3 locations:
+  - `aiwb --help` (main CLI help)
+  - `/help` (interactive chat help)
+  - `aiwb github help` (GitHub-specific help)
+
+**User Experience:**
+- ✅ **Intelligent Prompting** - Sync command shows what will happen before doing it
+- ✅ **Clear Commit Visibility** - See exactly what commits you're pulling/pushing
+- ✅ **Safer Operations** - Confirmation prompts prevent accidental pushes/pulls
+- ✅ **Clearer Labels** - "Context/Uploads" vs generic "Uploads"
+
+### 📚 Documentation
+
+- ✅ **docs/GITHUB_INTEGRATION.md** - Complete 820-line integration guide
+  - Quick Start examples
+  - All command references
+  - Workflow examples
+  - Architecture documentation
+  - Troubleshooting guide
+  - Comparison with Claude Code
+- ✅ **Updated Main Help** - Added sync to all help locations
+- ✅ **Inline Examples** - Example outputs for all sync scenarios
+
+### 🎯 Breaking Changes
+
+None! This release is fully backward compatible with v2.x.
+
+### 📊 Statistics
+
+- **New Commands**: 1 (`/github sync`)
+- **Enhanced Commands**: 2 (`/smartscan`, `/github status`)
+- **Files Changed**: 4 (aiwb, lib/github.sh, lib/modes.sh, docs/GITHUB_INTEGRATION.md)
+- **Lines Added**: ~350
+- **Documentation**: 1 comprehensive guide (820 lines)
+- **New Features**: 3 major (GitHub sync, Context/Uploads rename, universal scanning)
+
+### 🔄 Migration from 2.x
+
+No migration needed! All v2.x features work exactly as before. New features are additions:
+
+```bash
+# New unified sync workflow (recommended)
+aiwb github sync
+
+# Traditional workflow still works
+aiwb github status
+aiwb github pull
+aiwb github push
+```
+
+---
+
 ## [2.0.1] - 2025-11-09
 
 ### 🐛 Fixed

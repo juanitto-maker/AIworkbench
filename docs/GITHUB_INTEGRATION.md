@@ -1,5 +1,7 @@
 # GitHub Integration Guide
 
+**Version 3.0** - Enhanced with unified sync workflow
+
 AIWB provides comprehensive GitHub integration similar to Claude Code, allowing you to manage repositories, issues, pull requests, and workflows directly from the command line.
 
 ---
@@ -26,12 +28,12 @@ AIWB provides comprehensive GitHub integration similar to Claude Code, allowing 
 # 1. Set up GitHub authentication
 aiwb github auth
 
-# 2. Check git status
-aiwb github status
+# 2. Check status and sync with remote
+aiwb github sync          # New in v3.0: unified sync workflow
 
-# 3. Make changes, commit, and push
+# 3. Make changes, commit, and sync
 aiwb github commit "Add new feature"
-aiwb github push
+aiwb github sync          # Automatically pushes if ahead
 
 # 4. Create a pull request
 aiwb github pr create "New feature" "Description of changes" main
@@ -194,6 +196,84 @@ aiwb github fetch
 
 # Fetch from specific remote
 aiwb github fetch upstream
+```
+
+### Sync with Remote (New in v3.0)
+
+The unified sync command handles the entire sync workflow in one command - it fetches, shows status, and intelligently prompts to pull/push based on the current state:
+
+```bash
+# Sync with origin (default)
+aiwb github sync
+
+# Sync with specific remote
+aiwb github sync upstream
+```
+
+**How it works:**
+
+1. **Fetches from remote** (silently in the background)
+2. **Calculates ahead/behind status** against the remote branch
+3. **Takes action based on status:**
+   - **In sync**: Shows success message
+   - **Behind remote**: Lists commits to pull, prompts to pull
+   - **Ahead of remote**: Lists commits to push, prompts to push
+   - **Diverged** (both ahead and behind): Shows both commit lists, prompts to pull then push
+
+**Example Output (when behind):**
+```
+==> Syncing with remote...
+Branch: main
+Behind: 3 commits
+
+Commits to pull:
+  a1b2c3d Fix deployment issue
+  d4e5f6g Update dependencies
+  h7i8j9k Add dark mode
+
+Pull these 3 commit(s) from remote? (Y/n):
+```
+
+**Example Output (when ahead):**
+```
+==> Syncing with remote...
+Branch: main
+Ahead: 2 commits
+
+Commits to push:
+  k9j8i7h Add new feature
+  f6e5d4c Update README
+
+Push these 2 commit(s) to remote? (Y/n):
+```
+
+**Example Output (when diverged):**
+```
+==> Syncing with remote...
+Branch: main
+Ahead: 2, Behind: 1
+
+⚠  Branches have diverged!
+
+Commits to pull:
+  x1y2z3a Hotfix from teammate
+
+Commits to push:
+  k9j8i7h Add new feature
+  f6e5d4c Update README
+
+Pull first, then push? (Y/n):
+```
+
+This replaces the traditional workflow:
+```bash
+# Old way (multiple commands)
+aiwb github status
+aiwb github pull    # If behind
+aiwb github push    # If ahead
+
+# New way (single command)
+aiwb github sync
 ```
 
 ### Repository Info
@@ -503,6 +583,7 @@ GitHub Operations
   Commit - Commit changes
   Push - Push to remote
   Pull - Pull from remote
+  Sync - Sync with remote (fetch, pull/push as needed)
   Branches - Manage branches
   Issues - Manage issues
   PRs - Manage pull requests
@@ -517,8 +598,10 @@ GitHub Operations
 aiwb
 > /github              # Open interactive menu
 > /github status       # Quick status
+> /github sync         # Unified sync workflow
 > /github commit       # Commit with prompts
 > /github push         # Push changes
+> /github pull         # Pull changes
 > /github pr create    # Create PR interactively
 ```
 
@@ -529,9 +612,9 @@ aiwb
 ### Complete Feature Development Workflow
 
 ```bash
-# 1. Start from main branch
+# 1. Start from main branch (using new sync command)
 aiwb github branch switch main
-aiwb github pull
+aiwb github sync          # Replaces: pull + status
 
 # 2. Create feature branch
 aiwb github branch create feature-awesome
@@ -546,8 +629,8 @@ aiwb github status
 aiwb github add
 aiwb github commit "Add awesome feature"
 
-# 6. Push branch
-aiwb github push
+# 6. Push branch (using new sync command)
+aiwb github sync          # Intelligent push with status check
 
 # 7. Create pull request
 aiwb github pr create "Add awesome feature" "This PR adds..." main
@@ -557,7 +640,7 @@ aiwb github pr merge 123 squash
 
 # 9. Clean up
 aiwb github branch switch main
-aiwb github pull
+aiwb github sync          # Sync instead of pull
 aiwb github branch delete feature-awesome
 ```
 
@@ -629,7 +712,8 @@ lib/github.sh (~1,200 lines)
 │   ├── github_commit()
 │   ├── github_push()
 │   ├── github_pull()
-│   └── github_fetch()
+│   ├── github_fetch()
+│   └── github_sync()          # New in v3.0
 │
 ├── Branch Operations
 │   ├── github_branches()
@@ -806,6 +890,7 @@ AIWB_DEBUG=1 aiwb github status
 | Clone repos | `aiwb github clone` | Built-in |
 | Commit changes | `aiwb github commit` | Built-in |
 | Push/Pull | `aiwb github push/pull` | Built-in |
+| **Unified sync** | `aiwb github sync` ✨ | N/A |
 | Create issues | `aiwb github issue create` | Built-in |
 | Create PRs | `aiwb github pr create` | Built-in |
 | View workflows | `aiwb github workflow list` | Built-in |
