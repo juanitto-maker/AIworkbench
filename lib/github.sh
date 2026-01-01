@@ -257,6 +257,9 @@ github_status() {
         return 1
     fi
 
+    # Auto-fetch from remote to get accurate ahead/behind status
+    git fetch origin --quiet 2>/dev/null || true
+
     ui_header "Git Status"
 
     # Current branch
