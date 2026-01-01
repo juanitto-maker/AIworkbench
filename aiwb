@@ -297,6 +297,37 @@ cmd_chat() {
         echo ""
     fi
 
+    # Check for existing context from previous session
+    if type context_state_exists &>/dev/null && context_state_exists; then
+        local created_at
+        created_at=$(context_state_get "created_at" 2>/dev/null || echo "")
+
+        if [[ -n "$created_at" ]]; then
+            local created_epoch now_epoch age_days age_msg
+            created_epoch=$(date -d "$created_at" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%S" "${created_at:0:19}" +%s 2>/dev/null || echo "0")
+            now_epoch=$(date +%s)
+            age_days=$(( (now_epoch - created_epoch) / 86400 ))
+
+            if [[ $age_days -eq 0 ]]; then
+                age_msg="today"
+            elif [[ $age_days -eq 1 ]]; then
+                age_msg="yesterday"
+            else
+                age_msg="$age_days days ago"
+            fi
+
+            echo ""
+            warn "Found context from previous session ($age_msg)"
+
+            if ui_confirm "Resume with previous context?" "yes"; then
+                context_state_load_into_mode
+                echo ""
+                context_state_show
+            fi
+            echo ""
+        fi
+    fi
+
     # Start chat loop
     chat_loop
 }
@@ -487,6 +518,24 @@ handle_slash_command() {
         /smartscan)
             cmd_smartscan
             ;;
+        /contextload)
+            cmd_contextload
+            ;;
+        /contextsave)
+            cmd_contextsave
+            ;;
+        /contextshow)
+            cmd_contextshow
+            ;;
+        /contextclear)
+            cmd_contextclear
+            ;;
+        /contextrefresh)
+            cmd_contextrefresh
+            ;;
+        /contextremove)
+            cmd_contextremove
+            ;;
         /quick)
             cmd_quick "$args"
             ;;
@@ -545,6 +594,14 @@ CODE EDITING (Like Claude Code!):
 
   Just type what you want changed, and AI will edit your files directly!
   Example: "Add dark mode to the settings page"
+
+CONTEXT MANAGEMENT:
+  /contextshow          Show current context state
+  /contextload          Load saved context into session
+  /contextsave          Save current context to state
+  /contextclear         Clear all context and start fresh
+  /contextrefresh       Re-scan repository and update context
+  /contextremove        Remove specific file from context
 
 MODE-BASED WORKFLOWS:
   /make       Generate code from scratch (enter mode)
@@ -1172,11 +1229,20 @@ Please provide:
     
     local analysis_file="$output_dir/repo_analysis_$(date +%Y%m%d_%H%M%S).md"
     echo "$analysis" > "$analysis_file"
-    
+
     success "Analysis saved to: $analysis_file"
-    
+
     # Track usage
     track_usage "$provider" "$model" "$prompt" "$analysis"
+
+    # Save to context state (if context_state functions are available)
+    if type context_state_save_scan &>/dev/null; then
+        # Count files from context (count "--- FILE:" markers)
+        local scan_file_count
+        scan_file_count=$(echo "$context" | grep -c "^--- FILE:" || echo "0")
+        context_state_save_scan "full" "$analysis_file" "$scan_file_count"
+        msg "Context saved for future use (run /contextshow to view)"
+    fi
 }
 
 # Smart scan - selective key files only
@@ -1239,8 +1305,232 @@ Please summarize:
     echo "$analysis"
     echo ""
 
+    # Save analysis
+    local workspace output_dir
+    workspace="$(get_workspace)"
+    output_dir="$workspace/outputs"
+    ensure_dir "$output_dir"
+
+    local analysis_file="$output_dir/smart_scan_$(date +%Y%m%d_%H%M%S).md"
+    echo "$analysis" > "$analysis_file"
+
+    success "Analysis saved to: $analysis_file"
+
     # Track usage
     track_usage "$provider" "$model" "$prompt" "$analysis"
+
+    # Save to context state (if context_state functions are available)
+    if type context_state_save_scan &>/dev/null; then
+        # Count files from context (count "--- FILE:" markers)
+        local scan_file_count
+        scan_file_count=$(echo "$context" | grep -c "^--- FILE:" || echo "0")
+        context_state_save_scan "selective" "$analysis_file" "$scan_file_count"
+        msg "Context saved for future use (run /contextshow to view)"
+    fi
+}
+
+# ============================================================================
+# CONTEXT MANAGEMENT COMMANDS
+# ============================================================================
+
+# Load saved context into current session
+cmd_contextload() {
+    local workspace
+    workspace=$(get_workspace)
+
+    if ! context_state_exists; then
+        warn "No saved context found"
+        echo ""
+        info "Tip: Run /scanrepo or /smartscan to build context first"
+        return 1
+    fi
+
+    # Check age and warn if stale
+    context_state_check_age
+
+    # Show what will be loaded
+    echo ""
+    context_state_show
+    echo ""
+
+    # Prompt to confirm
+    if ! ui_confirm "Load this context into current session?" "yes"; then
+        msg "Cancelled"
+        return 0
+    fi
+
+    # Load context files into MODE_UPLOADS
+    context_state_load_into_mode
+
+    echo ""
+    success "Context loaded. Use /make, /debug, or /tweak to use it."
+}
+
+# Save current context (MODE_UPLOADS) to state file
+cmd_contextsave() {
+    if [[ ${#MODE_UPLOADS[@]} -eq 0 ]]; then
+        warn "No files in context to save"
+        echo ""
+        info "Tip: Use /context to add files, or run /scanrepo first"
+        return 1
+    fi
+
+    # Save MODE_UPLOADS to context state
+    context_state_save_from_mode
+
+    # Show summary
+    echo ""
+    context_state_show
+}
+
+# Display current context state
+cmd_contextshow() {
+    if ! context_state_exists; then
+        warn "No active context state"
+        echo ""
+        info "Tip: Run /scanrepo or add files with /context to create context"
+        return 1
+    fi
+
+    context_state_show
+
+    # Also check size
+    echo ""
+    context_state_check_size
+}
+
+# Clear all context and start fresh
+cmd_contextclear() {
+    if ! context_state_exists && [[ ${#MODE_UPLOADS[@]} -eq 0 ]]; then
+        warn "No context to clear"
+        return 0
+    fi
+
+    # Confirm before clearing
+    warn "This will clear:"
+    echo "   • All context files"
+    echo "   • Conversation history"
+    echo "   • Scan results"
+    echo ""
+
+    if ! ui_confirm "Clear all context?" "no"; then
+        msg "Cancelled"
+        return 0
+    fi
+
+    # Clear context state
+    context_state_clear
+
+    # Clear MODE_UPLOADS
+    MODE_UPLOADS=()
+
+    # Clear mode settings
+    MODE_PROMPT=""
+    MODE_INSTRUCT_FILE=""
+
+    success "All context cleared"
+}
+
+# Re-scan repository and update context
+cmd_contextrefresh() {
+    echo "🔄 Refreshing context..."
+    echo ""
+
+    # Detect current scan type from context state
+    local scan_type="full"
+
+    if context_state_exists; then
+        scan_type=$(context_state_get "last_scan.type")
+        if [[ -z "$scan_type" || "$scan_type" == "null" ]]; then
+            scan_type="full"
+        fi
+    fi
+
+    echo "Previous scan type: $scan_type"
+    echo ""
+
+    # Prompt for scan type
+    if $GUM_AVAILABLE; then
+        scan_type=$(gum choose "full" "selective" --header "Choose scan type:")
+    else
+        echo "Choose scan type:"
+        echo "  1) full     - Scan entire repository"
+        echo "  2) selective - Scan key files only"
+        read -p "Enter choice [1-2]: " -r choice
+        case "$choice" in
+            1) scan_type="full" ;;
+            2) scan_type="selective" ;;
+            *) scan_type="full" ;;
+        esac
+    fi
+
+    # Clear old context first
+    context_state_clear
+    MODE_UPLOADS=()
+
+    # Run appropriate scan
+    if [[ "$scan_type" == "selective" ]]; then
+        cmd_smartscan
+    else
+        cmd_scanrepo
+    fi
+
+    echo ""
+    success "Context refreshed"
+    context_state_show
+}
+
+# Remove specific file from context
+cmd_contextremove() {
+    if ! context_state_exists; then
+        warn "No context to remove from"
+        return 1
+    fi
+
+    # Get list of context files
+    local files
+    mapfile -t files < <(context_state_list_files)
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        warn "No files in context"
+        return 1
+    fi
+
+    # Interactive selection
+    local file_to_remove
+
+    if $GUM_AVAILABLE; then
+        file_to_remove=$(printf '%s\n' "${files[@]}" | gum filter --placeholder "Select file to remove")
+    else
+        echo "Files in context:"
+        local i=1
+        for file in "${files[@]}"; do
+            echo "  $i) $file"
+            ((i++))
+        done
+        echo ""
+        read -p "Enter number to remove: " -r choice
+        file_to_remove="${files[$((choice-1))]}"
+    fi
+
+    if [[ -z "$file_to_remove" ]]; then
+        msg "Cancelled"
+        return 0
+    fi
+
+    # Remove from context state
+    context_state_remove_file "$file_to_remove"
+
+    # Also remove from MODE_UPLOADS if present
+    local new_uploads=()
+    for file in "${MODE_UPLOADS[@]}"; do
+        if [[ "$file" != "$file_to_remove" ]]; then
+            new_uploads+=("$file")
+        fi
+    done
+    MODE_UPLOADS=("${new_uploads[@]}")
+
+    success "Removed: $file_to_remove"
 }
 
 # Overall status overview
