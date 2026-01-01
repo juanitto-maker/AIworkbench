@@ -1182,31 +1182,35 @@ Please provide:
 # Smart scan - selective key files only
 cmd_smartscan() {
     ui_header "Smart Repository Scan"
-    
-    if ! is_repo_mode; then
-        warn "Not in a git repository"
-        echo "Navigate to a repo first: cd /path/to/repo"
-        return 1
+
+    # Always enable repo mode for current directory (works for ANY folder)
+    detect_repo
+
+    echo "Folder: ${AIWB_REPO_NAME}"
+    echo "Path: ${AIWB_REPO_PATH}"
+    if [[ -n "$AIWB_REPO_REMOTE" ]]; then
+        echo "Git: ${AIWB_REPO_BRANCH} (${AIWB_REPO_REMOTE})"
+    else
+        echo "Type: Local directory (not a git repository)"
     fi
-    
-    echo "Repository: ${AIWB_REPO_NAME}"
+    echo ""
     echo "This will scan configuration files, documentation, and main entry points."
     echo ""
-    
+
     # Build selective context
     local context
     context=$(build_repo_context "selective")
-    
+
     if [[ -z "$context" ]]; then
         warn "No key files found to scan"
         return 1
     fi
-    
-    # Create analysis prompt
-    local prompt="Provide a quick overview of this repository based on key files:
 
-Repository: ${AIWB_REPO_NAME}
-Branch: ${AIWB_REPO_BRANCH}
+    # Create analysis prompt
+    local prompt="Provide a quick overview of this folder based on key files:
+
+Folder: ${AIWB_REPO_NAME}
+${AIWB_REPO_BRANCH:+Branch: $AIWB_REPO_BRANCH}
 
 $context
 
@@ -1215,26 +1219,26 @@ Please summarize:
 2. Key technologies used
 3. Main dependencies
 4. Entry points and structure"
-    
+
     # Get provider and model
     local provider model
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
-    
+
     echo ""
     msg "Analyzing with $provider ($model)..."
     echo ""
-    
+
     # Call API
     local analysis
     analysis=$(call_api "$prompt" "$provider" "$model")
-    
+
     # Display results
     echo ""
     ui_header "Quick Analysis"
     echo "$analysis"
     echo ""
-    
+
     # Track usage
     track_usage "$provider" "$model" "$prompt" "$analysis"
 }

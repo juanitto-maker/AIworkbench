@@ -399,6 +399,7 @@ menu_uploads() {
         local current_display=$(get_uploads_display)
 
         choice=$(ui_choose "Context Files ($current_display)" \
+            "Current repo/folder" \
             "Browse files" \
             "Browse outputs" \
             "Type path manually" \
@@ -408,6 +409,12 @@ menu_uploads() {
             "Back")
 
         case "$choice" in
+            "Current repo/folder")
+                # Add current directory to uploads
+                local current_dir="$(pwd)"
+                MODE_UPLOADS+=("$current_dir")
+                success "Added current directory: $current_dir"
+                ;;
             "Browse files")
                 # Storage location selection
                 local storage_choice
@@ -621,7 +628,7 @@ menu_status() {
     echo "  Model: $MODE_MODEL_NAME"
     echo ""
 
-    echo "Context Uploads:"
+    echo "Context/Uploads:"
     if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
         for item in "${MODE_UPLOADS[@]}"; do
             echo "  - $item"
@@ -1283,7 +1290,7 @@ mode_loop() {
             "Prompt (text)" \
             "Instruct (file)" \
             "Model: $model_display" \
-            "Uploads: $uploads_display" \
+            "Context/Uploads: $uploads_display" \
             "Check: $check_display" \
             "Swarm: $swarm_display" \
             "Status" \
@@ -1301,7 +1308,7 @@ mode_loop() {
             "Model:"*)
                 menu_model
                 ;;
-            "Uploads:"*)
+            "Context/Uploads:"*)
                 menu_uploads
                 ;;
             "Check:"*)
