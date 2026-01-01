@@ -227,6 +227,8 @@ GITHUB (like Claude Code):
   github clone <repo>  Clone a repository
   github commit <msg>  Commit changes
   github push          Push to remote
+  github pull          Pull from remote
+  github sync          Sync with remote (fetch, pull/push as needed)
   github pr create     Create pull request
   github issue create  Create issue
 
@@ -560,6 +562,8 @@ GITHUB:
   /github status     Show git status
   /github commit     Commit changes
   /github push       Push to remote
+  /github pull       Pull from remote
+  /github sync       Sync with remote (fetch, pull/push as needed)
   /github pr create  Create pull request
 
 MANAGEMENT:
