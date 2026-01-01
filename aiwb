@@ -1631,12 +1631,32 @@ cmd_status_overview() {
 cmd_context() {
     while true; do
         local context_count=${#MODE_UPLOADS[@]}
-        local context_display="$context_count file(s)"
+
+        # Also check persistent context
+        local persistent_count=0
+        local has_scan=false
+        if type context_state_exists &>/dev/null && context_state_exists; then
+            persistent_count=$(context_state_get "context_files" 2>/dev/null | jq 'length' 2>/dev/null || echo 0)
+            local scan_file
+            scan_file=$(context_state_get "last_scan.output_file" 2>/dev/null)
+            [[ -n "$scan_file" && -f "$scan_file" ]] && has_scan=true
+        fi
+
+        local total_context=$((context_count + persistent_count))
+        local context_display="$context_count in-memory"
+        if [[ $persistent_count -gt 0 ]] || [[ "$has_scan" == "true" ]]; then
+            context_display="$context_count in-memory, $persistent_count saved"
+            if [[ "$has_scan" == "true" ]]; then
+                context_display="$context_display + scan"
+            fi
+        fi
 
         local choice
         choice=$(ui_choose "Context Manager ($context_display)" \
             "Add files/directories" \
             "List current context" \
+            "Show persistent context" \
+            "Load persistent context" \
             "Remove from context" \
             "Clear all context" \
             "Back")
@@ -1647,7 +1667,7 @@ cmd_context() {
                 ;;
             "List current context")
                 echo ""
-                echo "Context Files:"
+                echo "In-Memory Context (MODE_UPLOADS):"
                 if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
                     for item in "${MODE_UPLOADS[@]}"; do
                         if [[ -f "$item" ]]; then
@@ -1664,14 +1684,34 @@ cmd_context() {
                         fi
                     done
                 else
-                    echo "  (no context files)"
+                    echo "  (no in-memory context files)"
                 fi
                 echo ""
                 ui_confirm "Press enter to continue..."
                 ;;
+            "Show persistent context")
+                echo ""
+                if type context_state_show &>/dev/null; then
+                    context_state_show
+                else
+                    warn "Context persistence not available"
+                fi
+                echo ""
+                ui_confirm "Press enter to continue..."
+                ;;
+            "Load persistent context")
+                if type context_state_load_into_mode &>/dev/null; then
+                    echo ""
+                    context_state_load_into_mode
+                    echo ""
+                    ui_confirm "Press enter to continue..."
+                else
+                    warn "Context persistence not available"
+                fi
+                ;;
             "Remove from context")
                 if [[ ${#MODE_UPLOADS[@]} -eq 0 ]]; then
-                    warn "No context files to remove"
+                    warn "No in-memory context files to remove"
                 else
                     # Build list of items for removal
                     local items=()
@@ -1691,16 +1731,41 @@ cmd_context() {
                             fi
                         done
                         MODE_UPLOADS=("${new_uploads[@]}")
-                        success "Removed from context: $to_remove"
+                        success "Removed from in-memory context: $to_remove"
                     fi
                 fi
                 ;;
             "Clear all context")
-                if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
-                    if ui_confirm "Clear all context files?" "no"; then
-                        MODE_UPLOADS=()
-                        success "Context cleared"
+                if [[ ${#MODE_UPLOADS[@]} -gt 0 ]] || [[ $persistent_count -gt 0 ]]; then
+                    local choices=()
+                    [[ ${#MODE_UPLOADS[@]} -gt 0 ]] && choices+=("Clear in-memory context")
+                    if type context_state_exists &>/dev/null && context_state_exists; then
+                        choices+=("Clear persistent context")
+                        choices+=("Clear both")
                     fi
+                    choices+=("Cancel")
+
+                    local clear_choice
+                    clear_choice=$(ui_choose "What to clear?" "${choices[@]}")
+
+                    case "$clear_choice" in
+                        "Clear in-memory context")
+                            MODE_UPLOADS=()
+                            success "In-memory context cleared"
+                            ;;
+                        "Clear persistent context")
+                            if type context_state_clear &>/dev/null; then
+                                context_state_clear
+                            fi
+                            ;;
+                        "Clear both")
+                            MODE_UPLOADS=()
+                            if type context_state_clear &>/dev/null; then
+                                context_state_clear
+                            fi
+                            success "All context cleared"
+                            ;;
+                    esac
                 else
                     info "Context is already empty"
                 fi
