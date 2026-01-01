@@ -695,12 +695,35 @@ handle_chat_message() {
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
 
+    # Check if we have saved context from a scan
+    local enhanced_message="$message"
+    if type context_state_exists &>/dev/null && context_state_exists; then
+        local scan_file
+        scan_file=$(context_state_get "last_scan.output_file" 2>/dev/null)
+
+        if [[ -n "$scan_file" && -f "$scan_file" ]]; then
+            # Prepend scan context to message
+            local scan_content
+            scan_content=$(cat "$scan_file" 2>/dev/null)
+
+            if [[ -n "$scan_content" ]]; then
+                enhanced_message="Repository Context (from previous scan):
+
+$scan_content
+
+---
+
+User Question: $message"
+            fi
+        fi
+    fi
+
     # Show blinking cursor while API call runs (as requested by user)
     ui_blink "Thinking..."
 
     # Call API without stderr suppression to see errors
     local response
-    response=$(call_api "$message" "$provider" "$model")
+    response=$(call_api "$enhanced_message" "$provider" "$model")
     local exit_code=$?
 
     # Clear the blinking cursor line
@@ -726,8 +749,8 @@ handle_chat_message() {
     # Offer to copy to clipboard
     copy_to_clipboard "$response"
 
-    # Track cost
-    track_usage "$provider" "$model" "$message" "$response"
+    # Track cost (use enhanced_message to reflect actual tokens sent)
+    track_usage "$provider" "$model" "$enhanced_message" "$response"
 }
 
 # Track API usage and costs
