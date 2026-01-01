@@ -2,15 +2,25 @@
 # context_state.sh - Session context persistence for AIWB
 # Part of AIWB v3.1.0 - Context Persistence Feature
 
-# Context state file location
-CONTEXT_STATE_FILE="${WORKSPACE}/.context_state"
+# Get context state file location (dynamically based on workspace)
+get_context_state_file() {
+    local workspace
+    workspace=$(get_workspace 2>/dev/null) || workspace="${WORKSPACE:-$HOME/.aiwb/workspace}"
+    echo "$workspace/.context_state"
+}
 
 # Initialize context state structure
 init_context_state() {
+    local context_state_file
+    context_state_file=$(get_context_state_file)
+
+    local workspace
+    workspace=$(get_workspace 2>/dev/null) || workspace="${WORKSPACE:-$HOME/.aiwb/workspace}"
+
     local session_id
     session_id=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "session_$(date +%s)")
 
-    cat > "$CONTEXT_STATE_FILE" <<EOF
+    cat > "$context_state_file" <<EOF
 {
   "session_id": "$session_id",
   "created_at": "$(date -Iseconds)",
@@ -21,36 +31,43 @@ init_context_state() {
   "active": true,
   "metadata": {
     "version": "3.1.0",
-    "workspace": "$WORKSPACE"
+    "workspace": "$workspace"
   }
 }
 EOF
-    chmod 600 "$CONTEXT_STATE_FILE"
+    chmod 600 "$context_state_file"
 }
 
 # Check if context state exists
 context_state_exists() {
-    [[ -f "$CONTEXT_STATE_FILE" ]]
+    local context_state_file
+    context_state_file=$(get_context_state_file)
+    [[ -f "$context_state_file" ]]
 }
 
 # Get context state value using jq (fallback to grep if jq not available)
 context_state_get() {
     local key="$1"
+    local context_state_file
+    context_state_file=$(get_context_state_file)
 
     if ! context_state_exists; then
         return 1
     fi
 
     if command -v jq &>/dev/null; then
-        jq -r ".$key // empty" "$CONTEXT_STATE_FILE" 2>/dev/null
+        jq -r ".$key // empty" "$context_state_file" 2>/dev/null
     else
         # Fallback: simple grep-based extraction (limited functionality)
-        grep "\"$key\"" "$CONTEXT_STATE_FILE" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/'
+        grep "\"$key\"" "$context_state_file" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/'
     fi
 }
 
 # Update context state timestamp
 context_state_touch() {
+    local context_state_file
+    context_state_file=$(get_context_state_file)
+
     if ! context_state_exists; then
         return 1
     fi
@@ -58,9 +75,9 @@ context_state_touch() {
     if command -v jq &>/dev/null; then
         local tmp_file
         tmp_file=$(mktemp)
-        jq --arg ts "$(date -Iseconds)" '.updated_at = $ts' "$CONTEXT_STATE_FILE" > "$tmp_file"
-        mv "$tmp_file" "$CONTEXT_STATE_FILE"
-        chmod 600 "$CONTEXT_STATE_FILE"
+        jq --arg ts "$(date -Iseconds)" '.updated_at = $ts' "$context_state_file" > "$tmp_file"
+        mv "$tmp_file" "$context_state_file"
+        chmod 600 "$context_state_file"
     fi
 }
 
@@ -68,6 +85,8 @@ context_state_touch() {
 context_state_add_file() {
     local file_path="$1"
     local context_type="${2:-manual}"  # manual, scan, auto
+    local context_state_file
+    context_state_file=$(get_context_state_file)
 
     if ! context_state_exists; then
         init_context_state
@@ -89,9 +108,9 @@ context_state_add_file() {
            --arg type "$context_type" \
            --arg ts "$(date -Iseconds)" \
            '.context_files += [{"path": $path, "added_at": $ts, "type": $type}] | .updated_at = $ts' \
-           "$CONTEXT_STATE_FILE" > "$tmp_file"
-        mv "$tmp_file" "$CONTEXT_STATE_FILE"
-        chmod 600 "$CONTEXT_STATE_FILE"
+           "$context_state_file" > "$tmp_file"
+        mv "$tmp_file" "$context_state_file"
+        chmod 600 "$context_state_file"
         return 0
     else
         echo "Warning: jq not available, context state not updated" >&2
@@ -102,6 +121,8 @@ context_state_add_file() {
 # Remove file from context state
 context_state_remove_file() {
     local file_path="$1"
+    local context_state_file
+    context_state_file=$(get_context_state_file)
 
     if ! context_state_exists; then
         echo "Error: No context state found" >&2
@@ -117,9 +138,9 @@ context_state_remove_file() {
         jq --arg path "$file_path" \
            --arg ts "$(date -Iseconds)" \
            '.context_files = [.context_files[] | select(.path != $path)] | .updated_at = $ts' \
-           "$CONTEXT_STATE_FILE" > "$tmp_file"
-        mv "$tmp_file" "$CONTEXT_STATE_FILE"
-        chmod 600 "$CONTEXT_STATE_FILE"
+           "$context_state_file" > "$tmp_file"
+        mv "$tmp_file" "$context_state_file"
+        chmod 600 "$context_state_file"
         return 0
     else
         echo "Warning: jq not available, context state not updated" >&2
@@ -129,15 +150,18 @@ context_state_remove_file() {
 
 # Get list of context files
 context_state_list_files() {
+    local context_state_file
+    context_state_file=$(get_context_state_file)
+
     if ! context_state_exists; then
         return 1
     fi
 
     if command -v jq &>/dev/null; then
-        jq -r '.context_files[]? | .path' "$CONTEXT_STATE_FILE" 2>/dev/null
+        jq -r '.context_files[]? | .path' "$context_state_file" 2>/dev/null
     else
         # Fallback: extract paths with grep
-        grep '"path":' "$CONTEXT_STATE_FILE" | sed 's/.*"path": *"\([^"]*\)".*/\1/'
+        grep '"path":' "$context_state_file" | sed 's/.*"path": *"\([^"]*\)".*/\1/'
     fi
 }
 
@@ -146,9 +170,12 @@ context_state_save_scan() {
     local scan_type="$1"        # full or selective
     local output_file="$2"       # path to analysis file
     local file_count="$3"        # number of files scanned
+    local context_state_file
+    context_state_file=$(get_context_state_file)
 
     if ! context_state_exists; then
         init_context_state
+        context_state_file=$(get_context_state_file)  # Re-get after init
     fi
 
     if command -v jq &>/dev/null; then
@@ -159,9 +186,9 @@ context_state_save_scan() {
            --arg count "$file_count" \
            --arg ts "$(date -Iseconds)" \
            '.last_scan = {"type": $type, "output_file": $file, "timestamp": $ts, "file_count": ($count | tonumber)} | .updated_at = $ts' \
-           "$CONTEXT_STATE_FILE" > "$tmp_file"
-        mv "$tmp_file" "$CONTEXT_STATE_FILE"
-        chmod 600 "$CONTEXT_STATE_FILE"
+           "$context_state_file" > "$tmp_file"
+        mv "$tmp_file" "$context_state_file"
+        chmod 600 "$context_state_file"
 
         # Also add the output file to context_files
         context_state_add_file "$output_file" "scan"
@@ -177,6 +204,8 @@ context_state_save_scan() {
 context_state_add_message() {
     local role="$1"      # user or assistant
     local content="$2"   # message content
+    local context_state_file
+    context_state_file=$(get_context_state_file)
 
     if ! context_state_exists; then
         init_context_state
@@ -194,13 +223,15 @@ context_state_add_message() {
            --argjson content "$escaped_content" \
            --arg ts "$(date -Iseconds)" \
            '.conversation_history += [{"role": $role, "content": $content, "timestamp": $ts}] | .updated_at = $ts' \
-           "$CONTEXT_STATE_FILE" > "$tmp_file"
-        mv "$tmp_file" "$CONTEXT_STATE_FILE"
-        chmod 600 "$CONTEXT_STATE_FILE"
+           "$context_state_file" > "$tmp_file"
+        mv "$tmp_file" "$context_state_file"
+        chmod 600 "$context_state_file"
         return 0
     else
         # Fallback: append to a separate history file if jq not available
-        local history_file="${WORKSPACE}/.conversation_history.log"
+        local workspace
+        workspace=$(get_workspace 2>/dev/null) || workspace="${WORKSPACE:-$HOME/.aiwb/workspace}"
+        local history_file="$workspace/.conversation_history.log"
         echo "[$(date -Iseconds)] $role: $content" >> "$history_file"
         return 0
     fi
@@ -209,6 +240,8 @@ context_state_add_message() {
 # Get conversation history (last N messages)
 context_state_get_history() {
     local limit="${1:-10}"  # Default to last 10 messages
+    local context_state_file
+    context_state_file=$(get_context_state_file)
 
     if ! context_state_exists; then
         return 1
@@ -217,10 +250,12 @@ context_state_get_history() {
     if command -v jq &>/dev/null; then
         jq -r --arg limit "$limit" \
            '.conversation_history[-($limit | tonumber):] | .[]? | "\(.role): \(.content)"' \
-           "$CONTEXT_STATE_FILE" 2>/dev/null
+           "$context_state_file" 2>/dev/null
     else
         # Fallback: read from history log file
-        local history_file="${WORKSPACE}/.conversation_history.log"
+        local workspace
+        workspace=$(get_workspace 2>/dev/null) || workspace="${WORKSPACE:-$HOME/.aiwb/workspace}"
+        local history_file="$workspace/.conversation_history.log"
         if [[ -f "$history_file" ]]; then
             tail -n "$((limit * 2))" "$history_file"
         fi
@@ -229,12 +264,17 @@ context_state_get_history() {
 
 # Clear context state
 context_state_clear() {
+    local context_state_file
+    context_state_file=$(get_context_state_file)
+
     if context_state_exists; then
-        rm -f "$CONTEXT_STATE_FILE"
+        rm -f "$context_state_file"
     fi
 
     # Also clear conversation history log if it exists
-    local history_file="${WORKSPACE}/.conversation_history.log"
+    local workspace
+    workspace=$(get_workspace 2>/dev/null) || workspace="${WORKSPACE:-$HOME/.aiwb/workspace}"
+    local history_file="$workspace/.conversation_history.log"
     if [[ -f "$history_file" ]]; then
         rm -f "$history_file"
     fi
@@ -274,6 +314,9 @@ context_state_check_age() {
 
 # Display context state summary
 context_state_show() {
+    local context_state_file
+    context_state_file=$(get_context_state_file)
+
     if ! context_state_exists; then
         echo "No active context state"
         return 1
@@ -285,13 +328,13 @@ context_state_show() {
     if command -v jq &>/dev/null; then
         local session_id created_at updated_at file_count message_count scan_type scan_time
 
-        session_id=$(jq -r '.session_id // "unknown"' "$CONTEXT_STATE_FILE")
-        created_at=$(jq -r '.created_at // "unknown"' "$CONTEXT_STATE_FILE")
-        updated_at=$(jq -r '.updated_at // "unknown"' "$CONTEXT_STATE_FILE")
-        file_count=$(jq -r '.context_files | length' "$CONTEXT_STATE_FILE")
-        message_count=$(jq -r '.conversation_history | length' "$CONTEXT_STATE_FILE")
-        scan_type=$(jq -r '.last_scan.type // "none"' "$CONTEXT_STATE_FILE")
-        scan_time=$(jq -r '.last_scan.timestamp // "never"' "$CONTEXT_STATE_FILE")
+        session_id=$(jq -r '.session_id // "unknown"' "$context_state_file")
+        created_at=$(jq -r '.created_at // "unknown"' "$context_state_file")
+        updated_at=$(jq -r '.updated_at // "unknown"' "$context_state_file")
+        file_count=$(jq -r '.context_files | length' "$context_state_file")
+        message_count=$(jq -r '.conversation_history | length' "$context_state_file")
+        scan_type=$(jq -r '.last_scan.type // "none"' "$context_state_file")
+        scan_time=$(jq -r '.last_scan.timestamp // "never"' "$context_state_file")
 
         echo "Session ID:  $session_id"
         echo "Created:     $created_at"
@@ -304,11 +347,11 @@ context_state_show() {
         if [[ $file_count -gt 0 ]]; then
             echo ""
             echo "Context Files:"
-            jq -r '.context_files[] | "  • \(.path) (\(.type))"' "$CONTEXT_STATE_FILE"
+            jq -r '.context_files[] | "  • \(.path) (\(.type))"' "$context_state_file"
         fi
     else
-        echo "Session:     $(grep session_id "$CONTEXT_STATE_FILE" | head -1)"
-        echo "Created:     $(grep created_at "$CONTEXT_STATE_FILE" | head -1)"
+        echo "Session:     $(grep session_id "$context_state_file" | head -1)"
+        echo "Created:     $(grep created_at "$context_state_file" | head -1)"
         echo ""
         echo "⚠️  Install 'jq' for detailed context information"
     fi
@@ -328,9 +371,9 @@ context_state_load_into_mode() {
 
     # Get list of context files
     if command -v jq &>/dev/null; then
-        mapfile -t files < <(jq -r '.context_files[]? | .path' "$CONTEXT_STATE_FILE" 2>/dev/null)
+        mapfile -t files < <(jq -r '.context_files[]? | .path' "$context_state_file" 2>/dev/null)
     else
-        mapfile -t files < <(grep '"path":' "$CONTEXT_STATE_FILE" | sed 's/.*"path": *"\([^"]*\)".*/\1/')
+        mapfile -t files < <(grep '"path":' "$context_state_file" | sed 's/.*"path": *"\([^"]*\)".*/\1/')
     fi
 
     # Load into MODE_UPLOADS
@@ -368,9 +411,9 @@ context_state_save_from_mode() {
     if command -v jq &>/dev/null; then
         local tmp_file
         tmp_file=$(mktemp)
-        jq '.context_files = []' "$CONTEXT_STATE_FILE" > "$tmp_file"
-        mv "$tmp_file" "$CONTEXT_STATE_FILE"
-        chmod 600 "$CONTEXT_STATE_FILE"
+        jq '.context_files = []' "$context_state_file" > "$tmp_file"
+        mv "$tmp_file" "$context_state_file"
+        chmod 600 "$context_state_file"
     fi
 
     # Add all MODE_UPLOADS files
