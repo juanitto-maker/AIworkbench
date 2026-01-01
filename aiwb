@@ -2369,7 +2369,7 @@ main() {
                 shift
                 ;;
             --version|-v)
-                echo "AIWB v2.0.0"
+                echo "AIWB v3.0.0"
                 exit 0
                 ;;
             --help|-h)
