@@ -766,6 +766,10 @@ show_status_footer() {
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
 
+    # Get terminal width (default 80 for narrow screens)
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo "80")
+
     # Build model display (provider/model)
     local model_display="${provider}/${model}"
 
@@ -778,18 +782,42 @@ show_status_footer() {
     session_cost=$(get_session_cost)
     message_count=$(get_message_count)
 
-    # Line 1: Model & Context
-    echo "Model: $model_display | Context: $context_summary"
+    # Line 1: Model & Context (truncate if too long)
+    local line1="Model: ${BOLD}${model_display}${RESET} | Context: ${CYAN}${context_summary}${RESET}"
+    local line1_plain="Model: ${model_display} | Context: ${context_summary}"
+
+    if [[ ${#line1_plain} -gt $term_width ]]; then
+        # Truncate to fit terminal width
+        local max_len=$((term_width - 3))
+        local truncated="${line1_plain:0:$max_len}..."
+        # Rebuild with colors on truncated text
+        line1="Model: ${BOLD}${model_display:0:20}${RESET} | Context: ${CYAN}${context_summary:0:30}${RESET}..."
+    fi
 
     # Line 2: Session stats with optional warning
-    local cost_warning=""
+    local cost_color="${GREEN}"
+    local warning=""
+
     if command -v bc &>/dev/null; then
         if (( $(echo "$session_cost > 1.00" | bc -l 2>/dev/null) )); then
-            cost_warning=" | WARNING: High cost - Type /costs"
+            cost_color="${RED}"
+            warning="${YELLOW} | WARNING: High cost${RESET}"
+        elif (( $(echo "$session_cost > 0.10" | bc -l 2>/dev/null) )); then
+            cost_color="${YELLOW}"
         fi
     fi
 
-    echo "Session: \$$session_cost | Messages: $message_count | Type /status for details${cost_warning}"
+    local line2="Session: ${cost_color}\$${session_cost}${RESET} | Msgs: ${message_count} | Type ${DIM}/status${RESET}${warning}"
+    local line2_plain="Session: \$${session_cost} | Msgs: ${message_count} | Type /status${warning:+ | WARNING: High cost}"
+
+    if [[ ${#line2_plain} -gt $term_width ]]; then
+        # Truncate to fit terminal width
+        line2="Session: ${cost_color}\$${session_cost}${RESET} | Msgs: ${message_count}${warning}"
+    fi
+
+    # Print both lines using printf for proper color handling
+    printf "%b\n" "$line1"
+    printf "%b\n" "$line2"
 }
 
 # Handle chat message
