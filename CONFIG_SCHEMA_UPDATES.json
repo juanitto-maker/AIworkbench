@@ -1,0 +1,244 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AIWB Configuration v3.1.0 - Context Persistence",
+  "description": "Extended configuration schema for context persistence features",
+
+  "// NOTE": "Add these new sections to existing config.json",
+
+  "new_sections": {
+    "context_management": {
+      "type": "object",
+      "description": "Context persistence and session management settings",
+      "properties": {
+        "persistence_enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable context persistence across sessions"
+        },
+        "auto_save_on_scan": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save scan results to context state"
+        },
+        "resume_on_start": {
+          "type": "string",
+          "enum": ["prompt", "true", "false"],
+          "default": "prompt",
+          "description": "How to handle previous context on startup: prompt (ask user), true (auto-resume), false (ignore)"
+        },
+        "state_file": {
+          "type": "string",
+          "default": ".context_state",
+          "description": "Filename for context state (relative to workspace)"
+        }
+      }
+    },
+
+    "conversation": {
+      "type": "object",
+      "description": "Conversation threading and history settings",
+      "properties": {
+        "threading_enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable multi-turn conversation threading (Phase 2 feature)"
+        },
+        "include_history": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include previous messages in API calls"
+        },
+        "max_turns": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum number of conversation turns to keep in history"
+        },
+        "max_context_tokens": {
+          "type": "integer",
+          "default": 32000,
+          "minimum": 1000,
+          "maximum": 200000,
+          "description": "Maximum token budget for conversation context"
+        },
+        "truncate_strategy": {
+          "type": "string",
+          "enum": ["recent", "summarize", "first_and_recent"],
+          "default": "recent",
+          "description": "How to truncate conversation history when exceeding limits"
+        }
+      }
+    },
+
+    "context_cleanup": {
+      "type": "object",
+      "description": "Automatic context cleanup policies",
+      "properties": {
+        "auto_clear_on_exit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically clear context when exiting AIWB"
+        },
+        "max_session_age_days": {
+          "type": "integer",
+          "default": 7,
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Warn if context is older than this many days"
+        },
+        "max_conversation_turns": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Maximum conversation turns before suggesting cleanup"
+        },
+        "auto_truncate_history": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically truncate conversation history when limits exceeded"
+        },
+        "cleanup_old_scans": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remove old scan results automatically"
+        },
+        "max_scans_per_repo": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximum number of scan results to keep per repository"
+        }
+      }
+    },
+
+    "context_security": {
+      "type": "object",
+      "description": "Security settings for context persistence",
+      "properties": {
+        "encrypt_context": {
+          "type": "boolean",
+          "default": false,
+          "description": "Encrypt context state files with age (requires age tool)"
+        },
+        "warn_on_sensitive_files": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when adding potentially sensitive files to context"
+        },
+        "exclude_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [".env", "*.key", "*.pem", "credentials.*", "secrets.*"],
+          "description": "File patterns to exclude from context (security)"
+        },
+        "file_permissions": {
+          "type": "string",
+          "default": "600",
+          "description": "Unix file permissions for context state files"
+        }
+      }
+    }
+  },
+
+  "example_config": {
+    "version": "3.1.0",
+    "workspace": "~/.aiwb/workspace",
+    "model_provider": "gemini",
+    "model_name": "2.5-flash",
+    "current_task": "",
+    "current_project": "",
+
+    "// --- New sections for v3.1.0 ---": "",
+
+    "context_management": {
+      "persistence_enabled": true,
+      "auto_save_on_scan": true,
+      "resume_on_start": "prompt",
+      "state_file": ".context_state"
+    },
+
+    "conversation": {
+      "threading_enabled": false,
+      "include_history": false,
+      "max_turns": 10,
+      "max_context_tokens": 32000,
+      "truncate_strategy": "recent"
+    },
+
+    "context_cleanup": {
+      "auto_clear_on_exit": false,
+      "max_session_age_days": 7,
+      "max_conversation_turns": 50,
+      "auto_truncate_history": true,
+      "cleanup_old_scans": true,
+      "max_scans_per_repo": 5
+    },
+
+    "context_security": {
+      "encrypt_context": false,
+      "warn_on_sensitive_files": true,
+      "exclude_patterns": [".env", "*.key", "*.pem", "credentials.*", "secrets.*"],
+      "file_permissions": "600"
+    },
+
+    "// --- Existing sections remain unchanged ---": "",
+
+    "preferences": {
+      "auto_estimate": true,
+      "confirm_before_generate": true,
+      "show_costs": true,
+      "stream_output": false,
+      "tier_default": "Medium"
+    },
+
+    "cost_tracking": {
+      "enabled": true,
+      "monthly_budget": 0,
+      "currency": "USD"
+    },
+
+    "security": {
+      "encrypt_keys": false,
+      "warn_on_exposure": true
+    }
+  },
+
+  "migration_notes": {
+    "backward_compatibility": "All new features are opt-in. Existing configs will work without changes.",
+    "default_behavior": "Context persistence is enabled by default but requires explicit commands to use.",
+    "conversation_threading": "Disabled by default (Phase 2 feature). Users must opt-in via config.",
+    "upgrade_path": "Config version bumps from 3.0.0 to 3.1.0. Tool detects version and adds missing fields with defaults."
+  },
+
+  "configuration_helpers": {
+    "enable_full_persistence": {
+      "description": "Enable all persistence features",
+      "config": {
+        "context_management.persistence_enabled": true,
+        "context_management.auto_save_on_scan": true,
+        "context_management.resume_on_start": "prompt"
+      }
+    },
+    "enable_conversation_threading": {
+      "description": "Enable conversation threading (Phase 2)",
+      "config": {
+        "conversation.threading_enabled": true,
+        "conversation.include_history": true,
+        "conversation.max_turns": 10
+      }
+    },
+    "disable_all_persistence": {
+      "description": "Disable all persistence features",
+      "config": {
+        "context_management.persistence_enabled": false,
+        "conversation.threading_enabled": false,
+        "context_cleanup.auto_clear_on_exit": true
+      }
+    }
+  }
+}
