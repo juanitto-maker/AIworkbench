@@ -967,6 +967,107 @@ track_usage() {
     fi
 }
 
+# Preflight cost estimation for context operations
+preflight_estimate_cost() {
+    local operation_type="$1"  # "scan", "load", "context"
+    local input_text="${2:-}"
+    local provider="${3:-$(config_get model_provider)}"
+    local model="${4:-$(config_get model_name)}"
+
+    # Estimate input tokens
+    local input_tokens=0
+    if [[ -n "$input_text" ]]; then
+        # Estimate from provided text
+        input_tokens=$(estimate_tokens "$input_text")
+    elif type context_state_estimate_tokens &>/dev/null; then
+        # Estimate from context files
+        input_tokens=$(context_state_estimate_tokens)
+    fi
+
+    # If no tokens to estimate, return success
+    if [[ $input_tokens -eq 0 ]]; then
+        return 0
+    fi
+
+    # Estimate output tokens based on operation type
+    local output_tokens=0
+    case "$operation_type" in
+        "scan"|"smartscan")
+            # Scan operations: analysis output is usually 0.3x-0.5x input
+            output_tokens=$((input_tokens / 2))
+            ;;
+        "load"|"context")
+            # Context load: minimal output expected (just confirmation)
+            output_tokens=$((input_tokens / 10))
+            ;;
+        *)
+            # Default: conservative estimate
+            output_tokens=$((input_tokens / 2))
+            ;;
+    esac
+
+    # Calculate estimated cost
+    local estimated_cost
+    estimated_cost=$(calculate_cost "$provider" "$model" "$input_tokens" "$output_tokens")
+
+    # Get historical costs for comparison (if available)
+    local workspace logs_dir usage_log
+    workspace="$(get_workspace)"
+    logs_dir="$workspace/logs"
+    usage_log="$logs_dir/usage.jsonl"
+
+    local historical_avg=""
+    if [[ -f "$usage_log" ]] && command -v jq &>/dev/null; then
+        # Get average cost from last 5 similar operations
+        historical_avg=$(jq -s --arg prov "$provider" \
+            'map(select(.provider == $prov)) | .[-5:] | map(.cost) | add / length' \
+            "$usage_log" 2>/dev/null || echo "")
+    fi
+
+    # Display cost estimate
+    echo ""
+    echo "${BOLD}${BLUE}💰 Preflight Cost Estimate${RESET}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Provider:        $provider"
+    echo "  Model:           $model"
+    echo "  Operation:       $operation_type"
+    echo "  Input tokens:    ~$input_tokens"
+    echo "  Output tokens:   ~$output_tokens (estimated)"
+    echo "  Estimated cost:  \$${estimated_cost} USD"
+
+    if [[ -n "$historical_avg" && "$historical_avg" != "null" ]]; then
+        # Format historical average
+        historical_avg=$(awk "BEGIN {printf \"%.6f\", $historical_avg}")
+        echo "  Historical avg:  \$${historical_avg} USD (last 5 ops)"
+
+        # Show comparison
+        local diff
+        diff=$(awk "BEGIN {printf \"%.6f\", $estimated_cost - $historical_avg}")
+        if (( $(awk "BEGIN {print ($estimated_cost > $historical_avg)}") )); then
+            echo "  Comparison:      ${RED}+\$${diff} higher${RESET}"
+        else
+            diff=$(awk "BEGIN {printf \"%.6f\", $historical_avg - $estimated_cost}")
+            echo "  Comparison:      ${GREEN}-\$${diff} lower${RESET}"
+        fi
+    fi
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    # Check if cost estimation is enabled
+    if [[ "$(config_get preferences.confirm_before_generate)" != "true" ]]; then
+        return 0
+    fi
+
+    # Ask for confirmation
+    if ! ui_confirm "Proceed with this operation?" "yes"; then
+        msg "Operation cancelled"
+        return 1
+    fi
+
+    return 0
+}
+
 # ============================================================================
 # TASK COMMANDS
 # ============================================================================
@@ -1377,10 +1478,15 @@ cmd_scanrepo() {
         msg "Cancelled"
         return 0
     fi
-    
+
     # Build full context
     local context
     context=$(build_repo_context "full")
+
+    # Preflight cost estimation
+    if ! preflight_estimate_cost "scan" "$context"; then
+        return 0
+    fi
     
     if [[ -z "$context" ]]; then
         warn "No files found to scan"
@@ -1473,6 +1579,11 @@ cmd_smartscan() {
         return 1
     fi
 
+    # Preflight cost estimation
+    if ! preflight_estimate_cost "smartscan" "$context"; then
+        return 0
+    fi
+
     # Create analysis prompt
     local prompt="Provide a quick overview of this folder based on key files:
 
@@ -1554,14 +1665,30 @@ cmd_contextload() {
     context_state_show
     echo ""
 
-    # Prompt to confirm
-    if ! ui_confirm "Load this context into current session?" "yes"; then
-        msg "Cancelled"
+    # Preflight cost estimation
+    if ! preflight_estimate_cost "load"; then
         return 0
     fi
 
     # Load context files into MODE_UPLOADS
     context_state_load_into_mode
+
+    # Show cost footer after loading
+    local tokens
+    tokens=$(context_state_estimate_tokens)
+    if [[ $tokens -gt 0 ]]; then
+        local provider model estimated_cost
+        provider="$(config_get model_provider)"
+        model="$(config_get model_name)"
+        # Estimate minimal cost for having context loaded (output = 10% of input)
+        estimated_cost=$(calculate_cost "$provider" "$model" "$tokens" "$((tokens / 10))")
+
+        echo ""
+        echo "${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+        echo "${DIM}  Context loaded: ~${tokens} tokens${RESET}"
+        echo "${DIM}  Estimated cost per use: ~\$${estimated_cost} USD${RESET}"
+        echo "${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    fi
 
     echo ""
     success "Context loaded. Use /make, /debug, or /tweak to use it."
