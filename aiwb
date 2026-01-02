@@ -1753,12 +1753,19 @@ cmd_status_overview() {
 
     # Context
     echo "Global Context:"
+
+    # Show persistent context (same as footer)
+    local context_summary=$(get_context_summary)
+    echo "  Persistent: $context_summary"
+
+    # Show in-memory context
     if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        echo "  In-Memory:"
         for item in "${MODE_UPLOADS[@]}"; do
-            echo "  - $item"
+            echo "    - $item"
         done
     else
-        echo "  (no files uploaded)"
+        echo "  In-Memory: (no files loaded)"
     fi
     echo ""
 
