@@ -1904,15 +1904,17 @@ cmd_status_overview() {
     usage_log="$logs_dir/usage.jsonl"
 
     if [[ -f "$usage_log" ]]; then
-        echo "Costs (All Time):"
+        echo "Estimated Costs (All Time):"
+        echo "${DIM}  (Note: Estimates may differ from actual API costs)${RESET}"
         local total
         total=$(jq -s 'map(.cost) | add' "$usage_log" 2>/dev/null || echo "0")
-        echo "  Total spent: \$${total} USD"
+        total=$(printf "%.2f" "$total")
+        echo "  Total estimated: \$${total} USD"
 
         echo ""
         echo "  By Provider:"
         jq -s 'group_by(.provider) | map({provider: .[0].provider, cost: (map(.cost) | add)}) | .[]' "$usage_log" 2>/dev/null | \
-            jq -r '"    \(.provider): $\(.cost)"'
+            jq -r '"    \(.provider): $\(.cost | tonumber | . * 100 | round / 100)"'
     else
         echo "Costs:"
         echo "  No usage data yet"
@@ -2748,24 +2750,29 @@ cmd_costs() {
         return 0
     fi
 
-    ui_header "Cost Breakdown"
+    ui_header "Cost Breakdown (Estimated)"
+
+    echo "${DIM}Note: Costs are estimated based on token approximation and may differ from actual API costs.${RESET}"
+    echo "${DIM}Check your API provider's dashboard for actual usage and billing.${RESET}"
+    echo ""
 
     # Total costs
     local total
     total=$(jq -s 'map(.cost) | add' "$usage_log" 2>/dev/null || echo "0")
-    echo "Total spent: \$${total} USD"
+    total=$(printf "%.2f" "$total")
+    echo "Total estimated: \$${total} USD"
     echo ""
 
     # By provider
     echo "By Provider:"
     jq -s 'group_by(.provider) | map({provider: .[0].provider, cost: (map(.cost) | add)}) | .[]' "$usage_log" 2>/dev/null | \
-        jq -r '"\(.provider)\t\(.cost)"' | column -t
+        jq -r '"\(.provider)\t$\(.cost | tonumber | . * 100 | round / 100)"' | column -t
 
     echo ""
 
     # By date
     echo "Recent activity:"
-    jq -s 'sort_by(.timestamp) | reverse | limit(10; .[]) | "\(.timestamp | split("T")[0])\t\(.provider)\t\(.cost)"' "$usage_log" 2>/dev/null | column -t
+    jq -s 'sort_by(.timestamp) | reverse | limit(10; .[]) | "\(.timestamp | split("T")[0])\t\(.provider)\t$\(.cost | tonumber | . * 100 | round / 100)"' "$usage_log" 2>/dev/null | column -t
 }
 
 # System health check
