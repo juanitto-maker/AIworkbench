@@ -700,7 +700,8 @@ get_context_summary() {
         scan_count=$(context_state_get "last_scan.file_count" 2>/dev/null)
 
         if command -v jq &>/dev/null; then
-            manual_count=$(context_state_get "context_files" 2>/dev/null | jq 'length' 2>/dev/null || echo "0")
+            # Count only files with type="manual", excluding scan output files
+            manual_count=$(context_state_get "context_files" 2>/dev/null | jq '[.[] | select(.type == "manual")] | length' 2>/dev/null || echo "0")
         else
             manual_count=0
         fi
@@ -1820,7 +1821,8 @@ cmd_context() {
         local persistent_count=0
         local has_scan=false
         if type context_state_exists &>/dev/null && context_state_exists; then
-            persistent_count=$(context_state_get "context_files" 2>/dev/null | jq 'length' 2>/dev/null || echo 0)
+            # Count only manual files, excluding scan output files
+            persistent_count=$(context_state_get "context_files" 2>/dev/null | jq '[.[] | select(.type == "manual")] | length' 2>/dev/null || echo 0)
             local scan_file
             scan_file=$(context_state_get "last_scan.output_file" 2>/dev/null)
             [[ -n "$scan_file" && -f "$scan_file" ]] && has_scan=true
