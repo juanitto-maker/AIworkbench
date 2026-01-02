@@ -760,6 +760,28 @@ get_message_count() {
     fi
 }
 
+# Get last response cost
+get_last_response_cost() {
+    local workspace logs_dir
+    workspace="$(get_workspace 2>/dev/null)" || workspace="$HOME/.aiwb/workspace"
+    logs_dir="$workspace/logs"
+    local usage_log="$logs_dir/usage.jsonl"
+
+    if [[ ! -f "$usage_log" ]]; then
+        echo "0.00"
+        return
+    fi
+
+    # Get the last entry's cost
+    local last_cost
+    if command -v jq &>/dev/null; then
+        last_cost=$(tail -1 "$usage_log" | jq -r '.cost // 0' 2>/dev/null)
+        printf "%.4f" "$last_cost" 2>/dev/null || echo "0.00"
+    else
+        echo "0.00"
+    fi
+}
+
 # Show status footer after AI response
 show_status_footer() {
     local provider model
@@ -777,50 +799,66 @@ show_status_footer() {
     local context_summary
     context_summary=$(get_context_summary)
 
-    # Get session stats
-    local session_cost message_count
+    # Get cost stats
+    local session_cost message_count last_cost
     session_cost=$(get_session_cost)
+    last_cost=$(get_last_response_cost)
     message_count=$(get_message_count)
 
-    # Line 1: Model & Context (truncate if too long)
-    local line1_plain="Model: ${model_display} | Context: ${context_summary}"
-
+    # Line 1: Model only
+    local line1_plain="Model: ${model_display}"
     if [[ ${#line1_plain} -gt $term_width ]]; then
-        # Truncate to fit terminal width
         local max_len=$((term_width - 3))
         local truncated="${line1_plain:0:$max_len}..."
-        line1="Model: ${BOLD}${truncated}${RESET}"
+        line1="${truncated}"
     else
-        line1="Model: ${BOLD}${model_display}${RESET} | Context: ${DIM}${context_summary}${RESET}"
+        line1="Model: ${BOLD}${model_display}${RESET}"
     fi
 
-    # Line 2: Session stats with optional warning
-    local cost_color="${GREEN}"
-    local warning=""
-
-    if command -v bc &>/dev/null; then
-        if (( $(echo "$session_cost > 1.00" | bc -l 2>/dev/null) )); then
-            cost_color="${RED}"
-            warning="${YELLOW} | WARNING: High cost${RESET}"
-        elif (( $(echo "$session_cost > 0.10" | bc -l 2>/dev/null) )); then
-            cost_color="${YELLOW}"
-        fi
-    fi
-
-    local line2_plain="Session: \$${session_cost} | Msgs: ${message_count} | Type /status${warning:+ | WARNING: High cost}"
-
+    # Line 2: Context only
+    local line2_plain="Context: ${context_summary}"
     if [[ ${#line2_plain} -gt $term_width ]]; then
-        # Truncate to fit terminal width
         local max_len=$((term_width - 3))
         local truncated="${line2_plain:0:$max_len}..."
         line2="${truncated}"
     else
-        line2="Session: ${cost_color}\$${session_cost}${RESET} | Msgs: ${message_count} | Type ${DIM}/status${RESET}${warning}"
+        line2="Context: ${DIM}${context_summary}${RESET}"
     fi
 
-    # Print both lines using printf for proper color handling
+    # Line 3: Cost (last + session total) + messages
+    local cost_color="${GREEN}"
+    local session_color="${GREEN}"
+
+    if command -v bc &>/dev/null; then
+        # Color last response cost
+        if (( $(echo "$last_cost > 0.10" | bc -l 2>/dev/null) )); then
+            cost_color="${RED}"
+        elif (( $(echo "$last_cost > 0.01" | bc -l 2>/dev/null) )); then
+            cost_color="${YELLOW}"
+        fi
+
+        # Color session total
+        if (( $(echo "$session_cost > 1.00" | bc -l 2>/dev/null) )); then
+            session_color="${RED}"
+        elif (( $(echo "$session_cost > 0.10" | bc -l 2>/dev/null) )); then
+            session_color="${YELLOW}"
+        fi
+    fi
+
+    local line3_plain="Cost: \$${last_cost} this | \$${session_cost} total | Msgs: ${message_count} | /status"
+
+    if [[ ${#line3_plain} -gt $term_width ]]; then
+        local max_len=$((term_width - 3))
+        local truncated="${line3_plain:0:$max_len}..."
+        line3="${truncated}"
+    else
+        line3="Cost: ${cost_color}\$${last_cost}${RESET} this | ${session_color}\$${session_cost}${RESET} total | Msgs: ${message_count} | ${DIM}/status${RESET}"
+    fi
+
+    # Print all 3 lines using printf for proper color handling
     printf "%b\n" "$line1"
     printf "%b\n" "$line2"
+    printf "%b\n" "$line3"
 }
 
 # Handle chat message
@@ -881,15 +919,15 @@ User Question: $message"
     printf "%b\n" "${YELLOW}${response}${RESET}"
     printf "\n"
 
-    # Show status footer
+    # Track cost first (use enhanced_message to reflect actual tokens sent)
+    track_usage "$provider" "$model" "$enhanced_message" "$response"
+
+    # Show status footer (will include the cost just tracked)
     show_status_footer
     echo ""
 
     # Offer to copy to clipboard
     copy_to_clipboard "$response"
-
-    # Track cost (use enhanced_message to reflect actual tokens sent)
-    track_usage "$provider" "$model" "$enhanced_message" "$response"
 }
 
 # Track API usage and costs
