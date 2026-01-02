@@ -422,7 +422,8 @@ chat_loop() {
 
             # Only process output if not interrupted
             if [[ $chat_exit -eq 0 ]]; then
-                echo "$response_output"
+                # Display already happened in handle_chat_message (to stderr)
+                # response_output contains only the response text for logging
 
                 # Log response with truncation for large responses
                 local response_lines=$(echo "$response_output" | wc -l)
@@ -907,21 +908,24 @@ handle_chat_message() {
         return 1
     fi
 
-    # Display response
-    printf "\n"
-    printf "%b\n" "${BOLD}AI:${RESET}"
-    printf "%b\n" "${YELLOW}${response}${RESET}"
-    printf "\n"
+    # Display response (redirect to stderr to avoid duplicate output)
+    printf "\n" >&2
+    printf "%b\n" "${BOLD}AI:${RESET}" >&2
+    printf "%b\n" "${YELLOW}${response}${RESET}" >&2
+    printf "\n" >&2
 
     # Track cost first (use enhanced_message to reflect actual tokens sent)
     track_usage "$provider" "$model" "$enhanced_message" "$response"
 
     # Show status footer (will include the cost just tracked)
-    show_status_footer
-    echo ""
+    show_status_footer >&2
+    echo "" >&2
 
     # Offer to copy to clipboard
-    copy_to_clipboard "$response"
+    copy_to_clipboard "$response" >&2
+
+    # Return only the response text for logging
+    echo "$response"
 }
 
 # Track API usage and costs
