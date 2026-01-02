@@ -1086,13 +1086,25 @@ cmd_generate() {
 
     msg "Generating content for task: $task"
 
-    # Read prompt
-    local prompt
-    prompt=$(cat "$task_file")
+    # Read base prompt
+    local base_prompt
+    base_prompt=$(cat "$task_file")
+
+    # Build complete prompt with all context (MODE_UPLOADS, etc.)
+    local final_prompt
+    final_prompt=$(build_prompt_with_context "$base_prompt" "false")
+
+    # Check if we have context images for vision models
+    local context_images=()
+    if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        while IFS= read -r img; do
+            [[ -n "$img" ]] && context_images+=("$img")
+        done < <(get_context_images)
+    fi
 
     # Estimate first
     if [[ "$(config_get preferences.auto_estimate)" == "true" ]]; then
-        estimate_task "$task" "$prompt"
+        estimate_task "$task" "$final_prompt"
 
         if [[ "$(config_get preferences.confirm_before_generate)" == "true" ]]; then
             if ! ui_confirm "Proceed with generation?"; then
@@ -1110,8 +1122,24 @@ cmd_generate() {
     echo ""
     msg "Generating with $provider ($model)..."
 
+    # Show context info if present
+    if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        local file_count=${#MODE_UPLOADS[@]}
+        local image_count=${#context_images[@]}
+        if [[ $image_count -gt 0 ]]; then
+            info "Including context: $file_count file(s) ($image_count image(s))"
+        else
+            info "Including context: $file_count file(s)"
+        fi
+    fi
+
     local output
-    output=$(call_api "$prompt" "$provider" "$model")
+    # Use vision API if we have images
+    if [[ ${#context_images[@]} -gt 0 ]]; then
+        output=$(call_api_with_images "$final_prompt" "$provider" "$model" "" "${context_images[@]}")
+    else
+        output=$(call_api "$final_prompt" "$provider" "$model")
+    fi
 
     # Save output
     local output_dir output_file
@@ -1729,16 +1757,41 @@ cmd_contextshow() {
 
 # Clear all context and start fresh
 cmd_contextclear() {
-    if ! context_state_exists && [[ ${#MODE_UPLOADS[@]} -eq 0 ]]; then
+    if ! context_state_exists && [[ ${#MODE_UPLOADS[@]} -eq 0 ]] && [[ -z "$MODE_PROMPT" ]] && [[ -z "$MODE_INSTRUCT_FILE" ]]; then
         warn "No context to clear"
         return 0
     fi
 
-    # Confirm before clearing
+    # Show what will be cleared
     warn "This will clear:"
-    echo "   • All context files"
+    echo "   • All context files (persistent and in-memory)"
     echo "   • Conversation history"
     echo "   • Scan results"
+    echo "   • Mode prompts and instructions"
+    echo "   • Check/verify settings"
+
+    # Show current context
+    local total_items=0
+    if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        echo ""
+        echo "   In-memory context ($([[ ${#MODE_UPLOADS[@]} -gt 0 ]] && echo ${#MODE_UPLOADS[@]} || echo 0) file(s)):"
+        for item in "${MODE_UPLOADS[@]}"; do
+            echo "     - $(basename "$item")"
+            ((total_items++))
+        done
+    fi
+
+    if context_state_exists; then
+        local persistent_count=$(context_state_get "context_files | length" 2>/dev/null || echo "0")
+        if [[ "$persistent_count" != "0" && "$persistent_count" != "null" ]]; then
+            echo ""
+            echo "   Persistent context ($persistent_count file(s))"
+            ((total_items+=persistent_count))
+        fi
+    fi
+
+    echo ""
+    echo "   Total items to clear: $total_items"
     echo ""
 
     if ! ui_confirm "Clear all context?" "no"; then
@@ -1746,17 +1799,16 @@ cmd_contextclear() {
         return 0
     fi
 
-    # Clear context state
-    context_state_clear
+    # Clear persistent context state
+    if context_state_exists; then
+        context_state_clear
+    fi
 
-    # Clear MODE_UPLOADS
-    MODE_UPLOADS=()
+    # Clear all MODE state variables using centralized function
+    clear_all_mode_state
 
-    # Clear mode settings
-    MODE_PROMPT=""
-    MODE_INSTRUCT_FILE=""
-
-    success "All context cleared"
+    success "All context cleared successfully"
+    info "You can now start fresh or load new context"
 }
 
 # Re-scan repository and update context
@@ -1792,9 +1844,11 @@ cmd_contextrefresh() {
         esac
     fi
 
-    # Clear old context first
-    context_state_clear
-    MODE_UPLOADS=()
+    # Clear old context first (completely)
+    if context_state_exists; then
+        context_state_clear
+    fi
+    clear_all_mode_state
 
     # Run appropriate scan
     if [[ "$scan_type" == "selective" ]]; then
@@ -2053,10 +2107,10 @@ cmd_context() {
             "Clear all context")
                 if [[ ${#MODE_UPLOADS[@]} -gt 0 ]] || [[ $persistent_count -gt 0 ]]; then
                     local choices=()
-                    [[ ${#MODE_UPLOADS[@]} -gt 0 ]] && choices+=("Clear in-memory context")
+                    [[ ${#MODE_UPLOADS[@]} -gt 0 ]] && choices+=("Clear in-memory context only")
                     if type context_state_exists &>/dev/null && context_state_exists; then
-                        choices+=("Clear persistent context")
-                        choices+=("Clear both")
+                        choices+=("Clear persistent context only")
+                        choices+=("Clear ALL (recommended)")
                     fi
                     choices+=("Cancel")
 
@@ -2064,21 +2118,26 @@ cmd_context() {
                     clear_choice=$(ui_choose "What to clear?" "${choices[@]}")
 
                     case "$clear_choice" in
-                        "Clear in-memory context")
-                            MODE_UPLOADS=()
-                            success "In-memory context cleared"
+                        "Clear in-memory context only")
+                            clear_all_mode_state
+                            success "In-memory context and mode state cleared"
+                            warn "Note: Persistent context still exists. Use 'Clear ALL' for complete clearing."
                             ;;
-                        "Clear persistent context")
+                        "Clear persistent context only")
                             if type context_state_clear &>/dev/null; then
                                 context_state_clear
                             fi
+                            warn "Note: In-memory context still loaded. Use 'Clear ALL' for complete clearing."
                             ;;
-                        "Clear both")
-                            MODE_UPLOADS=()
-                            if type context_state_clear &>/dev/null; then
+                        "Clear ALL (recommended)")
+                            # Clear persistent state
+                            if type context_state_clear &>/dev/null && context_state_exists; then
                                 context_state_clear
                             fi
-                            success "All context cleared"
+                            # Clear all in-memory state
+                            clear_all_mode_state
+                            success "All context cleared successfully (persistent + in-memory)"
+                            info "You can now start fresh or load new context"
                             ;;
                     esac
                 else
