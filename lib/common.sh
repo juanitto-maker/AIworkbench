@@ -329,6 +329,102 @@ run_cleanup_handlers() {
 trap run_cleanup_handlers EXIT TERM
 
 # ============================================================================
+# CODE DISPLAY UTILITIES
+# ============================================================================
+
+# Display a code file with syntax highlighting if available
+# Usage: display_code_file <file_path> [language]
+display_code_file() {
+    local file="$1"
+    local language="${2:-}"
+
+    # Check if file exists
+    if [[ ! -f "$file" ]]; then
+        err "File not found: $file"
+        return 1
+    fi
+
+    # Check if syntax highlighting is enabled
+    local syntax_enabled
+    syntax_enabled=$(config_get "preferences.syntax_highlighting" "true")
+
+    # If syntax highlighting is disabled, just use cat
+    if [[ "$syntax_enabled" != "true" ]]; then
+        cat "$file"
+        return 0
+    fi
+
+    # Check if bat is available
+    if ! have bat; then
+        # Fallback to cat if bat is not installed
+        cat "$file"
+        return 0
+    fi
+
+    # Auto-detect language from file extension if not provided
+    if [[ -z "$language" ]]; then
+        case "${file##*.}" in
+            md|markdown) language="markdown" ;;
+            py) language="python" ;;
+            js) language="javascript" ;;
+            ts) language="typescript" ;;
+            sh|bash) language="bash" ;;
+            json) language="json" ;;
+            yaml|yml) language="yaml" ;;
+            html) language="html" ;;
+            css) language="css" ;;
+            go) language="go" ;;
+            rs) language="rust" ;;
+            c) language="c" ;;
+            cpp|cc|cxx) language="cpp" ;;
+            java) language="java" ;;
+            rb) language="ruby" ;;
+            php) language="php" ;;
+            sql) language="sql" ;;
+            *) language="" ;;
+        esac
+    fi
+
+    # Use bat with syntax highlighting
+    if [[ -n "$language" ]]; then
+        bat --style=plain --color=always --language="$language" "$file"
+    else
+        bat --style=plain --color=always "$file"
+    fi
+}
+
+# Display code content (from string/pipe) with syntax highlighting
+# Usage: display_code_content <content> [language]
+display_code_content() {
+    local content="$1"
+    local language="${2:-}"
+
+    # Check if syntax highlighting is enabled
+    local syntax_enabled
+    syntax_enabled=$(config_get "preferences.syntax_highlighting" "true")
+
+    # If syntax highlighting is disabled, just echo
+    if [[ "$syntax_enabled" != "true" ]]; then
+        echo "$content"
+        return 0
+    fi
+
+    # Check if bat is available
+    if ! have bat; then
+        # Fallback to echo if bat is not installed
+        echo "$content"
+        return 0
+    fi
+
+    # Use bat with syntax highlighting
+    if [[ -n "$language" ]]; then
+        echo "$content" | bat --style=plain --color=always --language="$language"
+    else
+        echo "$content" | bat --style=plain --color=always
+    fi
+}
+
+# ============================================================================
 # CLIPBOARD UTILITIES
 # ============================================================================
 

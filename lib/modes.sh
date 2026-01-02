@@ -299,7 +299,7 @@ menu_instruct() {
                     clear 2>/dev/null || true
                     ui_header "Instruction File: $MODE_INSTRUCT_FILE"
                     echo ""
-                    cat "$MODE_INSTRUCT_FILE"
+                    display_code_file "$MODE_INSTRUCT_FILE"
                     echo ""
                     ui_confirm "Press enter to continue..."
                 else
@@ -808,7 +808,7 @@ menu_view_outputs() {
                     ui_header "Output: $filename"
                     echo ""
 
-                    cat "$filepath"
+                    display_code_file "$filepath"
 
                     echo ""
                     echo "File location: $filepath"
@@ -1133,7 +1133,7 @@ $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.
     # Show preview
     echo ""
     echo "${CYAN}${BOLD}Preview:${RESET}"
-    echo "$output" | head -20
+    display_code_content "$(echo "$output" | head -20)" "markdown"
     if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
         echo "... (see file for full output)"
     fi
@@ -1238,7 +1238,7 @@ Provide specific, actionable feedback."
                 ui_header "Generated Output"
                 echo ""
 
-                cat "$output_file"
+                display_code_file "$output_file"
 
                 echo ""
                 echo "File location: $output_file"
