@@ -670,16 +670,16 @@ copy_to_clipboard() {
 
     # If clipboard tool is available, offer to copy
     if [[ -n "$clipboard_cmd" ]]; then
-        echo "${DIM}[Ctrl+Y to copy response to clipboard, or press Enter to continue (5s timeout)]${RESET}"
+        printf "%b\n" "${DIM}[Ctrl+Y to copy response to clipboard, or press Enter to continue (5s timeout)]${RESET}"
         local key
         # Add 5 second timeout to prevent hanging, and handle Ctrl+C properly
         if read -rsn1 -t 5 key 2>/dev/null; then
             # Check if Ctrl+Y was pressed (ASCII 25)
             if [[ "$key" == $'\x19' ]]; then
                 echo "$text" | $clipboard_cmd 2>/dev/null && {
-                    echo "${GREEN}✓ Copied to clipboard${RESET}"
+                    printf "%b\n" "${GREEN}✓ Copied to clipboard${RESET}"
                 } || {
-                    echo "${YELLOW}⚠ Failed to copy${RESET}"
+                    printf "%b\n" "${YELLOW}⚠ Failed to copy${RESET}"
                 }
             fi
         fi
@@ -783,15 +783,15 @@ show_status_footer() {
     message_count=$(get_message_count)
 
     # Line 1: Model & Context (truncate if too long)
-    local line1="Model: ${BOLD}${model_display}${RESET} | Context: ${CYAN}${context_summary}${RESET}"
     local line1_plain="Model: ${model_display} | Context: ${context_summary}"
 
     if [[ ${#line1_plain} -gt $term_width ]]; then
         # Truncate to fit terminal width
         local max_len=$((term_width - 3))
         local truncated="${line1_plain:0:$max_len}..."
-        # Rebuild with colors on truncated text
-        line1="Model: ${BOLD}${model_display:0:20}${RESET} | Context: ${CYAN}${context_summary:0:30}${RESET}..."
+        line1="Model: ${BOLD}${truncated}${RESET}"
+    else
+        line1="Model: ${BOLD}${model_display}${RESET} | Context: ${DIM}${context_summary}${RESET}"
     fi
 
     # Line 2: Session stats with optional warning
@@ -807,12 +807,15 @@ show_status_footer() {
         fi
     fi
 
-    local line2="Session: ${cost_color}\$${session_cost}${RESET} | Msgs: ${message_count} | Type ${DIM}/status${RESET}${warning}"
     local line2_plain="Session: \$${session_cost} | Msgs: ${message_count} | Type /status${warning:+ | WARNING: High cost}"
 
     if [[ ${#line2_plain} -gt $term_width ]]; then
         # Truncate to fit terminal width
-        line2="Session: ${cost_color}\$${session_cost}${RESET} | Msgs: ${message_count}${warning}"
+        local max_len=$((term_width - 3))
+        local truncated="${line2_plain:0:$max_len}..."
+        line2="${truncated}"
+    else
+        line2="Session: ${cost_color}\$${session_cost}${RESET} | Msgs: ${message_count} | Type ${DIM}/status${RESET}${warning}"
     fi
 
     # Print both lines using printf for proper color handling
@@ -873,10 +876,10 @@ User Question: $message"
     fi
 
     # Display response
-    echo ""
-    echo "${CYAN}${BOLD}AI:${RESET}"
-    echo "$response"
-    echo ""
+    printf "\n"
+    printf "%b\n" "${BOLD}AI:${RESET}"
+    printf "%b\n" "${YELLOW}${response}${RESET}"
+    printf "\n"
 
     # Show status footer
     show_status_footer
