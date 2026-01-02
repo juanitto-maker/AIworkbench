@@ -383,15 +383,10 @@ chat_loop() {
     while true; do
         local input
 
-        # Get input
-        # Only use gum if stdin is a terminal (not piped from tests)
-        if [[ -t 0 ]] && [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
-            input=$(gum input --placeholder "Message or /command..." --width 80) || continue
-        else
-            # Use safe_read for piped input or Termux compatibility
-            printf "\033[0m> "  # Reset colors before prompt
-            safe_read input || continue
-        fi
+        # Get input - use simple prompt to allow terminal scrolling
+        # gum input prevents scrolling in many terminals (Termux, etc.)
+        printf "\033[0m> "  # Reset colors before prompt
+        safe_read input || continue
 
         [[ -z "$input" ]] && continue
 
@@ -441,7 +436,7 @@ chat_loop() {
         fi
 
         # Add buffer lines to allow scrolling up while input prompt is visible
-        printf "\n\n\n\n"
+        printf "\n\n"
     done
 }
 
