@@ -503,6 +503,9 @@ handle_slash_command() {
         /costs)
             cmd_costs
             ;;
+        /costreset)
+            cmd_costreset
+            ;;
         /github|/gh)
             cmd_github "$args"
             ;;
@@ -627,6 +630,7 @@ MANAGEMENT:
   /status     Show overall status
   /history    Show chat history
   /costs      Show cost breakdown
+  /costreset  Reset cost counter to $0.00
 
 CONFIGURATION:
   /keys       Manage API keys
@@ -694,31 +698,38 @@ copy_to_clipboard() {
 
 # Get context summary for status display
 get_context_summary() {
-    if type context_state_exists &>/dev/null && context_state_exists; then
-        local scan_file scan_count manual_count
-        scan_file=$(context_state_get "last_scan.output_file" 2>/dev/null)
-        scan_count=$(context_state_get "last_scan.file_count" 2>/dev/null)
+    # Show ACTUAL context being used (MODE_UPLOADS), not just what's in .context_state
+    # This ensures the footer accurately reflects what the API will receive
+    if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        local file_count=${#MODE_UPLOADS[@]}
+        local image_count=0
 
-        if command -v jq &>/dev/null; then
-            # Count only files with type="manual", excluding scan output files
-            manual_count=$(context_state_get "context_files" 2>/dev/null | jq '[.[] | select(.type == "manual")] | length' 2>/dev/null || echo "0")
-        else
-            manual_count=0
+        # Count images if get_context_images is available
+        if type get_context_images &>/dev/null; then
+            while IFS= read -r img; do
+                [[ -n "$img" ]] && ((image_count++))
+            done < <(get_context_images)
         fi
 
-        if [[ -n "$scan_file" && -f "$scan_file" ]]; then
-            if [[ $manual_count -gt 0 ]]; then
-                echo "scan ($scan_count files) + $manual_count manual"
+        if [[ $image_count -gt 0 ]]; then
+            echo "$file_count file(s) ($image_count image(s))"
+        else
+            echo "$file_count file(s)"
+        fi
+    else
+        # No in-memory context loaded, but check if persistent context exists (not loaded)
+        if type context_state_exists &>/dev/null && context_state_exists; then
+            local scan_count
+            scan_count=$(context_state_get "last_scan.file_count" 2>/dev/null)
+            if [[ -n "$scan_count" && "$scan_count" != "null" && "$scan_count" != "0" ]]; then
+                # Show that context exists but is not loaded
+                echo "none (saved: $scan_count files - use /contextload)"
             else
-                echo "scan ($scan_count files)"
+                echo "none"
             fi
-        elif [[ $manual_count -gt 0 ]]; then
-            echo "$manual_count file(s)"
         else
             echo "none"
         fi
-    else
-        echo "none"
     fi
 }
 
@@ -869,28 +880,10 @@ handle_chat_message() {
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
 
-    # Check if we have saved context from a scan
-    local enhanced_message="$message"
-    if type context_state_exists &>/dev/null && context_state_exists; then
-        local scan_file
-        scan_file=$(context_state_get "last_scan.output_file" 2>/dev/null)
-
-        if [[ -n "$scan_file" && -f "$scan_file" ]]; then
-            # Prepend scan context to message
-            local scan_content
-            scan_content=$(cat "$scan_file" 2>/dev/null)
-
-            if [[ -n "$scan_content" ]]; then
-                enhanced_message="Repository Context (from previous scan):
-
-$scan_content
-
----
-
-User Question: $message"
-            fi
-        fi
-    fi
+    # Build message with context using centralized function
+    # This ensures chat respects MODE_UPLOADS and context clearing
+    local enhanced_message
+    enhanced_message=$(build_prompt_with_context "$message" "false")
 
     # Show blinking cursor while API call runs (as requested by user)
     ui_blink "Thinking..."
@@ -2632,6 +2625,52 @@ test_all_keys() {
 
     echo ""
     success "Key testing complete"
+}
+
+# Reset cost counter
+cmd_costreset() {
+    local workspace logs_dir usage_log
+    workspace="$(get_workspace)"
+    logs_dir="$workspace/logs"
+    usage_log="$logs_dir/usage.jsonl"
+
+    # Get current total cost before resetting
+    local current_cost
+    current_cost=$(get_session_cost)
+
+    if [[ ! -f "$usage_log" ]]; then
+        info "No usage log found - cost is already $0.00"
+        return 0
+    fi
+
+    # Show current cost
+    echo ""
+    warn "Current total cost: \$$current_cost"
+    echo ""
+    echo "This will:"
+    echo "  • Delete the usage log file ($usage_log)"
+    echo "  • Reset total cost to \$0.00"
+    echo "  • Remove all cost history"
+    echo ""
+
+    if ! ui_confirm "Reset cost counter?" "no"; then
+        msg "Cancelled"
+        return 0
+    fi
+
+    # Backup the log before deleting (optional)
+    local backup_file="$logs_dir/usage_backup_$(date +%Y%m%d_%H%M%S).jsonl"
+    if ui_confirm "Create backup before resetting?" "yes"; then
+        cp "$usage_log" "$backup_file"
+        success "Backup created: $backup_file"
+    fi
+
+    # Remove the usage log
+    rm -f "$usage_log"
+
+    echo ""
+    success "Cost counter reset to \$0.00"
+    info "Previous cost was: \$$current_cost"
 }
 
 # Show session history - interactive menu
