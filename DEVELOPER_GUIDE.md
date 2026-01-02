@@ -626,7 +626,7 @@ export QWEN_API_KEY="your-test-key"
 
 # 3. Try in interactive mode
 ./aiwb
-> /settings
+> /models
 # Select Qwen as provider
 > Hello, can you hear me?
 

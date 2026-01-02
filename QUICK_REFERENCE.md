@@ -55,9 +55,9 @@ Commands:
 - `remove <item>` - Remove from context
 - `clear` - Clear all context
 
-### /settings Menu
+### /models Menu
 **Location:** `/home/user/AIworkbench/aiwb` lines 1353-1405
-**Function:** `cmd_settings()`
+**Function:** `cmd_models()`
 
 Options:
 - Provider selection
@@ -306,7 +306,7 @@ All menus:
 | Exit cleanup | aiwb | 17-44 |
 | File viewing | modes.sh | 540-606 |
 | /context menu | aiwb | 950-1011 |
-| /settings menu | aiwb | 1353-1405 |
+| /models menu | aiwb | 1353-1405 |
 | /make mode | modes.sh | 904-965 |
 | /history menu | aiwb | 1497-1522 |
 | /costs menu | aiwb | 1525-1554 |

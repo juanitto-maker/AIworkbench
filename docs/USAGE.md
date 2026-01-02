@@ -83,7 +83,7 @@ aiwb
 > /keys
 
 # Configure settings
-> /settings
+> /models
 
 # Get help
 > /help
@@ -191,7 +191,7 @@ These commands work in interactive chat mode (`aiwb`):
 #### Configuration Commands
 
 - `/keys` - Manage API keys (add, list, encrypt)
-- `/settings` - Configure provider and model preferences
+- `/models` - Configure provider and model preferences
 - `/templates` - Browse and use templates
 
 #### Utility Commands
@@ -261,9 +261,9 @@ export XAI_API_KEY="your-key"
 Configure default provider and model:
 
 ```bash
-aiwb settings
+aiwb models
 # Or:
-> /settings
+> /models
 ```
 
 **config.json structure:**

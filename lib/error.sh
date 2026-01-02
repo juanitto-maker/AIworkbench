@@ -109,7 +109,7 @@ Solutions:
   • Wait 60 seconds and try again
   • Upgrade your API plan for higher limits
   • Use a different model with higher limits
-  • Enable cost tracking: aiwb /settings
+  • Enable cost tracking: aiwb /models
 EOF
             ;;
         $E_FILE_NOT_FOUND)

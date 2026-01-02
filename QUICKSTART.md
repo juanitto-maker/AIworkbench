@@ -99,7 +99,7 @@ aiwb keys
 
 ```bash
 # From within aiwb
-> /settings
+> /models
 
 # Select your preferred provider and model
 ```
@@ -173,7 +173,7 @@ aiwb status       # Show current configuration and context
 /wizard           # Start wizard workflow
 /improve <note>   # Improve the last output
 /keys             # Manage API keys
-/settings         # Change provider/model settings
+/models           # Change provider/model settings
 /status           # Show status overview
 /context          # Manage context files
 /costs            # Show spending breakdown
