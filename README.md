@@ -60,6 +60,11 @@ curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/ins
 git clone https://github.com/juanitto-maker/AIworkbench.git
 cd AIworkbench
 ./install.sh
+
+# Fresh (purged) install for Termux (recommended)
+curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/install-termux.sh | bash
+cd ~/<your repo/folder>
+aiwb
 ```
 
 ### 2\. Add to PATH
