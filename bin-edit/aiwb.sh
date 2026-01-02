@@ -7,7 +7,7 @@
 # - Auto-fixes CRLF in installed tools on startup.
 # - Smart context loading: selective by default, /fullcontext for deep scan
 # - Universal: works with any repo, any model provider
-# - Slash commands: /help /keys /settings /estimate /generate /debug /fullcontext /exit
+# - Slash commands: /help /keys /models /estimate /generate /debug /fullcontext /exit
 
 set -o pipefail
 
@@ -284,7 +284,7 @@ help_text() {
 Commands:
 /help         show this help
 /keys         set or update API keys (saved to ~/.aiwb.env)
-/settings     change provider/model
+/models       change provider/model
 /fullcontext  deep scan entire repo (use once when entering new repo)
 /selective    switch back to smart selective context mode (default)
 /estimate     ask agent to estimate current (or inbox) task
@@ -301,11 +301,11 @@ Tip: Start new repo with /fullcontext, then switch to normal chat.
 HLP
 }
 
-# ---------- settings ----------
-settings_menu() {
+# ---------- models ----------
+models_menu() {
   if $GUM; then
     local choice
-    choice="$(printf "Provider: %s\nModel: %s\nContext: %s\nBack" "$MODEL_PROVIDER" "${MODEL_NAME:-default}" "$CONTEXT_MODE" | gum choose --header "Settings")" || return
+    choice="$(printf "Provider: %s\nModel: %s\nContext: %s\nBack" "$MODEL_PROVIDER" "${MODEL_NAME:-default}" "$CONTEXT_MODE" | gum choose --header "Models")" || return
     case "$choice" in
       Provider:*) 
         choice="$(printf "gemini\nclaude\nopenai\nollama\ncustom" | gum choose --header "Choose provider")" || return
@@ -448,7 +448,7 @@ chat_loop_gum() {
     case "$inp" in
       /help)         help_text ;;
       /keys)         keys_menu ;;
-      /settings)     settings_menu ;;
+      /models)       models_menu ;;
       /fullcontext)  fullcontext_action ;;
       /selective)    selective_action ;;
       /estimate)     estimate_action ;;
@@ -472,7 +472,7 @@ chat_loop_cli() {
     case "$inp" in
       /help)         help_text ;;
       /keys)         keys_menu ;;
-      /settings)     settings_menu ;;
+      /models)       models_menu ;;
       /fullcontext)  fullcontext_action ;;
       /selective)    selective_action ;;
       /estimate)     estimate_action ;;

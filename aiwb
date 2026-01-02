@@ -476,8 +476,8 @@ handle_slash_command() {
         /keys)
             cmd_keys
             ;;
-        /settings)
-            cmd_settings
+        /models)
+            cmd_models
             ;;
         /status)
             cmd_status_overview
@@ -630,7 +630,7 @@ MANAGEMENT:
 
 CONFIGURATION:
   /keys       Manage API keys
-  /settings   Configure provider/model
+  /models     Configure provider/model
   /clear      Clear screen
   /help       Show this help
   /exit       Quit
@@ -2302,8 +2302,8 @@ cmd_keys() {
     setup_keys_interactive
 }
 
-# Settings menu
-cmd_settings() {
+# Models menu
+cmd_models() {
     while true; do
         local provider model
         provider="$(config_get model_provider)"
@@ -2997,8 +2997,8 @@ main() {
         keys|key)
             cmd_keys "$@"
             ;;
-        settings|config)
-            cmd_settings "$@"
+        models|settings|config)
+            cmd_models "$@"
             ;;
         status|stat)
             ui_show_status

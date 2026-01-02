@@ -67,10 +67,10 @@ Shows your current configuration.
 Shows available commands.
 
 ```
-> /settings
+> /models
 ```
 
-Opens the settings menu to change provider/model.
+Opens the models menu to change provider/model.
 
 ## Step 5: Exit
 

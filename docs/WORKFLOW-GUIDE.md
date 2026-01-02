@@ -236,7 +236,7 @@ AIWB automatically uses a **different model** to verify. Example:
 ```bash
 # Interactive mode
 ./aiwb
-aiwb> /settings
+aiwb> /models
 # Choose Provider → groq
 # Choose Model → llama-3.3-70b-versatile
 
@@ -286,7 +286,7 @@ Before running expensive operations:
 
 ```bash
 ./aiwb
-aiwb> /settings
+aiwb> /models
 # → Preferences
 # → Auto-estimate: true (estimates before generating)
 # → Confirm before generate: true (asks if cost > threshold)
@@ -516,7 +516,7 @@ For when you outgrow free tiers:
   /wizard                      # Guided workflow
   /improve suggestion          # Improve last
   /templates                   # Browse templates
-  /settings                    # Change provider/model
+  /models                      # Change provider/model
   /costs                       # Cost check
   /help                        # Show all commands
 

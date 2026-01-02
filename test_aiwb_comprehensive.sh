@@ -354,8 +354,8 @@ test_plan_mode() {
 # MENU & DIALOG TESTS
 # ============================================================================
 
-test_settings_menu() {
-    local test_name="Menu: Settings"
+test_models_menu() {
+    local test_name="Menu: Models"
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     log_section "TEST $TOTAL_TESTS: $test_name"
@@ -363,19 +363,19 @@ test_settings_menu() {
     local output_file=$(mktemp)
     local error_file=$(mktemp)
 
-    log "Testing settings menu navigation"
+    log "Testing models menu navigation"
 
     set +e
-    timeout 30 bash -c "echo -e '/settings\n1\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
+    timeout 30 bash -c "echo -e '/models\n1\n/exit\nyes' | '$SCRIPT_DIR/aiwb'" > "$output_file" 2> "$error_file"
     local exit_code=$?
     set -e
 
     local output=$(cat "$output_file")
     local issues=()
 
-    # Check if settings menu appeared
-    if ! echo "$output" | grep -qi "settings\|preferences\|configuration"; then
-        issues+=("Settings menu not shown")
+    # Check if models menu appeared
+    if ! echo "$output" | grep -qi "models\|settings\|preferences\|configuration"; then
+        issues+=("Models menu not shown")
     fi
 
     if [[ $exit_code -eq 124 ]]; then
@@ -581,7 +581,7 @@ main() {
 
     # Menu & Dialog tests (don't need API)
     log_header "TESTING MENUS & DIALOGS"
-    test_settings_menu
+    test_models_menu
     test_help_command
 
     # Error handling tests
