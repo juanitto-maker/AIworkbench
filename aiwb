@@ -922,9 +922,6 @@ handle_chat_message() {
     show_status_footer >&2
     echo "" >&2
 
-    # Offer to copy to clipboard
-    copy_to_clipboard "$response" >&2
-
     # Return only the response text for logging
     echo "$response"
 }
