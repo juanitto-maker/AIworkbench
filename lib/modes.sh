@@ -27,6 +27,138 @@ MODE_CHECK_PROVIDER=""
 MODE_CHECK_MODEL=""
 MODE_CHECK_INSTRUCT=""
 
+# ============================================================================
+# PROMPT BUILDING WITH CONTEXT
+# ============================================================================
+
+# Build a complete prompt including all context (MODE_UPLOADS, instructions, etc.)
+# This ensures context consistency across all API call entry points
+# Usage: build_prompt_with_context "base prompt text" [include_mode_prefix]
+build_prompt_with_context() {
+    local base_prompt="$1"
+    local include_mode_prefix="${2:-false}"
+
+    local final_prompt=""
+
+    # Add mode-specific prefix if requested
+    if [[ "$include_mode_prefix" == "true" && -n "$MODE_CURRENT" ]]; then
+        case "$MODE_CURRENT" in
+            make)
+                final_prompt="Generate code from scratch:
+
+$base_prompt"
+                ;;
+            tweak)
+                final_prompt="Modify/update the following code:
+
+$base_prompt"
+                ;;
+            debug)
+                final_prompt="Find and fix errors in the code:
+
+$base_prompt"
+                ;;
+            *)
+                final_prompt="$base_prompt"
+                ;;
+        esac
+    else
+        final_prompt="$base_prompt"
+    fi
+
+    # Add uploaded files context
+    if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
+        local has_text_context=false
+        local context_images=()
+
+        # First pass: identify images vs text files
+        for item in "${MODE_UPLOADS[@]}"; do
+            if [[ -f "$item" ]] && is_image_file "$item"; then
+                context_images+=("$item")
+            elif [[ -f "$item" ]] || [[ -d "$item" ]]; then
+                has_text_context=true
+            fi
+        done
+
+        # Second pass: add text content to prompt
+        if [[ "$has_text_context" = true ]]; then
+            final_prompt="$final_prompt
+
+=== CONTEXT FILES ===
+"
+            for item in "${MODE_UPLOADS[@]}"; do
+                # Skip images - they'll be sent separately
+                if [[ -f "$item" ]] && is_image_file "$item"; then
+                    final_prompt="$final_prompt
+
+--- Image: $item ---
+[Image will be analyzed by vision model]
+"
+                    continue
+                fi
+
+                if [[ -f "$item" ]]; then
+                    final_prompt="$final_prompt
+
+--- File: $item ---
+$(cat "$item")
+"
+                elif [[ -d "$item" ]]; then
+                    final_prompt="$final_prompt
+
+--- Directory: $item ---
+$(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.md" 2>/dev/null | head -5 | while read f; do
+                        echo "File: $f"
+                        head -20 "$f"
+                        echo "..."
+                    done)
+"
+                fi
+            done
+        fi
+
+        # If we have images, add a note
+        if [[ ${#context_images[@]} -gt 0 ]]; then
+            final_prompt="$final_prompt
+
+=== CONTEXT IMAGES (${#context_images[@]}) ===
+"
+            for img in "${context_images[@]}"; do
+                final_prompt="$final_prompt- $img
+"
+            done
+        fi
+    fi
+
+    echo "$final_prompt"
+}
+
+# Get context images from MODE_UPLOADS
+# Returns array of image file paths
+get_context_images() {
+    local images=()
+    for item in "${MODE_UPLOADS[@]}"; do
+        if [[ -f "$item" ]] && is_image_file "$item"; then
+            images+=("$item")
+        fi
+    done
+    printf '%s\n' "${images[@]}"
+}
+
+# Clear all MODE state variables
+# This ensures complete context clearing
+clear_all_mode_state() {
+    MODE_CURRENT=""
+    MODE_PROMPT=""
+    MODE_INSTRUCT_FILE=""
+    MODE_UPLOADS=()
+    # Note: Don't clear model settings as they're configuration, not context
+    # MODE_MODEL_PROVIDER and MODE_MODEL_NAME are preserved
+    MODE_CHECK_PROVIDER=""
+    MODE_CHECK_MODEL=""
+    MODE_CHECK_INSTRUCT=""
+}
+
 # Initialize mode
 init_mode() {
     local mode="$1"
@@ -855,97 +987,24 @@ mode_run() {
         return 1
     fi
 
-    # Build final prompt
-    local final_prompt=""
-
+    # Build base prompt
+    local base_prompt=""
     if [[ -n "$MODE_INSTRUCT_FILE" ]]; then
-        final_prompt=$(cat "$MODE_INSTRUCT_FILE")
+        base_prompt=$(cat "$MODE_INSTRUCT_FILE")
     else
-        final_prompt="$MODE_PROMPT"
+        base_prompt="$MODE_PROMPT"
     fi
 
-    # Add mode context
-    case "$MODE_CURRENT" in
-        make)
-            final_prompt="Generate code from scratch:
+    # Build final prompt with all context using centralized function
+    local final_prompt
+    final_prompt=$(build_prompt_with_context "$base_prompt" "true")
 
-$final_prompt"
-            ;;
-        tweak)
-            final_prompt="Modify/update the following code:
-
-$final_prompt"
-            ;;
-        debug)
-            final_prompt="Find and fix errors in the code:
-
-$final_prompt"
-            ;;
-    esac
-
-    # Separate images from text files in context
+    # Get context images for vision models
     local context_images=()
-    local has_text_context=false
-
-    # Add uploaded files context
     if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
-        # First pass: identify images vs text files
-        for item in "${MODE_UPLOADS[@]}"; do
-            if [[ -f "$item" ]] && is_image_file "$item"; then
-                context_images+=("$item")
-            elif [[ -f "$item" ]] || [[ -d "$item" ]]; then
-                has_text_context=true
-            fi
-        done
-
-        # Second pass: add text content to prompt
-        if [[ "$has_text_context" = true ]]; then
-            final_prompt="$final_prompt
-
-=== CONTEXT FILES ===
-"
-            for item in "${MODE_UPLOADS[@]}"; do
-                # Skip images - they'll be sent separately
-                if [[ -f "$item" ]] && is_image_file "$item"; then
-                    final_prompt="$final_prompt
-
---- Image: $item ---
-[Image will be analyzed by vision model]
-"
-                    continue
-                fi
-
-                if [[ -f "$item" ]]; then
-                    final_prompt="$final_prompt
-
---- File: $item ---
-$(cat "$item")
-"
-                elif [[ -d "$item" ]]; then
-                    final_prompt="$final_prompt
-
---- Directory: $item ---
-$(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.md" 2>/dev/null | head -5 | while read f; do
-                        echo "File: $f"
-                        head -20 "$f"
-                        echo "..."
-                    done)
-"
-                fi
-            done
-        fi
-
-        # If we have images, add a note
-        if [[ ${#context_images[@]} -gt 0 ]]; then
-            final_prompt="$final_prompt
-
-=== CONTEXT IMAGES (${#context_images[@]}) ===
-"
-            for img in "${context_images[@]}"; do
-                final_prompt="$final_prompt- $img
-"
-            done
-        fi
+        while IFS= read -r img; do
+            [[ -n "$img" ]] && context_images+=("$img")
+        done < <(get_context_images)
     fi
 
     # Estimate cost
@@ -1345,3 +1404,4 @@ export -f menu_model_provider menu_model_specific
 export -f menu_check_model menu_check_model_specific
 export -f menu_file_browser menu_outputs_browser menu_view_outputs menu_url_input
 export -f get_instruction_display get_model_display get_uploads_display get_check_display get_swarm_display
+export -f build_prompt_with_context get_context_images clear_all_mode_state
