@@ -440,7 +440,8 @@ chat_loop() {
             fi
         fi
 
-        echo ""
+        # Add buffer lines to allow scrolling up while input prompt is visible
+        printf "\n\n\n\n"
     done
 }
 
@@ -675,10 +676,10 @@ copy_to_clipboard() {
 
     # If clipboard tool is available, offer to copy
     if [[ -n "$clipboard_cmd" ]]; then
-        printf "%b\n" "${DIM}[Ctrl+Y to copy response to clipboard, or press Enter to continue (5s timeout)]${RESET}"
+        printf "%b\n" "${DIM}[Ctrl+Y to copy response to clipboard, or wait 1s (then scroll up freely)]${RESET}"
         local key
-        # Add 5 second timeout to prevent hanging, and handle Ctrl+C properly
-        if read -rsn1 -t 5 key 2>/dev/null; then
+        # Use 1 second timeout to allow scrolling up sooner
+        if read -rsn1 -t 1 key 2>/dev/null; then
             # Check if Ctrl+Y was pressed (ASCII 25)
             if [[ "$key" == $'\x19' ]]; then
                 echo "$text" | $clipboard_cmd 2>/dev/null && {
@@ -920,9 +921,6 @@ handle_chat_message() {
     # Show status footer (will include the cost just tracked)
     show_status_footer >&2
     echo "" >&2
-
-    # Offer to copy to clipboard
-    copy_to_clipboard "$response" >&2
 
     # Return only the response text for logging
     echo "$response"
