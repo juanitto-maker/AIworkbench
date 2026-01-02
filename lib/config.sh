@@ -137,7 +137,8 @@ get_default_config() {
     "confirm_before_generate": true,
     "show_costs": true,
     "stream_output": false,
-    "tier_default": "Medium"
+    "tier_default": "Medium",
+    "syntax_highlighting": true
   },
   "cost_tracking": {
     "enabled": true,
