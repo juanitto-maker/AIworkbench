@@ -889,41 +889,6 @@ show_status_footer() {
     printf "%b\n" "$line3"
 }
 
-# Simple code highlighting - dim comment lines in code blocks
-highlight_code_simple() {
-    local text="$1"
-    local in_code=false
-    local line
-
-    # Define color codes
-    local C_DIM=$'\033[2;37m'
-    local C_YELLOW=$'\033[0;33m'
-    local C_RESET=$'\033[0m'
-
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        # Detect code block start
-        if [[ "$line" =~ ^\`\`\`.* ]]; then
-            in_code=true
-            echo "${C_YELLOW}${line}${C_RESET}"
-        # Detect code block end
-        elif [[ "$line" == '```' ]]; then
-            in_code=false
-            echo "${C_YELLOW}${line}${C_RESET}"
-        # Inside code block
-        elif [[ "$in_code" == "true" ]]; then
-            # Dim comment lines (lines starting with #)
-            if [[ "$line" =~ ^[[:space:]]*# ]]; then
-                echo "${C_DIM}${line}${C_RESET}"
-            else
-                echo "${C_YELLOW}${line}${C_RESET}"
-            fi
-        # Outside code block - regular text
-        else
-            echo "${C_YELLOW}${line}${C_RESET}"
-        fi
-    done <<< "$text"
-}
-
 # Handle chat message
 handle_chat_message() {
     local message="$1"
@@ -961,8 +926,7 @@ handle_chat_message() {
     # Display response (redirect to stderr to avoid duplicate output)
     printf "\n" >&2
     printf "%b\n" "${BOLD}AI:${RESET}" >&2
-    # Apply basic syntax highlighting using literal escape sequences
-    highlight_code_simple "$response" >&2
+    printf "%b\n" "\033[0;33m${response}${RESET}" >&2  # Simple yellow text
     printf "\n" >&2
 
     # Track cost first (use enhanced_message to reflect actual tokens sent)
