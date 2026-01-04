@@ -889,6 +889,96 @@ show_status_footer() {
     printf "%b\n" "$line3"
 }
 
+# Apply syntax highlighting to code blocks in AI response
+format_response_with_syntax_highlighting() {
+    local response="$1"
+    local in_code_block=false
+    local lang=""
+
+    # Color codes for syntax highlighting
+    local C_KEYWORD='\033[1;34m'    # Bright blue
+    local C_STRING='\033[0;32m'     # Green
+    local C_COMMENT='\033[2;37m'    # Dim gray
+    local C_NUMBER='\033[0;35m'     # Magenta
+    local C_BUILTIN='\033[0;36m'    # Cyan
+    local C_TEXT='\033[0;33m'       # Dimmed yellow for regular text
+    local C_RESET='\033[0m'         # Reset
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Check for code block markers
+        if [[ "$line" =~ ^\`\`\`([a-zA-Z0-9_+-]*) ]]; then
+            if [[ "$in_code_block" == "false" ]]; then
+                # Starting a code block
+                in_code_block=true
+                lang="${BASH_REMATCH[1]}"
+                printf "${DIM}\`\`\`${lang}${RESET}\n"
+            else
+                # Ending a code block
+                in_code_block=false
+                printf "${DIM}\`\`\`${RESET}\n"
+                lang=""
+            fi
+        elif [[ "$in_code_block" == "true" ]]; then
+            # Inside code block - apply syntax highlighting
+            local highlighted_line="$line"
+
+            # Apply highlighting based on language
+            case "$lang" in
+                python|py)
+                    # Comments first (to protect from other replacements)
+                    if [[ "$highlighted_line" =~ ^[[:space:]]*# ]]; then
+                        printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
+                        continue
+                    fi
+                    # Apply keyword/string/number highlighting with perl using \x1b for escape
+                    echo "$highlighted_line" | perl -pe '
+                        s/\b(def|class|import|from|if|elif|else|for|while|try|except|finally|with|as|return|yield|lambda|pass|break|continue|raise|assert|global|nonlocal|del|and|or|not|in|is|None|True|False)\b/\x1b[1;34m$1\x1b[0m/g;
+                        s/(\"\"\".*?\"\"\"|\"[^\"]*\"|'\''[^'\'']*'\'')/\x1b[0;32m$1\x1b[0m/g;
+                        s/\b(print|len|range|str|int|float|list|dict|set|tuple|bool|type|isinstance|enumerate|zip|map|filter|sorted|sum|min|max|abs|all|any|open|input)\b/\x1b[0;36m$1\x1b[0m/g;
+                        s/\b([0-9]+\.?[0-9]*)\b/\x1b[0;35m$1\x1b[0m/g;
+                        s/(#.*$)/\x1b[2;37m$1\x1b[0m/;
+                    ' 2>/dev/null || echo "$highlighted_line"
+                    ;;
+                javascript|js|typescript|ts)
+                    # Comments first
+                    if [[ "$highlighted_line" =~ ^[[:space:]]*// ]]; then
+                        printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
+                        continue
+                    fi
+                    echo "$highlighted_line" | perl -pe '
+                        s/\b(function|const|let|var|if|else|for|while|do|switch|case|break|continue|return|try|catch|finally|throw|async|await|class|extends|import|export|from|default|new|this|super|typeof|instanceof|void|delete|in|of|true|false|null|undefined)\b/\x1b[1;34m$1\x1b[0m/g;
+                        s/(\"[^\"]*\"|'\''[^'\'']*'\''|`[^`]*`)/\x1b[0;32m$1\x1b[0m/g;
+                        s/\b(console|log|error|warn|Math|Array|Object|String|Number|Boolean|Date|Promise|setTimeout|setInterval|parseInt|parseFloat|isNaN|JSON|parse|stringify)\b/\x1b[0;36m$1\x1b[0m/g;
+                        s/\b([0-9]+\.?[0-9]*)\b/\x1b[0;35m$1\x1b[0m/g;
+                        s/(\/\/.*$)/\x1b[2;37m$1\x1b[0m/;
+                    ' 2>/dev/null || echo "$highlighted_line"
+                    ;;
+                bash|sh|shell)
+                    # Comments first
+                    if [[ "$highlighted_line" =~ ^[[:space:]]*# ]]; then
+                        printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
+                        continue
+                    fi
+                    echo "$highlighted_line" | perl -pe '
+                        s/\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|local|export|source|alias)\b/\x1b[1;34m$1\x1b[0m/g;
+                        s/(\"[^\"]*\"|'\''[^'\'']*'\'')/\x1b[0;32m$1\x1b[0m/g;
+                        s/\b(echo|printf|cd|ls|cp|mv|rm|mkdir|cat|grep|sed|awk|find|sort|uniq|wc|head|tail|chmod|chown)\b/\x1b[0;36m$1\x1b[0m/g;
+                        s/\b([0-9]+)\b/\x1b[0;35m$1\x1b[0m/g;
+                        s/(#.*$)/\x1b[2;37m$1\x1b[0m/;
+                    ' 2>/dev/null || echo "$highlighted_line"
+                    ;;
+                *)
+                    # Generic highlighting for unknown languages or just print as-is
+                    echo "$highlighted_line"
+                    ;;
+            esac
+        else
+            # Outside code block - use dimmed yellow for regular text
+            printf "${C_TEXT}%s${C_RESET}\n" "$line"
+        fi
+    done <<< "$response"
+}
+
 # Handle chat message
 handle_chat_message() {
     local message="$1"
@@ -926,7 +1016,10 @@ handle_chat_message() {
     # Display response (redirect to stderr to avoid duplicate output)
     printf "\n" >&2
     printf "%b\n" "${BOLD}AI:${RESET}" >&2
-    printf "%b\n" "\033[0;33m${response}${RESET}" >&2  # Dimmed yellow for better readability
+    # Apply syntax highlighting to code blocks
+    local formatted_response
+    formatted_response=$(format_response_with_syntax_highlighting "$response")
+    printf "%b\n" "$formatted_response" >&2
     printf "\n" >&2
 
     # Track cost first (use enhanced_message to reflect actual tokens sent)
