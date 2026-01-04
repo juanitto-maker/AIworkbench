@@ -97,18 +97,34 @@ handle_chat_message_routed() {
     provider="$(config_get model_provider)"
     model="$(config_get model_name)"
 
+    # Debug mode (set AIWB_DEBUG_ROUTER=1 to enable)
+    if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
+        echo "[DEBUG] handle_chat_message_routed called with: $message" >&2
+    fi
+
     # Detect intent
     local intent=$(detect_message_intent "$message")
+
+    if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
+        echo "[DEBUG] Detected intent: $intent" >&2
+    fi
 
     # Special case: questions should always use chat mode
     if is_question "$message"; then
         intent="chat"
+        if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
+            echo "[DEBUG] Overriding to chat (question detected)" >&2
+        fi
     fi
 
     case "$intent" in
         "edit")
+            # Check if required functions exist
+            if ! type smart_edit &>/dev/null; then
+                warn "Edit functionality not available (smart_edit function missing)"
+                intent="chat"
             # Check if we're in a git repository
-            if ! is_repo_mode; then
+            elif ! type is_repo_mode &>/dev/null || ! is_repo_mode; then
                 warn "Code editing requires a git repository context"
                 echo ""
                 echo "To enable repository editing:"
@@ -143,7 +159,12 @@ handle_chat_message_routed() {
     # If we get here, use regular chat (intent="chat" or fallback)
     # Build message with context using centralized function
     local enhanced_message
-    enhanced_message=$(build_prompt_with_context "$message" "false")
+    if type build_prompt_with_context &>/dev/null; then
+        enhanced_message=$(build_prompt_with_context "$message" "false")
+    else
+        # Fallback if function doesn't exist
+        enhanced_message="$message"
+    fi
 
     # Show blinking cursor while API call runs
     ui_blink "Thinking..."
@@ -174,11 +195,15 @@ handle_chat_message_routed() {
     printf "\n" >&2
 
     # Track cost first (use enhanced_message to reflect actual tokens sent)
-    track_usage "$provider" "$model" "$enhanced_message" "$response"
+    if type track_usage &>/dev/null; then
+        track_usage "$provider" "$model" "$enhanced_message" "$response"
+    fi
 
     # Show status footer (will include the cost just tracked)
-    show_status_footer >&2
-    echo "" >&2
+    if type show_status_footer &>/dev/null; then
+        show_status_footer >&2
+        echo "" >&2
+    fi
 
     # Return only the response text for logging
     echo "$response"
