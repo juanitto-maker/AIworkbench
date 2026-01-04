@@ -889,100 +889,44 @@ show_status_footer() {
     printf "%b\n" "$line3"
 }
 
-# Apply syntax highlighting to code blocks in AI response
-format_response_with_syntax_highlighting() {
-    local response="$1"
-    local in_code_block=false
-    local lang=""
+# Simple code highlighting using literal ANSI codes (same method as common.sh colors)
+highlight_code_simple() {
+    local text="$1"
+    local in_code=false
+    local line
 
-    # Color codes for syntax highlighting
-    local C_KEYWORD='\033[1;34m'    # Bright blue
-    local C_STRING='\033[0;32m'     # Green
-    local C_COMMENT='\033[2;37m'    # Dim gray
-    local C_NUMBER='\033[0;35m'     # Magenta
-    local C_BUILTIN='\033[0;36m'    # Cyan
-    local C_TEXT='\033[0;33m'       # Dimmed yellow for regular text
-    local C_RESET='\033[0m'         # Reset
+    # Define color codes using same method as common.sh
+    local C_BLUE=$'\033[1;34m'      # Keywords
+    local C_GREEN=$'\033[0;32m'     # Strings
+    local C_CYAN=$'\033[0;36m'      # Built-ins
+    local C_MAGENTA=$'\033[0;35m'   # Numbers
+    local C_YELLOW=$'\033[0;33m'    # Regular text
+    local C_RESET=$'\033[0m'
 
     while IFS= read -r line || [[ -n "$line" ]]; do
-        # Check for code block markers
-        if [[ "$line" =~ ^\`\`\`([a-zA-Z0-9_+-]*) ]]; then
-            if [[ "$in_code_block" == "false" ]]; then
-                # Starting a code block
-                in_code_block=true
-                lang="${BASH_REMATCH[1]}"
-                printf "${DIM}\`\`\`${lang}${RESET}\n"
-            else
-                # Ending a code block
-                in_code_block=false
-                printf "${DIM}\`\`\`${RESET}\n"
-                lang=""
-            fi
-        elif [[ "$in_code_block" == "true" ]]; then
-            # Inside code block - apply syntax highlighting
-            local highlighted_line="$line"
-
-            # Apply highlighting based on language
-            case "$lang" in
-                python|py)
-                    # Comments first (to protect from other replacements)
-                    if [[ "$highlighted_line" =~ ^[[:space:]]*# ]]; then
-                        printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
-                        continue
-                    fi
-                    # Generate ESC character using printf for maximum compatibility
-                    local esc
-                    esc=$(printf '\033')
-                    highlighted_line=$(echo "$highlighted_line" | sed -E \
-                        -e "s/\b(def|class|import|from|if|elif|else|for|while|try|except|finally|with|as|return|yield|lambda|pass|break|continue|raise|assert|global|nonlocal|del|and|or|not|in|is|None|True|False)\b/${esc}[1;34m\1${esc}[0m/g" \
-                        -e "s/(\"[^\"]*\"|'[^']*')/${esc}[0;32m\1${esc}[0m/g" \
-                        -e "s/\b(print|len|range|str|int|float|list|dict|set|tuple|bool|type|isinstance|enumerate|zip|map|filter|sorted|sum|min|max|abs|all|any|open|input)\b/${esc}[0;36m\1${esc}[0m/g" \
-                        -e "s/\b([0-9]+\.?[0-9]*)\b/${esc}[0;35m\1${esc}[0m/g" \
-                        -e "s/(#.*)$/${esc}[2;37m\1${esc}[0m/")
-                    echo "$highlighted_line"
-                    ;;
-                javascript|js|typescript|ts)
-                    # Comments first
-                    if [[ "$highlighted_line" =~ ^[[:space:]]*// ]]; then
-                        printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
-                        continue
-                    fi
-                    local esc
-                    esc=$(printf '\033')
-                    highlighted_line=$(echo "$highlighted_line" | sed -E \
-                        -e "s/\b(function|const|let|var|if|else|for|while|do|switch|case|break|continue|return|try|catch|finally|throw|async|await|class|extends|import|export|from|default|new|this|super|typeof|instanceof|void|delete|in|of|true|false|null|undefined)\b/${esc}[1;34m\1${esc}[0m/g" \
-                        -e "s/(\"[^\"]*\"|'[^']*'|\`[^\`]*\`)/${esc}[0;32m\1${esc}[0m/g" \
-                        -e "s/\b(console|log|error|warn|Math|Array|Object|String|Number|Boolean|Date|Promise|setTimeout|setInterval|parseInt|parseFloat|isNaN|JSON|parse|stringify)\b/${esc}[0;36m\1${esc}[0m/g" \
-                        -e "s/\b([0-9]+\.?[0-9]*)\b/${esc}[0;35m\1${esc}[0m/g" \
-                        -e "s/(\/\/.*)$/${esc}[2;37m\1${esc}[0m/")
-                    echo "$highlighted_line"
-                    ;;
-                bash|sh|shell)
-                    # Comments first
-                    if [[ "$highlighted_line" =~ ^[[:space:]]*# ]]; then
-                        printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
-                        continue
-                    fi
-                    local esc
-                    esc=$(printf '\033')
-                    highlighted_line=$(echo "$highlighted_line" | sed -E \
-                        -e "s/\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|local|export|source|alias)\b/${esc}[1;34m\1${esc}[0m/g" \
-                        -e "s/(\"[^\"]*\"|'[^']*')/${esc}[0;32m\1${esc}[0m/g" \
-                        -e "s/\b(echo|printf|cd|ls|cp|mv|rm|mkdir|cat|grep|sed|awk|find|sort|uniq|wc|head|tail|chmod|chown)\b/${esc}[0;36m\1${esc}[0m/g" \
-                        -e "s/\b([0-9]+)\b/${esc}[0;35m\1${esc}[0m/g" \
-                        -e "s/(#.*)$/${esc}[2;37m\1${esc}[0m/")
-                    echo "$highlighted_line"
-                    ;;
-                *)
-                    # Generic highlighting for unknown languages or just print as-is
-                    echo "$highlighted_line"
-                    ;;
-            esac
+        if [[ "$line" =~ ^\`\`\`python ]]; then
+            in_code=true
+            echo "$line"
+        elif [[ "$line" =~ ^\`\`\`$ ]]; then
+            in_code=false
+            echo "$line"
+        elif [[ "$in_code" == "true" ]]; then
+            # Simple Python highlighting - just keywords and strings
+            line="${line//def /${C_BLUE}def${C_RESET} }"
+            line="${line//class /${C_BLUE}class${C_RESET} }"
+            line="${line//import /${C_BLUE}import${C_RESET} }"
+            line="${line//from /${C_BLUE}from${C_RESET} }"
+            line="${line//if /${C_BLUE}if${C_RESET} }"
+            line="${line//else/${C_BLUE}else${C_RESET}}"
+            line="${line//for /${C_BLUE}for${C_RESET} }"
+            line="${line//in /${C_BLUE}in${C_RESET} }"
+            line="${line//return /${C_BLUE}return${C_RESET} }"
+            line="${line//print/${C_CYAN}print${C_RESET}}"
+            echo "$line"
         else
-            # Outside code block - use dimmed yellow for regular text
-            printf "${C_TEXT}%s${C_RESET}\n" "$line"
+            echo "${C_YELLOW}${line}${C_RESET}"
         fi
-    done <<< "$response"
+    done <<< "$text"
 }
 
 # Handle chat message
@@ -1022,8 +966,8 @@ handle_chat_message() {
     # Display response (redirect to stderr to avoid duplicate output)
     printf "\n" >&2
     printf "%b\n" "${BOLD}AI:${RESET}" >&2
-    # Apply syntax highlighting to code blocks (output directly to stderr)
-    format_response_with_syntax_highlighting "$response" >&2
+    # Apply basic syntax highlighting using literal escape sequences
+    highlight_code_simple "$response" >&2
     printf "\n" >&2
 
     # Track cost first (use enhanced_message to reflect actual tokens sent)
