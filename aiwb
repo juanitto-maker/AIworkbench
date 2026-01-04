@@ -456,7 +456,7 @@ chat_loop() {
         fi
 
         # Add buffer lines to allow scrolling up while input prompt is visible
-        printf "\n\n"
+        printf "\n"
     done
 }
 
