@@ -455,8 +455,7 @@ chat_loop() {
             fi
         fi
 
-        # Add buffer lines to allow scrolling up while input prompt is visible
-        printf "\n"
+        # No gap - messages flow continuously for maximum screen usage
     done
 }
 
