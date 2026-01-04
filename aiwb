@@ -765,6 +765,10 @@ get_session_cost() {
     local total_cost
     if command -v jq &>/dev/null; then
         total_cost=$(jq -s 'map(.cost) | add // 0' "$usage_log" 2>/dev/null)
+        # Ensure we have a valid number, default to 0 if empty or invalid
+        if [[ -z "$total_cost" ]] || [[ ! "$total_cost" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+            total_cost="0"
+        fi
         printf "%.2f" "$total_cost" 2>/dev/null || echo "0.00"
     else
         echo "0.00"
@@ -804,6 +808,10 @@ get_last_response_cost() {
     local last_cost
     if command -v jq &>/dev/null; then
         last_cost=$(tail -1 "$usage_log" | jq -r '.cost // 0' 2>/dev/null)
+        # Ensure we have a valid number, default to 0 if empty or invalid
+        if [[ -z "$last_cost" ]] || [[ ! "$last_cost" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+            last_cost="0"
+        fi
         printf "%.2f" "$last_cost" 2>/dev/null || echo "0.00"
     else
         echo "0.00"
