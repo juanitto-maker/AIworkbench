@@ -24,7 +24,8 @@ else
 fi
 DEST_BIN_FALLBACK="${HOME}/bin"
 # Note: awk is provided by 'gawk' in Termux, handled separately
-NEEDED_CMDS=(bash jq curl git fzf sed tar)
+# python3 is needed for JSON escaping in runner scripts
+NEEDED_CMDS=(bash jq curl git fzf sed tar python3)
 OPT_CMDS=(gum age)
 
 # Pin a known-good gum if we must fetch manually (used as last resort)
@@ -174,6 +175,17 @@ if ! have awk; then
     pkg install -y gawk || true
   else
     install_pkgs "$PM" awk || true
+  fi
+fi
+
+# Handle python separately (Termux uses 'python', others use 'python3')
+if ! have python3 && ! have python; then
+  if is_termux; then
+    msg "Installing python for Termux"
+    pkg install -y python || true
+  else
+    msg "Installing python3"
+    install_pkgs "$PM" python3 || true
   fi
 fi
 

@@ -11,7 +11,9 @@ echo ""
 # 1. Install dependencies
 echo "📦 Installing dependencies..."
 pkg update -y
-pkg install -y git curl jq gum age
+# Required: bash (usually pre-installed), git, curl, jq, fzf, sed (pre-installed), tar (pre-installed), python
+# Optional but recommended: gum (TUI), age (encrypted vault)
+pkg install -y bash git curl jq fzf python gum age
 echo "✓ Dependencies installed"
 echo ""
 
