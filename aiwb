@@ -769,7 +769,16 @@ get_session_cost() {
         if [[ -z "$total_cost" ]] || [[ ! "$total_cost" =~ ^[0-9]*\.?[0-9]+$ ]]; then
             total_cost="0"
         fi
-        printf "%.2f" "$total_cost" 2>/dev/null || echo "0.00"
+        # If cost is > 0 but < 0.01, show minimum of 0.01
+        if command -v bc &>/dev/null; then
+            if (( $(echo "$total_cost > 0" | bc -l 2>/dev/null) )) && (( $(echo "$total_cost < 0.01" | bc -l 2>/dev/null) )); then
+                echo "0.01"
+            else
+                printf "%.2f" "$total_cost" 2>/dev/null || echo "0.00"
+            fi
+        else
+            printf "%.2f" "$total_cost" 2>/dev/null || echo "0.00"
+        fi
     else
         echo "0.00"
     fi
@@ -812,7 +821,16 @@ get_last_response_cost() {
         if [[ -z "$last_cost" ]] || [[ ! "$last_cost" =~ ^[0-9]*\.?[0-9]+$ ]]; then
             last_cost="0"
         fi
-        printf "%.2f" "$last_cost" 2>/dev/null || echo "0.00"
+        # If cost is > 0 but < 0.01, show minimum of 0.01
+        if command -v bc &>/dev/null; then
+            if (( $(echo "$last_cost > 0" | bc -l 2>/dev/null) )) && (( $(echo "$last_cost < 0.01" | bc -l 2>/dev/null) )); then
+                echo "0.01"
+            else
+                printf "%.2f" "$last_cost" 2>/dev/null || echo "0.00"
+            fi
+        else
+            printf "%.2f" "$last_cost" 2>/dev/null || echo "0.00"
+        fi
     else
         echo "0.00"
     fi
