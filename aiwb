@@ -889,12 +889,10 @@ show_status_footer() {
     printf "%b\n" "$line3"
 }
 
-# Simple code highlighting - uses bat if available, otherwise dims comments
+# Simple code highlighting - dim comment lines in code blocks
 highlight_code_simple() {
     local text="$1"
     local in_code=false
-    local lang=""
-    local code_block=""
     local line
 
     # Define color codes
@@ -904,35 +902,20 @@ highlight_code_simple() {
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         # Detect code block start
-        if [[ "$line" =~ ^\`\`\`([a-zA-Z0-9_+-]*) ]]; then
+        if [[ "$line" =~ ^\`\`\`.* ]]; then
             in_code=true
-            lang="${BASH_REMATCH[1]}"
-            code_block=""
             echo "${C_YELLOW}${line}${C_RESET}"
         # Detect code block end
         elif [[ "$line" == '```' ]]; then
-            # Try to use bat for syntax highlighting if available
-            if [[ -n "$code_block" ]] && have bat && [[ -n "$lang" ]]; then
-                echo "$code_block" | bat --color=always --style=plain --language="$lang" --paging=never 2>/dev/null || echo "$code_block"
-            else
-                echo -n "$code_block"
-            fi
             in_code=false
-            lang=""
-            code_block=""
             echo "${C_YELLOW}${line}${C_RESET}"
-        # Inside code block - accumulate for bat, or dim comments
+        # Inside code block
         elif [[ "$in_code" == "true" ]]; then
-            if have bat; then
-                # Accumulate code for bat
-                code_block+="${line}"$'\n'
+            # Dim comment lines (lines starting with #)
+            if [[ "$line" =~ ^[[:space:]]*# ]]; then
+                echo "${C_DIM}${line}${C_RESET}"
             else
-                # Fallback: just dim comment lines
-                if [[ "$line" =~ ^[[:space:]]*# ]]; then
-                    echo "${C_DIM}${line}${C_RESET}"
-                else
-                    echo "${C_YELLOW}${line}${C_RESET}"
-                fi
+                echo "${C_YELLOW}${line}${C_RESET}"
             fi
         # Outside code block - regular text
         else
