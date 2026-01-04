@@ -889,33 +889,50 @@ show_status_footer() {
     printf "%b\n" "$line3"
 }
 
-# Simple code highlighting - at minimum dim comment lines
+# Simple code highlighting - uses bat if available, otherwise dims comments
 highlight_code_simple() {
     local text="$1"
     local in_code=false
+    local lang=""
+    local code_block=""
     local line
 
-    # Define color codes using same method as common.sh
-    local C_DIM=$'\033[2;37m'       # Dimmed gray for comments
-    local C_YELLOW=$'\033[0;33m'    # Regular text
+    # Define color codes
+    local C_DIM=$'\033[2;37m'
+    local C_YELLOW=$'\033[0;33m'
     local C_RESET=$'\033[0m'
 
     while IFS= read -r line || [[ -n "$line" ]]; do
-        # Detect code block start (```python, ```bash, etc.)
-        if [[ "$line" =~ ^\`\`\`.* ]]; then
+        # Detect code block start
+        if [[ "$line" =~ ^\`\`\`([a-zA-Z0-9_+-]*) ]]; then
             in_code=true
+            lang="${BASH_REMATCH[1]}"
+            code_block=""
             echo "${C_YELLOW}${line}${C_RESET}"
-        # Detect code block end (just ```)
+        # Detect code block end
         elif [[ "$line" == '```' ]]; then
-            in_code=false
-            echo "${C_YELLOW}${line}${C_RESET}"
-        # Inside code block
-        elif [[ "$in_code" == "true" ]]; then
-            # Dim comment lines (lines starting with #)
-            if [[ "$line" =~ ^[[:space:]]*# ]]; then
-                echo "${C_DIM}${line}${C_RESET}"
+            # Try to use bat for syntax highlighting if available
+            if [[ -n "$code_block" ]] && have bat && [[ -n "$lang" ]]; then
+                echo "$code_block" | bat --color=always --style=plain --language="$lang" --paging=never 2>/dev/null || echo "$code_block"
             else
-                echo "${C_YELLOW}${line}${C_RESET}"
+                echo -n "$code_block"
+            fi
+            in_code=false
+            lang=""
+            code_block=""
+            echo "${C_YELLOW}${line}${C_RESET}"
+        # Inside code block - accumulate for bat, or dim comments
+        elif [[ "$in_code" == "true" ]]; then
+            if have bat; then
+                # Accumulate code for bat
+                code_block+="${line}"$'\n'
+            else
+                # Fallback: just dim comment lines
+                if [[ "$line" =~ ^[[:space:]]*# ]]; then
+                    echo "${C_DIM}${line}${C_RESET}"
+                else
+                    echo "${C_YELLOW}${line}${C_RESET}"
+                fi
             fi
         # Outside code block - regular text
         else
