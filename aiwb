@@ -889,6 +889,46 @@ show_status_footer() {
     printf "%b\n" "$line3"
 }
 
+# Simple code highlighting using literal ANSI codes (same method as common.sh colors)
+highlight_code_simple() {
+    local text="$1"
+    local in_code=false
+    local line
+
+    # Define color codes using same method as common.sh
+    local C_BLUE=$'\033[1;34m'      # Keywords
+    local C_GREEN=$'\033[0;32m'     # Strings
+    local C_CYAN=$'\033[0;36m'      # Built-ins
+    local C_MAGENTA=$'\033[0;35m'   # Numbers
+    local C_YELLOW=$'\033[0;33m'    # Regular text
+    local C_RESET=$'\033[0m'
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^\`\`\`python ]]; then
+            in_code=true
+            echo "$line"
+        elif [[ "$line" =~ ^\`\`\`$ ]]; then
+            in_code=false
+            echo "$line"
+        elif [[ "$in_code" == "true" ]]; then
+            # Simple Python highlighting - just keywords and strings
+            line="${line//def /${C_BLUE}def${C_RESET} }"
+            line="${line//class /${C_BLUE}class${C_RESET} }"
+            line="${line//import /${C_BLUE}import${C_RESET} }"
+            line="${line//from /${C_BLUE}from${C_RESET} }"
+            line="${line//if /${C_BLUE}if${C_RESET} }"
+            line="${line//else/${C_BLUE}else${C_RESET}}"
+            line="${line//for /${C_BLUE}for${C_RESET} }"
+            line="${line//in /${C_BLUE}in${C_RESET} }"
+            line="${line//return /${C_BLUE}return${C_RESET} }"
+            line="${line//print/${C_CYAN}print${C_RESET}}"
+            echo "$line"
+        else
+            echo "${C_YELLOW}${line}${C_RESET}"
+        fi
+    done <<< "$text"
+}
+
 # Handle chat message
 handle_chat_message() {
     local message="$1"
@@ -926,7 +966,8 @@ handle_chat_message() {
     # Display response (redirect to stderr to avoid duplicate output)
     printf "\n" >&2
     printf "%b\n" "${BOLD}AI:${RESET}" >&2
-    printf "%b\n" "\033[0;33m${response}${RESET}" >&2  # Dimmed yellow for better readability
+    # Apply basic syntax highlighting using literal escape sequences
+    highlight_code_simple "$response" >&2
     printf "\n" >&2
 
     # Track cost first (use enhanced_message to reflect actual tokens sent)
