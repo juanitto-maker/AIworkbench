@@ -425,9 +425,9 @@ chat_loop() {
                 cleanup_on_interrupt
             fi
         else
-            # Send to AI and log response (with size limit)
+            # Send to AI with smart routing (auto-detects intent for chat-first workflow)
             local response_output
-            response_output=$(handle_chat_message "$input")
+            response_output=$(handle_chat_message_routed "$input")
             local chat_exit=$?
 
             # If interrupted, exit chat loop
