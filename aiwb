@@ -804,7 +804,7 @@ get_last_response_cost() {
     local last_cost
     if command -v jq &>/dev/null; then
         last_cost=$(tail -1 "$usage_log" | jq -r '.cost // 0' 2>/dev/null)
-        printf "%.4f" "$last_cost" 2>/dev/null || echo "0.00"
+        printf "%.2f" "$last_cost" 2>/dev/null || echo "0.00"
     else
         echo "0.00"
     fi
