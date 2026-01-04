@@ -17,7 +17,170 @@ warn()       { printf "\033[1;33m!!\033[0m %s\n" "$*" >&2; }
 msg()        { printf "\033[1;32m==>\033[0m %s\n" "$*"; }
 is_termux()  { [[ "${PREFIX:-}" == *com.termux* ]] || [[ "${OSTYPE:-}" == "linux-android"* ]]; }
 
+# ============================================================================
+# DEPENDENCY MANAGEMENT
+# ============================================================================
+
+detect_pm() {
+  if is_termux; then echo "pkg" && return; fi
+  if have apt-get; then echo "apt"; return; fi
+  if have pacman;  then echo "pacman"; return; fi
+  if have dnf;     then echo "dnf"; return; fi
+  if have zypper;  then echo "zypper"; return; fi
+  if have apk;     then echo "apk"; return; fi
+  if have brew;    then echo "brew"; return; fi
+  echo "none"
+}
+
+install_pkgs() {
+  local pm="$1"
+  shift
+  local pkgs=("$@")
+
+  case "$pm" in
+    pkg)    pkg update -y || true; pkg install -y "${pkgs[@]}" ;;
+    apt)    sudo apt-get update -y || true; sudo apt-get install -y "${pkgs[@]}" ;;
+    pacman) sudo pacman -Syu --noconfirm "${pkgs[@]}" ;;
+    dnf)    sudo dnf install -y "${pkgs[@]}" ;;
+    zypper) sudo zypper install -y "${pkgs[@]}" ;;
+    apk)    sudo apk add --no-cache "${pkgs[@]}" ;;
+    brew)   brew install "${pkgs[@]}" ;;
+    none)
+      warn "No package manager detected."
+      warn "Please install manually: ${pkgs[*]}"
+      return 1
+      ;;
+  esac
+}
+
+check_and_install_dependencies() {
+  # Required dependencies
+  local needed_cmds=(bash jq curl git fzf sed tar python3)
+  # Optional dependencies (enhance functionality but not critical)
+  local opt_cmds=(gum age)
+
+  # Check for Python (try python3 first, then python)
+  local python_cmd=""
+  if have python3; then
+    python_cmd="python3"
+  elif have python; then
+    python_cmd="python"
+    # Update needed_cmds to look for 'python' instead of 'python3'
+    needed_cmds=(bash jq curl git fzf sed tar python)
+  fi
+
+  local missing_required=()
+  local missing_optional=()
+
+  # Check required dependencies
+  for cmd in "${needed_cmds[@]}"; do
+    if ! have "$cmd"; then
+      missing_required+=("$cmd")
+    fi
+  done
+
+  # Check optional dependencies
+  for cmd in "${opt_cmds[@]}"; do
+    if ! have "$cmd"; then
+      missing_optional+=("$cmd")
+    fi
+  done
+
+  # If nothing is missing, return early
+  if [[ ${#missing_required[@]} -eq 0 ]] && [[ ${#missing_optional[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  # Report missing dependencies
+  if [[ ${#missing_required[@]} -gt 0 ]]; then
+    warn "Missing required dependencies: ${missing_required[*]}"
+  fi
+
+  if [[ ${#missing_optional[@]} -gt 0 ]]; then
+    msg "Missing optional dependencies: ${missing_optional[*]}"
+    msg "(Optional deps enhance UI/features but aren't critical)"
+  fi
+
+  # Ask user if they want to install
+  local response
+  if [[ ${#missing_required[@]} -gt 0 ]] || [[ ${#missing_optional[@]} -gt 0 ]]; then
+    printf "\033[1;33m??\033[0m Install missing dependencies now? (y/n): "
+    read -r response
+
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+      local pm
+      pm="$(detect_pm)"
+
+      if [[ "$pm" == "none" ]]; then
+        err "No package manager detected. Please install dependencies manually:"
+        if [[ ${#missing_required[@]} -gt 0 ]]; then
+          err "  Required: ${missing_required[*]}"
+        fi
+        if [[ ${#missing_optional[@]} -gt 0 ]]; then
+          err "  Optional: ${missing_optional[*]}"
+        fi
+        return 1
+      fi
+
+      msg "Using package manager: $pm"
+
+      # Install required dependencies
+      if [[ ${#missing_required[@]} -gt 0 ]]; then
+        msg "Installing required dependencies: ${missing_required[*]}"
+
+        # Handle special cases
+        local install_list=()
+        for cmd in "${missing_required[@]}"; do
+          case "$cmd" in
+            python3|python)
+              if is_termux; then
+                install_list+=(python)
+              else
+                install_list+=(python3)
+              fi
+              ;;
+            *)
+              install_list+=("$cmd")
+              ;;
+          esac
+        done
+
+        if ! install_pkgs "$pm" "${install_list[@]}"; then
+          err "Failed to install some required dependencies"
+          return 1
+        fi
+        msg "Required dependencies installed successfully"
+      fi
+
+      # Install optional dependencies
+      if [[ ${#missing_optional[@]} -gt 0 ]]; then
+        msg "Installing optional dependencies: ${missing_optional[*]}"
+        install_pkgs "$pm" "${missing_optional[@]}" || warn "Some optional dependencies failed to install"
+      fi
+
+      # Refresh command hash
+      hash -r 2>/dev/null || true
+
+      msg "Dependency installation complete!"
+      return 0
+    else
+      if [[ ${#missing_required[@]} -gt 0 ]]; then
+        err "Cannot proceed without required dependencies: ${missing_required[*]}"
+        err "Please install them manually or re-run and choose 'y' to install"
+        exit 1
+      else
+        warn "Continuing without optional dependencies"
+        warn "Some features may not be available"
+        return 0
+      fi
+    fi
+  fi
+}
+
 GUM=false; have gum && GUM=true
+
+# ---------- check dependencies on startup ----------
+check_and_install_dependencies
 
 # ---------- env/keys ----------
 [ -f "$HOME/.aiwb.env" ] && . "$HOME/.aiwb.env" || true
