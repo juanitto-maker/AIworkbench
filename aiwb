@@ -930,14 +930,16 @@ format_response_with_syntax_highlighting() {
                         printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
                         continue
                     fi
-                    # Apply highlighting using printf to generate escape sequences
+                    # Generate ESC character using printf for maximum compatibility
+                    local esc
+                    esc=$(printf '\033')
                     highlighted_line=$(echo "$highlighted_line" | sed -E \
-                        -e "s/\b(def|class|import|from|if|elif|else|for|while|try|except|finally|with|as|return|yield|lambda|pass|break|continue|raise|assert|global|nonlocal|del|and|or|not|in|is|None|True|False)\b/\x1b[1;34m\1\x1b[0m/g" \
-                        -e "s/(\"[^\"]*\"|'[^']*')/\x1b[0;32m\1\x1b[0m/g" \
-                        -e "s/\b(print|len|range|str|int|float|list|dict|set|tuple|bool|type|isinstance|enumerate|zip|map|filter|sorted|sum|min|max|abs|all|any|open|input)\b/\x1b[0;36m\1\x1b[0m/g" \
-                        -e "s/\b([0-9]+\.?[0-9]*)\b/\x1b[0;35m\1\x1b[0m/g" \
-                        -e "s/(#.*)$/\x1b[2;37m\1\x1b[0m/")
-                    printf "%b\n" "$highlighted_line"
+                        -e "s/\b(def|class|import|from|if|elif|else|for|while|try|except|finally|with|as|return|yield|lambda|pass|break|continue|raise|assert|global|nonlocal|del|and|or|not|in|is|None|True|False)\b/${esc}[1;34m\1${esc}[0m/g" \
+                        -e "s/(\"[^\"]*\"|'[^']*')/${esc}[0;32m\1${esc}[0m/g" \
+                        -e "s/\b(print|len|range|str|int|float|list|dict|set|tuple|bool|type|isinstance|enumerate|zip|map|filter|sorted|sum|min|max|abs|all|any|open|input)\b/${esc}[0;36m\1${esc}[0m/g" \
+                        -e "s/\b([0-9]+\.?[0-9]*)\b/${esc}[0;35m\1${esc}[0m/g" \
+                        -e "s/(#.*)$/${esc}[2;37m\1${esc}[0m/")
+                    echo "$highlighted_line"
                     ;;
                 javascript|js|typescript|ts)
                     # Comments first
@@ -945,13 +947,15 @@ format_response_with_syntax_highlighting() {
                         printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
                         continue
                     fi
+                    local esc
+                    esc=$(printf '\033')
                     highlighted_line=$(echo "$highlighted_line" | sed -E \
-                        -e "s/\b(function|const|let|var|if|else|for|while|do|switch|case|break|continue|return|try|catch|finally|throw|async|await|class|extends|import|export|from|default|new|this|super|typeof|instanceof|void|delete|in|of|true|false|null|undefined)\b/\x1b[1;34m\1\x1b[0m/g" \
-                        -e "s/(\"[^\"]*\"|'[^']*'|\`[^\`]*\`)/\x1b[0;32m\1\x1b[0m/g" \
-                        -e "s/\b(console|log|error|warn|Math|Array|Object|String|Number|Boolean|Date|Promise|setTimeout|setInterval|parseInt|parseFloat|isNaN|JSON|parse|stringify)\b/\x1b[0;36m\1\x1b[0m/g" \
-                        -e "s/\b([0-9]+\.?[0-9]*)\b/\x1b[0;35m\1\x1b[0m/g" \
-                        -e "s/(\/\/.*)$/\x1b[2;37m\1\x1b[0m/")
-                    printf "%b\n" "$highlighted_line"
+                        -e "s/\b(function|const|let|var|if|else|for|while|do|switch|case|break|continue|return|try|catch|finally|throw|async|await|class|extends|import|export|from|default|new|this|super|typeof|instanceof|void|delete|in|of|true|false|null|undefined)\b/${esc}[1;34m\1${esc}[0m/g" \
+                        -e "s/(\"[^\"]*\"|'[^']*'|\`[^\`]*\`)/${esc}[0;32m\1${esc}[0m/g" \
+                        -e "s/\b(console|log|error|warn|Math|Array|Object|String|Number|Boolean|Date|Promise|setTimeout|setInterval|parseInt|parseFloat|isNaN|JSON|parse|stringify)\b/${esc}[0;36m\1${esc}[0m/g" \
+                        -e "s/\b([0-9]+\.?[0-9]*)\b/${esc}[0;35m\1${esc}[0m/g" \
+                        -e "s/(\/\/.*)$/${esc}[2;37m\1${esc}[0m/")
+                    echo "$highlighted_line"
                     ;;
                 bash|sh|shell)
                     # Comments first
@@ -959,13 +963,15 @@ format_response_with_syntax_highlighting() {
                         printf "${C_COMMENT}%s${C_RESET}\n" "$highlighted_line"
                         continue
                     fi
+                    local esc
+                    esc=$(printf '\033')
                     highlighted_line=$(echo "$highlighted_line" | sed -E \
-                        -e "s/\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|local|export|source|alias)\b/\x1b[1;34m\1\x1b[0m/g" \
-                        -e "s/(\"[^\"]*\"|'[^']*')/\x1b[0;32m\1\x1b[0m/g" \
-                        -e "s/\b(echo|printf|cd|ls|cp|mv|rm|mkdir|cat|grep|sed|awk|find|sort|uniq|wc|head|tail|chmod|chown)\b/\x1b[0;36m\1\x1b[0m/g" \
-                        -e "s/\b([0-9]+)\b/\x1b[0;35m\1\x1b[0m/g" \
-                        -e "s/(#.*)$/\x1b[2;37m\1\x1b[0m/")
-                    printf "%b\n" "$highlighted_line"
+                        -e "s/\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|local|export|source|alias)\b/${esc}[1;34m\1${esc}[0m/g" \
+                        -e "s/(\"[^\"]*\"|'[^']*')/${esc}[0;32m\1${esc}[0m/g" \
+                        -e "s/\b(echo|printf|cd|ls|cp|mv|rm|mkdir|cat|grep|sed|awk|find|sort|uniq|wc|head|tail|chmod|chown)\b/${esc}[0;36m\1${esc}[0m/g" \
+                        -e "s/\b([0-9]+)\b/${esc}[0;35m\1${esc}[0m/g" \
+                        -e "s/(#.*)$/${esc}[2;37m\1${esc}[0m/")
+                    echo "$highlighted_line"
                     ;;
                 *)
                     # Generic highlighting for unknown languages or just print as-is
