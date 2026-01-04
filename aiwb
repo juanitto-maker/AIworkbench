@@ -926,7 +926,7 @@ handle_chat_message() {
     # Display response (redirect to stderr to avoid duplicate output)
     printf "\n" >&2
     printf "%b\n" "${BOLD}AI:${RESET}" >&2
-    printf "%b\n" "\033[0;33m${response}${RESET}" >&2  # Dimmed yellow for better readability
+    printf "%b\n" "\033[0;36m${response}${RESET}" >&2  # Dimmed cyan for better readability
     printf "\n" >&2
 
     # Track cost first (use enhanced_message to reflect actual tokens sent)
