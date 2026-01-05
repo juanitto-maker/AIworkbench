@@ -121,10 +121,16 @@ handle_chat_message_routed() {
         "edit")
             # Check if required functions exist
             if ! type smart_edit &>/dev/null; then
+                if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
+                    echo "[DEBUG] smart_edit not found, falling back to chat" >&2
+                fi
                 warn "Edit functionality not available (smart_edit function missing)"
-                intent="chat"
+                # Don't return, fall through to chat handler below
             # Check if we're in a git repository
             elif ! type is_repo_mode &>/dev/null || ! is_repo_mode; then
+                if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
+                    echo "[DEBUG] Not in repo mode, falling back to chat" >&2
+                fi
                 warn "Code editing requires a git repository context"
                 echo ""
                 echo "To enable repository editing:"
@@ -134,7 +140,7 @@ handle_chat_message_routed() {
                 echo ""
                 echo "Falling back to chat mode for now..."
                 echo ""
-                intent="chat"
+                # Don't return, fall through to chat handler below
             else
                 # Auto-route to edit workflow
                 msg "🤖 Detected code change request. Analyzing repository..."
@@ -144,9 +150,10 @@ handle_chat_message_routed() {
                 smart_edit "$message"
                 local edit_exit=$?
 
-                # Return the same exit code
+                # Return the same exit code (only return if edit was successful)
                 return $edit_exit
             fi
+            # Fall through to chat handler if conditions failed
             ;;
 
         "generate")
@@ -157,6 +164,10 @@ handle_chat_message_routed() {
     esac
 
     # If we get here, use regular chat (intent="chat" or fallback)
+    if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
+        echo "[DEBUG] Executing chat handler for message: $message" >&2
+    fi
+
     # Build message with context using centralized function
     local enhanced_message
     if type build_prompt_with_context &>/dev/null; then
@@ -167,15 +178,24 @@ handle_chat_message_routed() {
     fi
 
     # Show blinking cursor while API call runs
-    ui_blink "Thinking..."
+    if type ui_blink &>/dev/null; then
+        ui_blink "Thinking..."
+    fi
 
     # Call API
     local response
-    response=$(call_api "$enhanced_message" "$provider" "$model")
-    local exit_code=$?
+    if type call_api &>/dev/null; then
+        response=$(call_api "$enhanced_message" "$provider" "$model" 2>&1)
+        local exit_code=$?
+    else
+        err "call_api function not available"
+        return 1
+    fi
 
     # Clear the blinking cursor line
-    ui_clear_line
+    if type ui_clear_line &>/dev/null; then
+        ui_clear_line
+    fi
 
     # Check if interrupted (exit code 130)
     if [[ $exit_code -eq 130 ]]; then
@@ -184,7 +204,15 @@ handle_chat_message_routed() {
     fi
 
     if [[ $exit_code -ne 0 ]]; then
-        err "Failed to get response"
+        err "Failed to get response from API (exit code: $exit_code)"
+        if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
+            echo "[DEBUG] API response: $response" >&2
+        fi
+        return 1
+    fi
+
+    if [[ -z "$response" ]]; then
+        err "Received empty response from API"
         return 1
     fi
 

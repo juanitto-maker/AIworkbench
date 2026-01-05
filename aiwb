@@ -451,8 +451,13 @@ chat_loop() {
             fi
         else
             # Send to AI with smart routing (auto-detects intent for chat-first workflow)
+            # Fallback to basic chat if routed version fails
             local response_output
-            response_output=$(handle_chat_message_routed "$input")
+            if type handle_chat_message_routed &>/dev/null; then
+                response_output=$(handle_chat_message_routed "$input" 2>&1) || response_output=$(handle_chat_message "$input")
+            else
+                response_output=$(handle_chat_message "$input")
+            fi
             local chat_exit=$?
 
             # If interrupted, exit chat loop
