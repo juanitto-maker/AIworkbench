@@ -299,12 +299,45 @@ call_gemini() {
     text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        # Check for error in response
-        local error_msg error_code
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
-        error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
-        display_api_error "Gemini" "$error_msg" "$response" "$model" "$error_code"
-        return 1
+        # Check finish reason before treating as error
+        local finish_reason
+        finish_reason=$(echo "$response" | jq -r '.candidates[0].finishReason // ""' 2>/dev/null)
+
+        # If finish reason is STOP but no text, try alternative extraction paths
+        if [[ "$finish_reason" == "STOP" ]]; then
+            # Try extracting all parts text (some responses might have multiple parts)
+            text=$(echo "$response" | jq -r '[.candidates[0].content.parts[]? | select(.text != null) | .text] | join("\n")' 2>/dev/null)
+        fi
+
+        # If still empty, check for actual API error
+        if [[ -z "$text" ]]; then
+            local error_msg error_code
+            error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+            error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
+
+            # Only display error if there's an actual error message, otherwise provide helpful context
+            if [[ -n "$error_msg" ]]; then
+                display_api_error "Gemini" "$error_msg" "$response" "$model" "$error_code"
+                return 1
+            else
+                # No error but no text - check for content filtering or empty response
+                case "$finish_reason" in
+                    "SAFETY")
+                        display_api_error "Gemini" "Response blocked by safety filters" "$response" "$model"
+                        ;;
+                    "RECITATION")
+                        display_api_error "Gemini" "Response blocked due to recitation concerns" "$response" "$model"
+                        ;;
+                    "MAX_TOKENS")
+                        display_api_error "Gemini" "Response truncated - maximum token limit reached" "$response" "$model"
+                        ;;
+                    *)
+                        display_api_error "Gemini" "Empty response from API (finishReason: ${finish_reason:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+                        ;;
+                esac
+                return 1
+            fi
+        fi
     fi
 
     echo "$text"
@@ -430,11 +463,45 @@ call_gemini_vision() {
     text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        local error_msg error_code
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
-        error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
-        display_api_error "Gemini Vision" "$error_msg" "$response" "$model" "$error_code"
-        return 1
+        # Check finish reason before treating as error
+        local finish_reason
+        finish_reason=$(echo "$response" | jq -r '.candidates[0].finishReason // ""' 2>/dev/null)
+
+        # If finish reason is STOP but no text, try alternative extraction paths
+        if [[ "$finish_reason" == "STOP" ]]; then
+            # Try extracting all parts text (some responses might have multiple parts)
+            text=$(echo "$response" | jq -r '[.candidates[0].content.parts[]? | select(.text != null) | .text] | join("\n")' 2>/dev/null)
+        fi
+
+        # If still empty, check for actual API error
+        if [[ -z "$text" ]]; then
+            local error_msg error_code
+            error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+            error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
+
+            # Only display error if there's an actual error message, otherwise provide helpful context
+            if [[ -n "$error_msg" ]]; then
+                display_api_error "Gemini Vision" "$error_msg" "$response" "$model" "$error_code"
+                return 1
+            else
+                # No error but no text - check for content filtering or empty response
+                case "$finish_reason" in
+                    "SAFETY")
+                        display_api_error "Gemini Vision" "Response blocked by safety filters" "$response" "$model"
+                        ;;
+                    "RECITATION")
+                        display_api_error "Gemini Vision" "Response blocked due to recitation concerns" "$response" "$model"
+                        ;;
+                    "MAX_TOKENS")
+                        display_api_error "Gemini Vision" "Response truncated - maximum token limit reached" "$response" "$model"
+                        ;;
+                    *)
+                        display_api_error "Gemini Vision" "Empty response from API (finishReason: ${finish_reason:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+                        ;;
+                esac
+                return 1
+            fi
+        fi
     fi
 
     echo "$text"
@@ -539,11 +606,25 @@ call_claude() {
     text=$(echo "$response" | jq -r '.content[0].text // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        # Check for error in response
-        local error_msg
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
-        display_api_error "Claude" "$error_msg" "$response" "$model"
-        return 1
+        # Try extracting from all content blocks
+        text=$(echo "$response" | jq -r '[.content[]? | select(.text != null) | .text] | join("\n")' 2>/dev/null)
+
+        # If still empty, check for actual API error
+        if [[ -z "$text" ]]; then
+            local error_msg stop_reason
+            error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+            stop_reason=$(echo "$response" | jq -r '.stop_reason // ""' 2>/dev/null)
+
+            # Only display error if there's an actual error message
+            if [[ -n "$error_msg" ]]; then
+                display_api_error "Claude" "$error_msg" "$response" "$model"
+                return 1
+            else
+                # No error but no text - provide context
+                display_api_error "Claude" "Empty response from API (stop_reason: ${stop_reason:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+                return 1
+            fi
+        fi
     fi
 
     echo "$text"
@@ -657,10 +738,25 @@ call_claude_vision() {
     text=$(echo "$response" | jq -r '.content[0].text // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        local error_msg
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
-        display_api_error "Claude Vision" "$error_msg" "$response" "$model"
-        return 1
+        # Try extracting from all content blocks
+        text=$(echo "$response" | jq -r '[.content[]? | select(.text != null) | .text] | join("\n")' 2>/dev/null)
+
+        # If still empty, check for actual API error
+        if [[ -z "$text" ]]; then
+            local error_msg stop_reason
+            error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+            stop_reason=$(echo "$response" | jq -r '.stop_reason // ""' 2>/dev/null)
+
+            # Only display error if there's an actual error message
+            if [[ -n "$error_msg" ]]; then
+                display_api_error "Claude Vision" "$error_msg" "$response" "$model"
+                return 1
+            else
+                # No error but no text - provide context
+                display_api_error "Claude Vision" "Empty response from API (stop_reason: ${stop_reason:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+                return 1
+            fi
+        fi
     fi
 
     echo "$text"
@@ -784,12 +880,26 @@ Available OpenAI models: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o1-mini, o1-previ
     text=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        # Check for error in response
-        local error_msg error_code
-        error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error or empty response"' 2>/dev/null)
-        error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
-        display_api_error "OpenAI" "$error_msg" "$response" "$model" "$error_code"
-        return 1
+        # Try extracting from all choices
+        text=$(echo "$response" | jq -r '[.choices[]? | select(.message.content != null) | .message.content] | join("\n")' 2>/dev/null)
+
+        # If still empty, check for actual API error
+        if [[ -z "$text" ]]; then
+            local error_msg error_code finish_reason
+            error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+            error_code=$(echo "$response" | jq -r '.error.code // ""' 2>/dev/null)
+            finish_reason=$(echo "$response" | jq -r '.choices[0].finish_reason // ""' 2>/dev/null)
+
+            # Only display error if there's an actual error message
+            if [[ -n "$error_msg" ]]; then
+                display_api_error "OpenAI" "$error_msg" "$response" "$model" "$error_code"
+                return 1
+            else
+                # No error but no text - provide context
+                display_api_error "OpenAI" "Empty response from API (finish_reason: ${finish_reason:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+                return 1
+            fi
+        fi
     fi
 
     echo "$text"
@@ -907,11 +1017,25 @@ call_groq() {
     text=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        # Try alternative error format
-        local error_msg
-        error_msg=$(echo "$response" | jq -r '.error // "No response or empty content from API"' 2>/dev/null)
-        display_api_error "Groq" "$error_msg" "$response" "$model"
-        return 1
+        # Try extracting from all choices
+        text=$(echo "$response" | jq -r '[.choices[]? | select(.message.content != null) | .message.content] | join("\n")' 2>/dev/null)
+
+        # If still empty, check for actual API error
+        if [[ -z "$text" ]]; then
+            local error_msg finish_reason
+            error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+            finish_reason=$(echo "$response" | jq -r '.choices[0].finish_reason // ""' 2>/dev/null)
+
+            # Only display error if there's an actual error message
+            if [[ -n "$error_msg" ]]; then
+                display_api_error "Groq" "$error_msg" "$response" "$model"
+                return 1
+            else
+                # No error but no text - provide context
+                display_api_error "Groq" "Empty response from API (finish_reason: ${finish_reason:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+                return 1
+            fi
+        fi
     fi
 
     echo "$text"
@@ -1029,11 +1153,25 @@ call_xai() {
     text=$(echo "$response" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        # Try alternative error format
-        local error_msg
-        error_msg=$(echo "$response" | jq -r '.error // "No response or empty content from API"' 2>/dev/null)
-        display_api_error "xAI (Grok)" "$error_msg" "$response" "$model"
-        return 1
+        # Try extracting from all choices
+        text=$(echo "$response" | jq -r '[.choices[]? | select(.message.content != null) | .message.content] | join("\n")' 2>/dev/null)
+
+        # If still empty, check for actual API error
+        if [[ -z "$text" ]]; then
+            local error_msg finish_reason
+            error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+            finish_reason=$(echo "$response" | jq -r '.choices[0].finish_reason // ""' 2>/dev/null)
+
+            # Only display error if there's an actual error message
+            if [[ -n "$error_msg" ]]; then
+                display_api_error "xAI (Grok)" "$error_msg" "$response" "$model"
+                return 1
+            else
+                # No error but no text - provide context
+                display_api_error "xAI (Grok)" "Empty response from API (finish_reason: ${finish_reason:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+                return 1
+            fi
+        fi
     fi
 
     echo "$text"
@@ -1132,10 +1270,20 @@ call_ollama() {
     text=$(echo "$response" | jq -r '.response // empty' 2>/dev/null)
 
     if [[ -z "$text" ]]; then
-        local error_msg
-        error_msg=$(echo "$response" | jq -r '.error // "No response from Ollama"' 2>/dev/null)
-        display_api_error "Ollama" "$error_msg" "$response" "$model"
-        return 1
+        # Check for actual API error
+        local error_msg done_status
+        error_msg=$(echo "$response" | jq -r '.error // empty' 2>/dev/null)
+        done_status=$(echo "$response" | jq -r '.done // ""' 2>/dev/null)
+
+        # Only display error if there's an actual error message
+        if [[ -n "$error_msg" ]]; then
+            display_api_error "Ollama" "$error_msg" "$response" "$model"
+            return 1
+        else
+            # No error but no text - provide context
+            display_api_error "Ollama" "Empty response from API (done: ${done_status:-UNKNOWN}). Response structure may have changed." "$response" "$model"
+            return 1
+        fi
     fi
 
     echo "$text"
