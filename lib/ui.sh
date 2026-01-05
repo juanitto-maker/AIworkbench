@@ -358,6 +358,94 @@ ui_style() {
 }
 
 # ============================================================================
+# CONTEXT FILE SELECTION
+# ============================================================================
+
+# Select context files to load (multi-select)
+ui_select_context_files() {
+    local -a file_paths=("$@")
+
+    if [[ ${#file_paths[@]} -eq 0 ]]; then
+        echo "No context files available" >&2
+        return 1
+    fi
+
+    # Format file paths for display (show relative paths if possible)
+    local -a display_options=()
+    local -a full_paths=()
+    local workspace
+    workspace="$(config_get workspace 2>/dev/null || pwd)"
+
+    for file in "${file_paths[@]}"; do
+        # Try to make path relative to workspace for cleaner display
+        if [[ "$file" == "$workspace"* ]]; then
+            local rel_path="${file#$workspace/}"
+            display_options+=("📄 $rel_path")
+        else
+            display_options+=("📄 $file")
+        fi
+        full_paths+=("$file")
+    done
+
+    # Add option to select all
+    display_options=("✅ Select All" "${display_options[@]}")
+
+    local header
+    header="Select context files to load (space to toggle, enter to confirm):"
+
+    local -a selected_display
+    if $GUM_AVAILABLE; then
+        mapfile -t selected_display < <(printf '%s\n' "${display_options[@]}" | gum choose --no-limit --header "$header" --height 20)
+    else
+        # Fallback: simple multi-choice
+        echo "$header" >&2
+        echo "Enter numbers separated by spaces (e.g., 1 3 5), or 1 for all:" >&2
+        local i=1
+        for opt in "${display_options[@]}"; do
+            echo "$i) $opt" >&2
+            ((i++))
+        done
+        echo -n "> " >&2
+        local choices
+        if ! safe_read choices; then
+            return 1
+        fi
+        for choice in $choices; do
+            if [[ "$choice" =~ ^[0-9]+$ ]] && ((choice > 0 && choice <= ${#display_options[@]})); then
+                selected_display+=("${display_options[$((choice-1))]}")
+            fi
+        done
+    fi
+
+    # Check if user selected "Select All"
+    local select_all=false
+    for item in "${selected_display[@]}"; do
+        if [[ "$item" == "✅ Select All" ]]; then
+            select_all=true
+            break
+        fi
+    done
+
+    # Return selected file paths
+    if [[ "$select_all" == "true" ]]; then
+        printf '%s\n' "${full_paths[@]}"
+    else
+        # Map display selections back to full paths
+        for item in "${selected_display[@]}"; do
+            local i=0
+            for opt in "${display_options[@]}"; do
+                if [[ "$opt" == "$item" && "$opt" != "✅ Select All" ]]; then
+                    # Subtract 1 because "Select All" is at index 0
+                    echo "${full_paths[$((i-1))]}"
+                    break
+                fi
+                ((i++))
+            done
+        done
+    fi
+}
+
+# ============================================================================
 # STATUS DISPLAY
 # ============================================================================
 
