@@ -177,6 +177,24 @@ ui_confirm() {
     fi
 }
 
+# Pause and wait for user to press enter
+ui_pause() {
+    local prompt="${1:-Press enter to continue...}"
+
+    if [[ -t 0 ]] && [[ "${AIWB_TEST_MODE:-0}" != "1" ]]; then
+        if $GUM_AVAILABLE; then
+            # Use gum input with no value needed, just press enter
+            echo "$prompt"
+            read -r </dev/tty
+        else
+            read -rp "$prompt " </dev/tty
+        fi
+    else
+        # In non-interactive mode, just return
+        return 0
+    fi
+}
+
 # ============================================================================
 # PROGRESS AND SPINNERS
 # ============================================================================

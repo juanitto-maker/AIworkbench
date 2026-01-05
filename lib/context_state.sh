@@ -396,7 +396,8 @@ context_state_load_into_mode() {
     done
 
     if [[ $file_count -gt 0 ]]; then
-        echo "✅ Loaded $file_count file(s) into context"
+        echo "✅ Loaded $file_count file(s) into in-memory context"
+        echo "   View with: /context → List current context"
         return 0
     else
         echo "No valid context files to load"

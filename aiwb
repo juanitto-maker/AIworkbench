@@ -2083,10 +2083,11 @@ cmd_context() {
         local choice
         choice=$(ui_choose "Context Manager ($context_display)" \
             "Add files/directories" \
-            "List current context" \
-            "Show persistent context" \
-            "Load persistent context" \
-            "Remove from context" \
+            "List current context (in-memory)" \
+            "Show persistent context (saved state)" \
+            "Load persistent context into memory" \
+            "Save in-memory context to persistent state" \
+            "Remove from in-memory context" \
             "Clear all context" \
             "Back")
 
@@ -2094,9 +2095,10 @@ cmd_context() {
             "Add files/directories")
                 menu_uploads
                 ;;
-            "List current context")
+            "List current context (in-memory)")
                 echo ""
                 echo "In-Memory Context (MODE_UPLOADS):"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 if [[ ${#MODE_UPLOADS[@]} -gt 0 ]]; then
                     for item in "${MODE_UPLOADS[@]}"; do
                         if [[ -f "$item" ]]; then
@@ -2112,13 +2114,18 @@ cmd_context() {
                             echo "  - [DIR] $item/ ($count files)"
                         fi
                     done
+                    echo ""
+                    echo "Total: ${#MODE_UPLOADS[@]} item(s) in memory"
                 else
                     echo "  (no in-memory context files)"
+                    echo ""
+                    echo "💡 To add context: /context → Add files/directories"
+                    echo "   Or load from saved state: /context → Load persistent context"
                 fi
-                echo ""
-                ui_confirm "Press enter to continue..."
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                ui_pause
                 ;;
-            "Show persistent context")
+            "Show persistent context (saved state)")
                 echo ""
                 if type context_state_show &>/dev/null; then
                     context_state_show
@@ -2126,19 +2133,30 @@ cmd_context() {
                     warn "Context persistence not available"
                 fi
                 echo ""
-                ui_confirm "Press enter to continue..."
+                ui_pause
                 ;;
-            "Load persistent context")
+            "Load persistent context into memory")
                 if type context_state_load_into_mode &>/dev/null; then
                     echo ""
                     context_state_load_into_mode
                     echo ""
-                    ui_confirm "Press enter to continue..."
+                    ui_pause
                 else
                     warn "Context persistence not available"
                 fi
                 ;;
-            "Remove from context")
+            "Save in-memory context to persistent state")
+                if type context_state_save_from_mode &>/dev/null; then
+                    echo ""
+                    echo "Saving in-memory context to persistent state..."
+                    context_state_save_from_mode
+                    echo ""
+                    ui_pause
+                else
+                    warn "Context persistence not available"
+                fi
+                ;;
+            "Remove from in-memory context")
                 if [[ ${#MODE_UPLOADS[@]} -eq 0 ]]; then
                     warn "No in-memory context files to remove"
                 else
@@ -2803,7 +2821,7 @@ cmd_history() {
                         echo ""
                         cat "${logs[$idx]}"
                         echo ""
-                        ui_confirm "Press enter to continue..."
+                        ui_pause
                     fi
                 fi
                 ;;
@@ -2822,7 +2840,7 @@ cmd_history() {
                     echo ""
                     grep -i -n --color=auto "$search_term" "$logs_dir"/chat_*.log 2>/dev/null || echo "No matches found"
                     echo ""
-                    ui_confirm "Press enter to continue..."
+                    ui_pause
                 fi
                 ;;
 
@@ -2860,7 +2878,7 @@ cmd_history() {
                 echo "Total storage: $total_size"
 
                 echo ""
-                ui_confirm "Press enter to continue..."
+                ui_pause
                 ;;
 
             "Export all history")
