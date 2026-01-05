@@ -360,6 +360,9 @@ context_state_show() {
 }
 
 # Load context files into MODE_UPLOADS array
+# Usage: context_state_load_into_mode [file1 file2 ...]
+# If no arguments provided, loads all context files
+# If arguments provided, loads only the specified files
 context_state_load_into_mode() {
     if ! context_state_exists; then
         echo "No context to load"
@@ -367,17 +370,23 @@ context_state_load_into_mode() {
     fi
 
     local file_count=0
-    local files
+    local -a files_to_load
 
-    # Get list of context files
-    if command -v jq &>/dev/null; then
-        mapfile -t files < <(jq -r '.context_files[]? | .path' "$context_state_file" 2>/dev/null)
+    # If specific files provided as arguments, use those
+    # Otherwise, load all files from context state
+    if [[ $# -gt 0 ]]; then
+        files_to_load=("$@")
     else
-        mapfile -t files < <(grep '"path":' "$context_state_file" | sed 's/.*"path": *"\([^"]*\)".*/\1/')
+        # Get list of all context files from state
+        if command -v jq &>/dev/null; then
+            mapfile -t files_to_load < <(jq -r '.context_files[]? | .path' "$context_state_file" 2>/dev/null)
+        else
+            mapfile -t files_to_load < <(grep '"path":' "$context_state_file" | sed 's/.*"path": *"\([^"]*\)".*/\1/')
+        fi
     fi
 
     # Load into MODE_UPLOADS
-    for file in "${files[@]}"; do
+    for file in "${files_to_load[@]}"; do
         if [[ -e "$file" ]]; then
             MODE_UPLOADS+=("$file")
             ((file_count++))
