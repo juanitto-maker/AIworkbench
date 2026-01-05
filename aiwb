@@ -454,7 +454,7 @@ chat_loop() {
             # Fallback to basic chat if routed version fails
             local response_output
             if type handle_chat_message_routed &>/dev/null; then
-                response_output=$(handle_chat_message_routed "$input" 2>&1) || response_output=$(handle_chat_message "$input")
+                response_output=$(handle_chat_message_routed "$input") || response_output=$(handle_chat_message "$input")
             else
                 response_output=$(handle_chat_message "$input")
             fi
