@@ -185,7 +185,7 @@ handle_chat_message_routed() {
     # Call API
     local response
     if type call_api &>/dev/null; then
-        response=$(call_api "$enhanced_message" "$provider" "$model" 2>&1)
+        response=$(call_api "$enhanced_message" "$provider" "$model")
         local exit_code=$?
     else
         err "call_api function not available"
