@@ -8,6 +8,7 @@ This document provides in-depth instructions for using all AIWB commands, workfl
 
 * [Core Concepts](#core-concepts)
 * [Getting Started](#getting-started)
+* [Context Management](#context-management) ⭐ **NEW**
 * [Mode-Based Workflows](#mode-based-workflows)
 * [Command Reference](#command-reference)
 * [Configuration](#configuration)
@@ -88,6 +89,82 @@ aiwb
 # Get help
 > /help
 ```
+
+---
+
+## Context Management
+
+**Context** is how AIWB provides files and information to the AI. Understanding context is crucial for effective AI collaboration.
+
+### Two Types of Context
+
+AIWB manages two distinct types of context:
+
+| Type | Storage | Lifespan | Use Case |
+|------|---------|----------|----------|
+| **In-Memory** | RAM (`MODE_UPLOADS[]`) | Current session only | Active work this session |
+| **Persistent** | Disk (`.context_state`) | Survives restarts | Saved for future sessions |
+
+### Quick Start
+
+**Load context at startup:**
+```bash
+aiwb chat
+# [Yes] to "Resume with previous context?"
+# Select files you want active
+```
+
+**Add files during session:**
+```bash
+> /context
+# Choose "Add files/directories"
+# Select files to load
+```
+
+**Save for next session:**
+```bash
+> /context
+# Choose "Save in-memory context to persistent state"
+```
+
+### Understanding the Difference
+
+```
+IN-MEMORY CONTEXT              PERSISTENT CONTEXT
+(Active Now)                   (Saved for Later)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 RAM storage                  📍 Disk storage
+⏱️  This session only           ⏱️  Survives restarts
+🎯 Included in AI prompts      🎯 Available to load later
+👁️  View: /context → List      👁️  View: /context → Show
+   current context                persistent context
+```
+
+### Common Workflows
+
+**1. Quick one-time question:**
+- Add files → Ask questions → Exit (no save needed)
+
+**2. Ongoing project work:**
+- Day 1: Add files → Save to persistent
+- Day 2+: Load persistent → Continue work
+
+**3. Selective loading:**
+- Have 10 files saved
+- Load only the 2 you need today
+
+### Detailed Guide
+
+For comprehensive context management documentation, see:
+📖 **[CONTEXT_GUIDE.md](./CONTEXT_GUIDE.md)**
+
+Topics covered:
+- Visual flow diagrams
+- Step-by-step examples
+- Command reference
+- Best practices
+- Troubleshooting
 
 ---
 
