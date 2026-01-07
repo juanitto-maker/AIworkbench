@@ -62,7 +62,7 @@ cd AIworkbench
 ./install.sh
 
 # Fresh (purged) install for Termux (recommended)
-curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/install-termux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/scripts/install-termux.sh | bash
 cd ~/<your repo/folder>
 aiwb
 ```
@@ -193,4 +193,4 @@ This is an open-source project built by and for the community. Please consider c
 
 ---
 
-This project is licensed under the **GPL-3.0 License** - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GPL-3.0 License** - see the [LICENSE](docs/LICENSE) file for details.
