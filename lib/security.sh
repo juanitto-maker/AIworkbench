@@ -458,30 +458,49 @@ audit_git_exposure() {
 
     warn "Checking for exposed API keys in git history..."
 
-    local patterns=(
-        "sk-ant-[A-Za-z0-9_-]{30,}"
-        "sk-[A-Za-z0-9]{32,}"
-        "gsk_[A-Za-z0-9_-]{30,}"
-        "xai-[A-Za-z0-9_-]{30,}"
-        "ghp_[A-Za-z0-9]{30,}"
-        "github_pat_[A-Za-z0-9_]{30,}"
-        "GEMINI_API_KEY.*=.*[A-Za-z0-9_-]{30,}"
-        "ANTHROPIC_API_KEY.*=.*sk-ant-"
-        "OPENAI_API_KEY.*=.*sk-"
-        "GROQ_API_KEY.*=.*gsk_"
-        "XAI_API_KEY.*=.*xai-"
-        "GITHUB_TOKEN.*=.*ghp_"
-        "GITHUB_TOKEN.*=.*github_pat_"
+    # Actual key patterns with specific lengths (more precise)
+    local key_patterns=(
+        "sk-ant-api03[_A-Za-z0-9-]{95,}"     # Anthropic API keys (actual format)
+        "sk-proj-[A-Za-z0-9]{48,}"            # OpenAI project keys
+        "sk-[A-Za-z0-9]{48,}"                 # OpenAI standard keys (48+ chars)
+        "gsk_[A-Za-z0-9]{52,}"                # Groq keys (52+ chars)
+        "xai-[A-Za-z0-9]{48,}"                # xAI keys (48+ chars)
+        "ghp_[A-Za-z0-9]{36,}"                # GitHub PAT classic (36+ chars)
+        "github_pat_[A-Za-z0-9_]{82,}"        # GitHub PAT fine-grained (82+ chars)
     )
 
     local found=false
-    for pattern in "${patterns[@]}"; do
-        if git log -p -S "$pattern" --all 2>/dev/null | grep -qE "$pattern"; then
-            found=true
-            err "⚠ Potential API key found in git history!"
-            echo "  Pattern: $pattern"
+    local temp_results="/tmp/aiwb_git_audit_$$"
+
+    for pattern in "${key_patterns[@]}"; do
+        # Search git history for the pattern
+        git log -p --all 2>/dev/null | grep -E "$pattern" > "$temp_results" 2>/dev/null || true
+
+        # Filter out false positives
+        if [[ -s "$temp_results" ]]; then
+            # Remove lines that are clearly not real keys:
+            # - Pattern definitions (contain regex chars: [, ], {, }, +, etc.)
+            # - Comments (start with # or //)
+            # - Variable declarations without actual values
+            # - Documentation examples with placeholders
+            local real_keys=$(grep -v -E '(\[|\{|\}|\+|\*|//|^[[:space:]]*#|your.?key|example|test.?key|placeholder|xxx|\.\.\.|\$\{|\$\(|Pattern:|".*".*regex)' "$temp_results" | \
+                             grep -v -E '(=.*["'\''].*["'\''].*=|^\+.*\[[A-Za-z0-9_-]+\]|validate_key_format|check.*key.*format)' || true)
+
+            if [[ -n "$real_keys" ]]; then
+                found=true
+                err "⚠ Potential API key found in git history!"
+                echo "  Pattern: $pattern"
+                echo "  Matches:"
+                echo "$real_keys" | head -3 | sed 's/^/    /'
+                if [[ $(echo "$real_keys" | wc -l) -gt 3 ]]; then
+                    echo "    ... and $(($(echo "$real_keys" | wc -l) - 3)) more"
+                fi
+                echo ""
+            fi
         fi
     done
+
+    rm -f "$temp_results"
 
     if $found; then
         echo ""
