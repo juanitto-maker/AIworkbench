@@ -36,13 +36,6 @@ This folder contains less frequently needed documentation that is excluded from 
 - **SWARM_MODE_USER_GUIDE.md** - Swarm mode user guide
 - **GITHUB_INTEGRATION.md** - GitHub integration features
 
-### Scripts (`scripts/` subfolder)
-All development, testing, and utility scripts:
-- **Test Scripts**: `test_*.sh` - Comprehensive test suites
-- **Debug Scripts**: `debug_*.sh` - Debugging utilities
-- **Install Scripts**: `install-termux.sh`, `termux-clean-install.sh` - Platform-specific installers
-- **Utility Scripts**: `cleanup.sh` - Maintenance utilities
-
 ### Troubleshooting
 See the `troubleshooting/` subfolder for specific issue fixes.
 
