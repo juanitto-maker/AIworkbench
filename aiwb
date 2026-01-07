@@ -354,10 +354,12 @@ cmd_chat() {
     fi
 
     # Quick security check (silent if no issues)
-    if type audit_git_exposure &>/dev/null; then
-        # Run git exposure check silently - only outputs if issues found
-        audit_git_exposure 2>/dev/null || true
-    fi
+    # Disabled automatic check on startup to avoid false positives
+    # Users can run: aiwb security audit
+    # if type audit_git_exposure &>/dev/null; then
+    #     # Run git exposure check silently - only outputs if issues found
+    #     audit_git_exposure 2>/dev/null || true
+    # fi
 
     # Start chat loop
     chat_loop
