@@ -125,7 +125,8 @@ handle_chat_message_routed() {
                     echo "[DEBUG] smart_edit not found, falling back to chat" >&2
                 fi
                 warn "Edit functionality not available (smart_edit function missing)"
-                # Don't return, fall through to chat handler below
+                # Explicitly fall back to chat mode
+                intent="chat"
             # Check if we're in a git repository
             elif ! type is_repo_mode &>/dev/null || ! is_repo_mode; then
                 if [[ "${AIWB_DEBUG_ROUTER:-0}" == "1" ]]; then
@@ -140,7 +141,8 @@ handle_chat_message_routed() {
                 echo ""
                 echo "Falling back to chat mode for now..."
                 echo ""
-                # Don't return, fall through to chat handler below
+                # Explicitly fall back to chat mode
+                intent="chat"
             else
                 # Auto-route to edit workflow
                 msg "🤖 Detected code change request. Analyzing repository..."
@@ -153,7 +155,7 @@ handle_chat_message_routed() {
                 # Return the same exit code (only return if edit was successful)
                 return $edit_exit
             fi
-            # Fall through to chat handler if conditions failed
+            # If intent was changed to chat, fall through to chat handler
             ;;
 
         "generate")

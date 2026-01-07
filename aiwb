@@ -353,6 +353,12 @@ cmd_chat() {
         fi
     fi
 
+    # Quick security check (silent if no issues)
+    if type audit_git_exposure &>/dev/null; then
+        # Run git exposure check silently - only outputs if issues found
+        audit_git_exposure 2>/dev/null || true
+    fi
+
     # Start chat loop
     chat_loop
 }
@@ -386,8 +392,11 @@ rotate_logs() {
         [[ ! -f "$log" ]] && continue
         local size=$(stat -c%s "$log" 2>/dev/null || stat -f%z "$log" 2>/dev/null || echo 0)
         if [[ $size -gt $max_size ]]; then
-            # Keep only the last 1000 lines
-            tail -1000 "$log" > "$log.tmp" && mv "$log.tmp" "$log"
+            # Keep beginning and end for context (500 lines each)
+            head -500 "$log" > "$log.tmp"
+            echo "... [log truncated - $(date)] ..." >> "$log.tmp"
+            tail -500 "$log" >> "$log.tmp"
+            mv "$log.tmp" "$log"
         fi
     done
 }
@@ -693,49 +702,6 @@ WORKFLOW:
   5. /github commit "message"
   6. /github push
 EOF
-}
-
-# Copy text to clipboard with auto-detection of clipboard tool
-copy_to_clipboard() {
-    local text="$1"
-    local clipboard_cmd=""
-
-    # Detect available clipboard command
-    if have termux-clipboard-set; then
-        # Termux
-        clipboard_cmd="termux-clipboard-set"
-    elif have xclip; then
-        # Linux with X11
-        clipboard_cmd="xclip -selection clipboard"
-    elif have xsel; then
-        # Linux alternative
-        clipboard_cmd="xsel --clipboard --input"
-    elif have pbcopy; then
-        # macOS
-        clipboard_cmd="pbcopy"
-    elif have wl-copy; then
-        # Wayland
-        clipboard_cmd="wl-copy"
-    fi
-
-    # If clipboard tool is available, offer to copy
-    if [[ -n "$clipboard_cmd" ]]; then
-        printf "%b\n" "${DIM}[Ctrl+Y to copy response to clipboard, or wait 1s (then scroll up freely)]${RESET}"
-        local key
-        # Use 1 second timeout to allow scrolling up sooner
-        if read -rsn1 -t 1 key 2>/dev/null; then
-            # Check if Ctrl+Y was pressed (ASCII 25)
-            if [[ "$key" == $'\x19' ]]; then
-                echo "$text" | $clipboard_cmd 2>/dev/null && {
-                    printf "%b\n" "${GREEN}✓ Copied to clipboard${RESET}"
-                } || {
-                    printf "%b\n" "${YELLOW}⚠ Failed to copy${RESET}"
-                }
-            fi
-        fi
-        # If read times out or is interrupted (Ctrl+C), just return without error
-        return 0
-    fi
 }
 
 # ============================================================================
