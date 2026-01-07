@@ -62,8 +62,8 @@ cd AIworkbench
 ./install.sh
 
 # Fresh (purged) install for Termux (recommended)
-curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/scripts/install-termux.sh | bash
-cd ~/<your repo/folder>
+curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/install-termux.sh | bash
+# After install completes, start using aiwb from any directory:
 aiwb
 ```
 
