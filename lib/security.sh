@@ -57,11 +57,39 @@ set_api_key() {
     # Export to current session
     export "${var_name}=${key}"
 
-    success "API key for $provider saved securely"
+    success "API key for $provider saved"
 
-    # Check if encryption is enabled
-    if [[ "$(config_get security.encrypt_keys)" == "true" ]]; then
-        encrypt_keys
+    # Offer encryption by default if age is available
+    if have age; then
+        local encrypt_choice="$(config_get security.encrypt_keys)"
+        if [[ "$encrypt_choice" == "true" ]]; then
+            # Already configured to encrypt
+            encrypt_keys
+        elif [[ "$encrypt_choice" != "false" ]]; then
+            # Not configured yet - offer to encrypt (default yes)
+            echo ""
+            echo "⚠️  Your API keys are currently stored in plaintext."
+            if have gum; then
+                if gum confirm "Encrypt your API keys now? (Recommended)"; then
+                    encrypt_keys
+                else
+                    config_set security.encrypt_keys false
+                    warn "Keys stored in plaintext at $env_file (chmod 600)"
+                fi
+            else
+                local response
+                read -p "Encrypt your API keys now? (Y/n): " response
+                if [[ -z "$response" || "$response" =~ ^[Yy] ]]; then
+                    encrypt_keys
+                else
+                    config_set security.encrypt_keys false
+                    warn "Keys stored in plaintext at $env_file (chmod 600)"
+                fi
+            fi
+        fi
+    else
+        warn "Install 'age' for encrypted key storage: https://github.com/FiloSottile/age"
+        warn "Keys stored in plaintext at $env_file (chmod 600)"
     fi
 }
 
@@ -230,6 +258,87 @@ decrypt_keys() {
     else
         err "Decryption failed. Wrong passphrase?"
         rm -f "$env_file"
+        return 1
+    fi
+}
+
+# Rotate encryption passphrase (re-encrypt with new password)
+rotate_keys() {
+    if ! have age; then
+        err "age not installed. Cannot rotate keys."
+        echo "Install age from: https://github.com/FiloSottile/age"
+        return 1
+    fi
+
+    local env_file keys_file
+    env_file="$(get_env_file)"
+    keys_file="$(get_keys_file)"
+
+    # Check if keys are encrypted
+    if [[ ! -f "$keys_file" ]]; then
+        warn "No encrypted keys found. Keys might be in plaintext."
+        if [[ -f "$env_file" ]]; then
+            echo "Would you like to encrypt them now?"
+            encrypt_keys
+        else
+            err "No keys found to rotate"
+            return 1
+        fi
+        return $?
+    fi
+
+    msg "Rotating encryption passphrase..."
+    echo ""
+
+    # Decrypt with old passphrase
+    local old_passphrase new_passphrase
+    old_passphrase=$(ui_password "Enter CURRENT passphrase")
+    if [[ -z "$old_passphrase" ]]; then
+        warn "Empty passphrase. Rotation cancelled."
+        return 1
+    fi
+
+    # Decrypt to temp file
+    local temp_env="/tmp/aiwb_rotate_$$"
+    age -d "$keys_file" <<< "$old_passphrase" > "$temp_env" 2>/dev/null
+
+    if [[ $? -ne 0 ]]; then
+        err "Decryption failed. Wrong passphrase?"
+        rm -f "$temp_env"
+        return 1
+    fi
+
+    # Get new passphrase
+    echo ""
+    new_passphrase=$(ui_password "Enter NEW passphrase")
+    if [[ -z "$new_passphrase" ]]; then
+        warn "Empty passphrase. Rotation cancelled."
+        rm -f "$temp_env"
+        return 1
+    fi
+
+    # Confirm new passphrase
+    local confirm_passphrase
+    confirm_passphrase=$(ui_password "Confirm NEW passphrase")
+    if [[ "$new_passphrase" != "$confirm_passphrase" ]]; then
+        err "Passphrases don't match. Rotation cancelled."
+        rm -f "$temp_env"
+        return 1
+    fi
+
+    # Re-encrypt with new passphrase
+    age -p -o "$keys_file.new" "$temp_env" <<< "$new_passphrase" 2>/dev/null
+
+    if [[ $? -eq 0 ]]; then
+        # Replace old encrypted file
+        mv "$keys_file.new" "$keys_file"
+        # Clean up temp file securely
+        shred -u "$temp_env" 2>/dev/null || rm -f "$temp_env"
+        success "Encryption passphrase rotated successfully"
+        return 0
+    else
+        err "Re-encryption failed"
+        rm -f "$temp_env" "$keys_file.new"
         return 1
     fi
 }
