@@ -4,6 +4,9 @@ This folder contains less frequently needed documentation that is excluded from 
 
 ## What's Here
 
+### Legal & Licensing
+- **LICENSE** - Project license (Apache 2.0)
+
 ### Project Documentation
 - **APP_AUDIT_REPORT.md** - Comprehensive application audit report
 - **CHANGELOG.md** - Version history and changes
@@ -25,11 +28,20 @@ This folder contains less frequently needed documentation that is excluded from 
 - **CONTEXT_PERSISTENCE_PROPOSAL.md** - Context persistence design
 - **CONTEXT_GUIDE.md** - Guide to context management
 - **CODE_MAP.md** - Codebase structure map
+- **CONFIG_SCHEMA_UPDATES.json** - Configuration schema reference
+- **CONTEXT_COMMANDS_IMPLEMENTATION.sh** - Implementation details
 
 ### Feature Documentation
 - **SWARM_MODE_IMPLEMENTATION.md** - Swarm mode technical details
 - **SWARM_MODE_USER_GUIDE.md** - Swarm mode user guide
 - **GITHUB_INTEGRATION.md** - GitHub integration features
+
+### Scripts (`scripts/` subfolder)
+All development, testing, and utility scripts:
+- **Test Scripts**: `test_*.sh` - Comprehensive test suites
+- **Debug Scripts**: `debug_*.sh` - Debugging utilities
+- **Install Scripts**: `install-termux.sh`, `termux-clean-install.sh` - Platform-specific installers
+- **Utility Scripts**: `cleanup.sh` - Maintenance utilities
 
 ### Troubleshooting
 See the `troubleshooting/` subfolder for specific issue fixes.
@@ -42,9 +54,15 @@ By default, these docs are ignored to save context tokens. To access them in a C
 2. **Temporarily lift the ban**: Ask Claude to read from the docs folder
 3. **Modify .claude/settings.json**: Remove or comment out the `docs/**` ignore pattern
 
-## Essential Docs (In Root)
+## Essential Files (In Root)
 
-The following docs remain in the repo root for quick access:
+The following remain in the repo root for immediate access:
+
+### Documentation
 - **README.md** - Project overview and main documentation
 - **QUICKSTART.md** - Getting started quickly
 - **QUICK_REFERENCE.md** - Quick command reference
+
+### Essential Scripts
+- **install.sh** - Main installation script
+- **uninstall.sh** - Main uninstallation script
