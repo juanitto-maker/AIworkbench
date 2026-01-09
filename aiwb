@@ -1532,6 +1532,19 @@ cmd_scanrepo() {
         echo "Type: Local directory (not a git repository)"
     fi
     echo ""
+
+    # Run security audit for git repositories
+    if [[ -n "$AIWB_REPO_REMOTE" ]]; then
+        if type validate_gitignore &>/dev/null; then
+            validate_gitignore
+            echo ""
+        fi
+        if type audit_git_exposure &>/dev/null; then
+            audit_git_exposure
+            echo ""
+        fi
+    fi
+
     echo "This will scan ALL source files in this folder."
     echo ""
 
@@ -1628,6 +1641,19 @@ cmd_smartscan() {
         echo "Type: Local directory (not a git repository)"
     fi
     echo ""
+
+    # Run security audit for git repositories
+    if [[ -n "$AIWB_REPO_REMOTE" ]]; then
+        if type validate_gitignore &>/dev/null; then
+            validate_gitignore
+            echo ""
+        fi
+        if type audit_git_exposure &>/dev/null; then
+            audit_git_exposure
+            echo ""
+        fi
+    fi
+
     echo "This will scan configuration files, documentation, and main entry points."
     echo ""
 
