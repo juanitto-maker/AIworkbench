@@ -450,6 +450,74 @@ test_api_key() {
 # SECURITY AUDIT
 # ============================================================================
 
+# Validate and fix .gitignore for sensitive files
+validate_gitignore() {
+    if ! have git || ! git rev-parse --git-dir >/dev/null 2>&1; then
+        return 0  # Not a git repo
+    fi
+
+    local repo_root
+    repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    [[ -z "$repo_root" ]] && return 0
+
+    local gitignore="$repo_root/.gitignore"
+    local sensitive_files=(
+        ".aiwb.env"
+        ".keys.age"
+        "*.aiwb.env"
+        "*.keys.age"
+        ".aiwb/.aiwb.env"
+        ".aiwb/.keys.age"
+    )
+
+    local missing_entries=()
+    local needs_update=false
+
+    # Check if .gitignore exists
+    if [[ ! -f "$gitignore" ]]; then
+        needs_update=true
+        missing_entries=("${sensitive_files[@]}")
+    else
+        # Check each sensitive file pattern
+        for pattern in "${sensitive_files[@]}"; do
+            if ! grep -qF "$pattern" "$gitignore"; then
+                missing_entries+=("$pattern")
+                needs_update=true
+            fi
+        done
+    fi
+
+    if $needs_update; then
+        warn ".gitignore missing security-sensitive file patterns"
+        echo "  Missing patterns: ${missing_entries[*]}"
+        echo ""
+
+        if ui_confirm "Add missing patterns to .gitignore?" "yes"; then
+            # Create or append to .gitignore
+            {
+                echo ""
+                echo "# AIWB security files (auto-added by security audit)"
+                for pattern in "${missing_entries[@]}"; do
+                    echo "$pattern"
+                done
+            } >> "$gitignore"
+            success "Updated .gitignore with security patterns"
+
+            # Check if any of these files are already tracked
+            for pattern in "${sensitive_files[@]}"; do
+                if git ls-files --error-unmatch "$pattern" &>/dev/null; then
+                    warn "File '$pattern' is already tracked in git!"
+                    echo "  Run: git rm --cached $pattern"
+                fi
+            done
+        else
+            warn "Skipped .gitignore update. Your API keys may be at risk!"
+        fi
+    else
+        debug ".gitignore includes all security patterns"
+    fi
+}
+
 # Check for exposed keys in git
 audit_git_exposure() {
     if ! have git || ! git rev-parse --git-dir >/dev/null 2>&1; then
@@ -550,6 +618,10 @@ security_audit() {
             echo "  Install 'age' to enable encryption"
         fi
     fi
+
+    # Validate .gitignore
+    validate_gitignore
+    echo ""
 
     # Check git exposure
     audit_git_exposure
