@@ -109,7 +109,7 @@ $(cat "$item")
 --- Directory: $item ---
 $(find "$item" -type f -name "*.sh" -o -name "*.py" -o -name "*.js" -o -name "*.md" 2>/dev/null | head -5 | while read f; do
                         echo "File: $f"
-                        head -20 "$f"
+                        head -"$AIWB_CONTEXT_FILE_PREVIEW_LINES" "$f"
                         echo "..."
                     done)
 "
@@ -1192,8 +1192,8 @@ mode_run() {
     # Show preview
     echo ""
     echo "${CYAN}${BOLD}Preview:${RESET}"
-    display_code_content "$(echo "$output" | head -20)" "markdown"
-    if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
+    display_code_content "$(echo "$output" | head -"$AIWB_CONTEXT_FILE_PREVIEW_LINES")" "markdown"
+    if [[ $(echo "$output" | wc -l) -gt "$AIWB_CONTEXT_FILE_PREVIEW_LINES" ]]; then
         echo "... (see file for full output)"
     fi
     echo ""

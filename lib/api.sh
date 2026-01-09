@@ -200,8 +200,8 @@ estimate_file_tokens() {
 call_gemini() {
     local prompt="$1"
     local model="${2:-gemini-2.5-flash}"
-    local max_tokens="${3:-16000}"
-    local temperature="${4:-0.2}"
+    local max_tokens="${3:-$AIWB_MAX_TOKENS_DEFAULT}"
+    local temperature="${4:-$AIWB_TEMPERATURE_DEFAULT}"
 
     local api_key
     api_key="$(get_api_key gemini)"
@@ -239,8 +239,8 @@ call_gemini() {
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
     curl -fsS \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "Content-Type: application/json" \
         -X POST "$url" \
@@ -357,8 +357,8 @@ stream_gemini() {
 call_gemini_vision() {
     local prompt="$1"
     local model="${2:-gemini-2.0-flash-exp}"
-    local max_tokens="${3:-16000}"
-    local temperature="${4:-0.2}"
+    local max_tokens="${3:-$AIWB_MAX_TOKENS_DEFAULT}"
+    local temperature="${4:-$AIWB_TEMPERATURE_DEFAULT}"
     shift 4
     local image_files=("$@")  # Remaining args are image file paths
 
@@ -409,8 +409,8 @@ call_gemini_vision() {
 
     set +e
     curl -fsS \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "Content-Type: application/json" \
         -X POST "$url" \
@@ -515,7 +515,7 @@ call_claude() {
     local prompt="$1"
     local model="${2:-claude-3-haiku-20240307}"
     local max_tokens="${3:-4096}"  # Claude 3 Haiku max is 4096
-    local temperature="${4:-0.2}"
+    local temperature="${4:-$AIWB_TEMPERATURE_DEFAULT}"
 
     local api_key
     api_key="$(get_api_key claude)"
@@ -553,8 +553,8 @@ call_claude() {
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
     curl -sS "$url" \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "x-api-key: $api_key" \
         -H "anthropic-version: 2023-06-01" \
@@ -635,7 +635,7 @@ call_claude_vision() {
     local prompt="$1"
     local model="${2:-claude-3-5-sonnet-20240620}"
     local max_tokens="${3:-4096}"
-    local temperature="${4:-0.2}"
+    local temperature="${4:-$AIWB_TEMPERATURE_DEFAULT}"
     shift 4
     local image_files=("$@")  # Remaining args are image file paths
 
@@ -690,8 +690,8 @@ call_claude_vision() {
 
     set +e
     curl -sS "$url" \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "x-api-key: $api_key" \
         -H "anthropic-version: 2023-06-01" \
@@ -769,8 +769,8 @@ call_claude_vision() {
 call_openai() {
     local prompt="$1"
     local model="${2:-gpt-4o-mini}"
-    local max_tokens="${3:-16000}"
-    local temperature="${4:-0.2}"
+    local max_tokens="${3:-$AIWB_MAX_TOKENS_DEFAULT}"
+    local temperature="${4:-$AIWB_TEMPERATURE_DEFAULT}"
 
     local api_key
     api_key="$(get_api_key openai)"
@@ -808,8 +808,8 @@ call_openai() {
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
     curl -fsS "$url" \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
@@ -912,8 +912,8 @@ Available OpenAI models: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1, o1-mini, o1-previ
 call_groq() {
     local prompt="$1"
     local model="${2:-llama-3.3-70b-versatile}"
-    local max_tokens="${3:-16000}"
-    local temperature="${4:-0.2}"
+    local max_tokens="${3:-$AIWB_MAX_TOKENS_DEFAULT}"
+    local temperature="${4:-$AIWB_TEMPERATURE_DEFAULT}"
 
     local api_key
     api_key="$(get_api_key groq)"
@@ -951,8 +951,8 @@ call_groq() {
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
     curl -fsS "$url" \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
@@ -1048,8 +1048,8 @@ call_groq() {
 call_xai() {
     local prompt="$1"
     local model="${2:-grok-beta}"
-    local max_tokens="${3:-16000}"
-    local temperature="${4:-0.2}"
+    local max_tokens="${3:-$AIWB_MAX_TOKENS_DEFAULT}"
+    local temperature="${4:-$AIWB_TEMPERATURE_DEFAULT}"
 
     local api_key
     api_key="$(get_api_key xai)"
@@ -1087,8 +1087,8 @@ call_xai() {
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
     curl -fsS "$url" \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
@@ -1220,8 +1220,8 @@ call_ollama() {
     # Use curl with proper output/error separation and make it interruptible
     set +e  # Temporarily disable exit on error
     curl -fsS "$url" \
-        --max-time 300 \
-        --connect-timeout 10 \
+        --max-time $AIWB_API_TIMEOUT \
+        --connect-timeout $AIWB_API_CONNECT_TIMEOUT \
         --no-buffer \
         -H "Content-Type: application/json" \
         -d @"$request_file" \
@@ -1312,7 +1312,7 @@ call_api() {
                 fi
                 ;;
             *)
-                max_tokens=16000
+                max_tokens=$AIWB_MAX_TOKENS_DEFAULT
                 ;;
         esac
     fi
@@ -1367,7 +1367,7 @@ call_api_with_images() {
                 fi
                 ;;
             *)
-                max_tokens=16000
+                max_tokens=$AIWB_MAX_TOKENS_DEFAULT
                 ;;
         esac
     fi

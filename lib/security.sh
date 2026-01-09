@@ -59,37 +59,42 @@ set_api_key() {
 
     success "API key for $provider saved"
 
-    # Offer encryption by default if age is available
+    # Enable encryption by default if age is available (SECURITY FIX)
     if have age; then
         local encrypt_choice="$(config_get security.encrypt_keys)"
-        if [[ "$encrypt_choice" == "true" ]]; then
-            # Already configured to encrypt
-            encrypt_keys
-        elif [[ "$encrypt_choice" != "false" ]]; then
-            # Not configured yet - offer to encrypt (default yes)
-            echo ""
-            echo "⚠️  Your API keys are currently stored in plaintext."
-            if have gum; then
-                if gum confirm "Encrypt your API keys now? (Recommended)"; then
-                    encrypt_keys
-                else
-                    config_set security.encrypt_keys false
-                    warn "Keys stored in plaintext at $env_file (chmod 600)"
-                fi
-            else
-                local response
-                read -p "Encrypt your API keys now? (Y/n): " response
-                if [[ -z "$response" || "$response" =~ ^[Yy] ]]; then
-                    encrypt_keys
-                else
-                    config_set security.encrypt_keys false
-                    warn "Keys stored in plaintext at $env_file (chmod 600)"
-                fi
+
+        # Encryption is now MANDATORY by default for security
+        if [[ "$encrypt_choice" == "false" ]]; then
+            # User explicitly disabled encryption - show warning but respect choice
+            warn "⚠️  SECURITY WARNING: API keys are stored in plaintext!"
+            warn "   File: $env_file (chmod 600)"
+            warn "   Enable encryption with: aiwb /keys --encrypt"
+        else
+            # First time or encryption enabled - encrypt automatically
+            if [[ "$encrypt_choice" != "true" ]]; then
+                echo ""
+                echo "🔒 Encrypting API keys for security (using age encryption)..."
+                echo "   You'll be prompted for a passphrase to protect your keys."
+                config_set security.encrypt_keys true
             fi
+            encrypt_keys
         fi
     else
-        warn "Install 'age' for encrypted key storage: https://github.com/FiloSottile/age"
-        warn "Keys stored in plaintext at $env_file (chmod 600)"
+        # age not installed - show strong warning
+        echo ""
+        warn "⚠️  SECURITY WARNING: 'age' encryption tool not installed!"
+        warn "   Your API keys are stored in PLAINTEXT at: $env_file"
+        warn ""
+        warn "   Install 'age' for encrypted key storage:"
+        if is_termux; then
+            warn "     pkg install age"
+        elif is_macos; then
+            warn "     brew install age"
+        else
+            warn "     See: https://github.com/FiloSottile/age"
+        fi
+        warn ""
+        warn "   After installing age, run: aiwb /keys --encrypt"
     fi
 }
 

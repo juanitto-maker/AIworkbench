@@ -84,7 +84,7 @@ ui_choose() {
     local options=("$@")
 
     if $GUM_AVAILABLE; then
-        printf '%s\n' "${options[@]}" | gum choose --header "$header" --height 15
+        printf '%s\n' "${options[@]}" | gum choose --header "$header" --height "$AIWB_UI_MENU_HEIGHT"
     else
         echo "$header" >&2
         local i=1
@@ -140,7 +140,7 @@ ui_filter() {
     local options=("$@")
 
     if $GUM_AVAILABLE; then
-        printf '%s\n' "${options[@]}" | gum filter --placeholder "$placeholder" --height 15
+        printf '%s\n' "${options[@]}" | gum filter --placeholder "$placeholder" --height "$AIWB_UI_MENU_HEIGHT"
     else
         # Fallback to fzf if available
         if have fzf; then
