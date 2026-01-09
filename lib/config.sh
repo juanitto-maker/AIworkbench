@@ -7,6 +7,28 @@
 [[ -z "${AIWB_LIB_COMMON_LOADED:-}" ]] && source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 # ============================================================================
+# CONSTANTS - Centralized configuration values
+# ============================================================================
+
+# API Configuration
+readonly AIWB_MAX_TOKENS_DEFAULT=16000      # Default max tokens for API calls
+readonly AIWB_TEMPERATURE_DEFAULT=0.2       # Default temperature (0.0-1.0, lower = more focused)
+readonly AIWB_API_TIMEOUT=300               # API call timeout in seconds (5 minutes)
+readonly AIWB_API_CONNECT_TIMEOUT=10        # Connection timeout in seconds
+
+# Logging Configuration
+readonly AIWB_LOG_RETENTION=10              # Number of log files to keep
+readonly AIWB_MAX_LOG_SIZE=10485760         # Max log file size in bytes (10MB)
+readonly AIWB_LOG_ROTATION_LINES=1000       # Lines to keep when rotating logs
+
+# Context Configuration
+readonly AIWB_CONTEXT_FILE_PREVIEW_LINES=20 # Lines to show when previewing files in context
+readonly AIWB_MAX_FILE_SIZE=100000          # Max file size for context in bytes (100KB)
+
+# UI Configuration
+readonly AIWB_UI_MENU_HEIGHT=15             # Default menu height for gum choose
+
+# ============================================================================
 # CONFIGURATION PATHS
 # ============================================================================
 
