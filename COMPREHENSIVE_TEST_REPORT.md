@@ -380,7 +380,39 @@ Linting Errors: 0 (not tested with shellcheck in this run)
 
 ### Critical Issues
 
-**None found.** ✅
+#### Issue #1: Context Loading/Saving Broken (FIXED ✅)
+
+**Severity:** CRITICAL
+**Impact:** High - Users unable to load or save context
+**Status:** FIXED in commit 39457ed
+
+**Description:**
+The context_state_load_into_mode() and context_state_save_from_mode() functions used the variable `$context_state_file` without defining it locally, causing context loading to fail with "no file context" errors.
+
+**Root Cause:**
+```bash
+# Missing at line 380 in context_state_load_into_mode():
+local context_state_file
+context_state_file=$(get_context_state_file)
+```
+
+**Impact:**
+- `/contextload` command failed to load saved files
+- `/contextsave` command failed to save context state
+- Users reported "no file context" even after selecting files
+- Context persistence completely broken
+
+**Fix:**
+Added the missing variable definitions to both functions, matching the pattern used in all other context_state.sh functions.
+
+**Testing:**
+```bash
+✅ Context files now load correctly into MODE_UPLOADS
+✅ Context state saves and restores properly
+✅ "No file context" error resolved
+```
+
+**Note:** This bug only manifests at runtime, which is why static analysis and syntax checks didn't catch it. This demonstrates the importance of integration testing with actual data.
 
 ### Major Issues
 
@@ -388,7 +420,7 @@ Linting Errors: 0 (not tested with shellcheck in this run)
 
 ### Minor Issues
 
-#### Issue #1: Context State Initialization in Test Environment
+#### Issue #1: Context State Initialization in Test Environment (Not a bug)
 
 **Severity:** Minor
 **Impact:** Low (test-only issue)
@@ -420,6 +452,44 @@ $ cat $WORKSPACE/.context_state
 
 **Recommendation:**
 This is not a production bug. The test environment should be enhanced to fully initialize the config system before testing context functions.
+
+#### Issue #2: Swarm Mode User Confusion (Documentation Issue)
+
+**Severity:** Minor
+**Impact:** Low - User confusion about feature
+**Status:** Documented
+
+**Description:**
+Users reported that swarm mode "doesn't work" with "no agent working showed". Investigation revealed this is not a bug but a misunderstanding of how swarm mode works.
+
+**Root Cause - User Expectations:**
+1. **Swarm mode is OFF by default** - users expected it to be enabled
+2. **Token threshold** - swarm only activates for prompts > 100 tokens
+3. **Lack of clear documentation** on how to enable and use swarm
+
+**Actual Behavior (Correct):**
+- Swarm mode must be manually enabled via `/swarm` command
+- Swarm only activates when both conditions are met:
+  - Swarm is enabled
+  - Prompt exceeds token threshold
+- When conditions aren't met, it silently falls back to standard mode
+
+**Fix:**
+Created comprehensive swarm mode guide: `docs/SWARM_MODE_GUIDE.md`
+
+**Guide includes:**
+- How to enable swarm mode
+- When swarm activates
+- Expected output and worker progress indicators
+- Troubleshooting common issues
+- Configuration options
+- Cost optimization tips
+
+**Key Takeaway:**
+The code is working correctly. The issue was lack of user-facing documentation about:
+1. Swarm being disabled by default
+2. How to enable it
+3. When it activates
 
 ---
 
