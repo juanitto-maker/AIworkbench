@@ -327,7 +327,7 @@ swarm_mapreduce() {
         return 1
     fi
 
-    msg "Splitting prompt into $num_chunks chunks..."
+    echo -e "${CYAN}📦 Splitting prompt into $num_chunks chunks...${RESET}" >&2
 
     # Split prompt into chunks (simple line-based splitting for now)
     local -a chunks=()
@@ -351,9 +351,10 @@ swarm_mapreduce() {
     rm -f "$temp_file"
 
     # Phase 1: Process chunks in parallel
-    echo ""
-    msg "Phase 1: Processing $num_chunks chunks with $SWARM_WORKERS workers..."
-    echo ""
+    echo "" >&2
+    echo -e "${BOLD}${CYAN}━━━ Phase 1: Parallel Processing ━━━${RESET}" >&2
+    echo -e "${CYAN}Processing $num_chunks chunks with $SWARM_WORKERS parallel workers${RESET}" >&2
+    echo "" >&2
 
     local -a summaries=()
     local processed=0
@@ -379,16 +380,20 @@ swarm_mapreduce() {
 
 $chunk_content"
 
+            echo -e "${CYAN}  🤖 Worker ${chunk_num}: Processing...${RESET}" >&2
             local summary=$(call_api "$chunk_prompt" "$SWARM_WORKER_PROVIDER" "$SWARM_WORKER_MODEL")
             echo "$summary" > "$chunk_dir/output_$i.txt"
+            echo -e "${GREEN}  ✓ Worker ${chunk_num}: Complete${RESET}" >&2
         ) &
 
-        msg "Worker launched for chunk $((i + 1))/$num_chunks"
+        echo -e "${DIM}  → Launched worker $((i + 1))/$num_chunks${RESET}" >&2
     done
 
     # Wait for all workers to complete
-    msg "Waiting for all workers to complete..."
+    echo "" >&2
+    echo -e "${YELLOW}⏳ Waiting for all workers to complete...${RESET}" >&2
     wait
+    echo -e "${GREEN}✓ All workers finished!${RESET}" >&2
 
     # Collect summaries
     local failed_chunks=0
@@ -409,12 +414,14 @@ $chunk_content"
         echo "WARNING: $failed_chunks out of $num_chunks chunks failed" >&2
     fi
 
-    success "Phase 1 complete: $num_chunks chunks processed"
-    echo ""
+    echo "" >&2
+    echo -e "${GREEN}✓ Phase 1 complete: $num_chunks chunks processed${RESET}" >&2
+    echo "" >&2
 
     # Phase 2: Aggregate results
-    msg "Phase 2: Aggregating results with $SWARM_AGGREGATOR_PROVIDER/$SWARM_AGGREGATOR_MODEL..."
-    echo ""
+    echo -e "${BOLD}${CYAN}━━━ Phase 2: Aggregation ━━━${RESET}" >&2
+    echo -e "${CYAN}Synthesizing results with ${SWARM_AGGREGATOR_PROVIDER}/${SWARM_AGGREGATOR_MODEL}${RESET}" >&2
+    echo "" >&2
 
     local combined_summaries=""
     for (( i=0; i<num_chunks; i++ )); do
@@ -422,6 +429,7 @@ $chunk_content"
 
 === Chunk $((i + 1)) Summary ===
 ${summaries[$i]}"
+        echo -e "${DIM}  → Collected chunk $((i + 1))/$num_chunks${RESET}" >&2
     done
 
     local aggregation_prompt="Based on these code chunk summaries, provide a comprehensive ${mode} response:
@@ -430,13 +438,13 @@ $combined_summaries
 
 Provide the final ${mode} output:"
 
-    ui_blink "Aggregating with $SWARM_AGGREGATOR_PROVIDER..."
+    echo "" >&2
+    echo -e "${YELLOW}🧠 Aggregating with ${SWARM_AGGREGATOR_PROVIDER}...${RESET}" >&2
     local final_output=$(call_api "$aggregation_prompt" "$SWARM_AGGREGATOR_PROVIDER" "$SWARM_AGGREGATOR_MODEL")
-    ui_clear_line
 
-    echo ""
-    success "Phase 2 complete: Results aggregated"
-    echo ""
+    echo "" >&2
+    echo -e "${GREEN}✓ Phase 2 complete: Results aggregated${RESET}" >&2
+    echo "" >&2
 
     # Return the final output
     echo "$final_output"

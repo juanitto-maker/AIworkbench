@@ -935,16 +935,58 @@ handle_chat_message() {
     local enhanced_message
     enhanced_message=$(build_prompt_with_context "$message" "false")
 
-    # Show blinking cursor while API call runs (as requested by user)
-    ui_blink "Thinking..."
-
-    # Call API without stderr suppression to see errors
+    # Check if swarm mode should be used
     local response
-    response=$(call_api "$enhanced_message" "$provider" "$model")
-    local exit_code=$?
+    local exit_code=0
 
-    # Clear the blinking cursor line
-    ui_clear_line
+    if [[ "$SWARM_ENABLED" = "true" ]]; then
+        # Estimate tokens to see if swarm is worth it
+        local tokens=$(estimate_tokens "$enhanced_message")
+
+        if (( tokens > 10000 )); then
+            # Show swarm activation
+            echo "" >&2
+            echo -e "${CYAN}🐝 Activating Swarm Mode${RESET}" >&2
+            echo -e "${DIM}Strategy: $SWARM_STRATEGY | Workers: $SWARM_WORKERS | Context: ${tokens} tokens${RESET}" >&2
+            echo "" >&2
+
+            # Try swarm execution
+            if type swarm_execute &>/dev/null; then
+                # Swarm execute will output progress to stderr
+                response=$(swarm_execute "$enhanced_message" "chat" 2>&1)
+                exit_code=$?
+
+                # If swarm failed or returned 1 (fallback), use standard mode
+                if [[ $exit_code -ne 0 ]]; then
+                    echo -e "${YELLOW}⚠ Swarm mode unavailable, falling back to standard mode${RESET}" >&2
+                    echo "" >&2
+                    ui_blink "Thinking..."
+                    response=$(call_api "$enhanced_message" "$provider" "$model")
+                    exit_code=$?
+                    ui_clear_line
+                fi
+            else
+                # Swarm not available, use standard
+                ui_blink "Thinking..."
+                response=$(call_api "$enhanced_message" "$provider" "$model")
+                exit_code=$?
+                ui_clear_line
+            fi
+        else
+            # Context too small for swarm
+            echo -e "${DIM}📝 Using standard mode (context: ${tokens} tokens)${RESET}" >&2
+            ui_blink "Thinking..."
+            response=$(call_api "$enhanced_message" "$provider" "$model")
+            exit_code=$?
+            ui_clear_line
+        fi
+    else
+        # Swarm disabled, use standard mode
+        ui_blink "Thinking..."
+        response=$(call_api "$enhanced_message" "$provider" "$model")
+        exit_code=$?
+        ui_clear_line
+    fi
 
     # Check if interrupted (exit code 130)
     if [[ $exit_code -eq 130 ]]; then
