@@ -81,7 +81,21 @@ context_state_touch() {
     fi
 }
 
-# Add file to context state
+#############################
+# Add file to persistent context state
+#
+# Records a file in the context state for persistent tracking across sessions.
+# Files can be added manually, via scan, or automatically.
+#
+# Arguments:
+#   $1 - File path to add (required)
+#   $2 - Context type: "manual", "scan", or "auto" (default: manual)
+# Returns:
+#   0 on success, 1 on error
+# Example:
+#   context_state_add_file "/path/to/file.txt" "manual"
+#   context_state_add_file "/src/main.py" "scan"
+#############################
 context_state_add_file() {
     local file_path="$1"
     local context_type="${2:-manual}"  # manual, scan, auto
@@ -304,7 +318,7 @@ context_state_check_age() {
     now_epoch=$(date +%s)
     age_days=$(( (now_epoch - created_epoch) / 86400 ))
 
-    if [[ $age_days -gt 7 ]]; then
+    if [[ $age_days -gt $AIWB_CONTEXT_STATE_MAX_AGE_DAYS ]]; then
         echo "⚠️  Context is $age_days days old. Consider running /contextrefresh or /contextclear"
         return 1
     fi

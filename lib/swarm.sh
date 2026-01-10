@@ -368,7 +368,7 @@ swarm_mapreduce() {
     for (( i=0; i<num_chunks; i++ )); do
         # Wait if we've hit max parallel workers
         while (( $(jobs -r | wc -l) >= SWARM_WORKERS )); do
-            sleep 0.5
+            sleep "$AIWB_UI_MEDIUM_DELAY"
         done
 
         # Process chunk in background

@@ -201,11 +201,11 @@ show_diff() {
         echo "${GREEN}(New file)${RESET}"
         echo ""
         # Show first 30 lines of new file
-        echo "$new_content" | head -30
+        echo "$new_content" | head -"$AIWB_EDITOR_PREVIEW_THRESHOLD"
         local total_lines
         total_lines=$(echo "$new_content" | wc -l)
-        if [[ $total_lines -gt 30 ]]; then
-            echo "${DIM}... ($((total_lines - 30)) more lines)${RESET}"
+        if [[ $total_lines -gt $AIWB_EDITOR_PREVIEW_THRESHOLD ]]; then
+            echo "${DIM}... ($((total_lines - AIWB_EDITOR_PREVIEW_THRESHOLD)) more lines)${RESET}"
         fi
     fi
 

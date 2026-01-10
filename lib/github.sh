@@ -73,7 +73,24 @@ set_github_token() {
 # GITHUB API HELPERS
 # ============================================================================
 
+#############################
 # Make authenticated GitHub API request
+#
+# Core function for interacting with GitHub REST API. Handles authentication,
+# error checking, and response parsing.
+#
+# Arguments:
+#   $1 - HTTP method (GET, POST, PUT, DELETE, etc.)
+#   $2 - API endpoint (e.g., "/repos/owner/repo/issues")
+#   $3 - JSON data for POST/PUT requests (optional)
+# Returns:
+#   0 on success with response JSON to stdout, 1 on error
+# Environment:
+#   GITHUB_API_ENDPOINT - Base API URL (default: https://api.github.com)
+# Example:
+#   github_api "GET" "/user"
+#   github_api "POST" "/repos/owner/repo/issues" '{"title":"Bug"}'
+#############################
 github_api() {
     local method="$1"
     local endpoint="$2"
@@ -91,7 +108,7 @@ github_api() {
     local curl_args=(
         -sS
         --max-time 30
-        --connect-timeout 10
+        --connect-timeout "$AIWB_API_CONNECT_TIMEOUT"
         -H "Accept: application/vnd.github+json"
         -H "Authorization: Bearer $token"
         -H "X-GitHub-Api-Version: 2022-11-28"
@@ -110,7 +127,7 @@ github_api() {
     rm -f "$tmp_file"
 
     # Check for errors
-    if [[ "$http_code" -ge 400 ]]; then
+    if [[ "$http_code" -ge $AIWB_HTTP_ERROR_THRESHOLD ]]; then
         local error_msg
         error_msg=$(echo "$response" | jq -r '.message // "Unknown error"' 2>/dev/null)
         err "GitHub API error ($http_code): $error_msg"
@@ -328,7 +345,21 @@ github_add() {
     fi
 }
 
-# Commit changes
+#############################
+# Commit changes to git repository
+#
+# Creates a git commit with the specified message. Optionally stages specific
+# files before committing. Displays commit hash on success.
+#
+# Arguments:
+#   $1 - Commit message (required)
+#   $@ - Additional files to stage (optional)
+# Returns:
+#   0 on success, 1 on error
+# Example:
+#   github_commit "Fix bug in login"
+#   github_commit "Update docs" README.md CHANGELOG.md
+#############################
 github_commit() {
     local message="$1"
     local files=("${@:2}")
@@ -359,7 +390,23 @@ github_commit() {
     fi
 }
 
-# Push changes
+#############################
+# Push commits to remote repository
+#
+# Pushes local commits to the specified remote and branch. Automatically sets
+# upstream tracking if not already configured. Supports force push with warning.
+#
+# Arguments:
+#   $1 - Remote name (default: origin)
+#   $2 - Branch name (default: current branch)
+#   $3 - Force push flag "true"/"false" (default: false)
+# Returns:
+#   0 on success, 1 on error
+# Example:
+#   github_push
+#   github_push origin main
+#   github_push origin feature-branch true
+#############################
 github_push() {
     local remote="${1:-origin}"
     local branch="${2:-}"

@@ -265,7 +265,7 @@ spinner() {
     while kill -0 "$pid" 2>/dev/null; do
         i=$(( (i+1) % ${#spinstr} ))
         printf "\r${CYAN}${spinstr:$i:1}${RESET} %s" "$message"
-        sleep 0.1
+        sleep "$AIWB_UI_SHORT_DELAY"
     done
     printf "\r"
 }

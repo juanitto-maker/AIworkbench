@@ -27,6 +27,54 @@ MODE_CHECK_PROVIDER=""
 MODE_CHECK_MODEL=""
 MODE_CHECK_INSTRUCT=""
 
+#############################
+# Add file or directory to context with size validation
+#
+# Validates file/directory size before adding to MODE_UPLOADS.
+# Skips files that exceed AIWB_MAX_FILE_SIZE.
+#
+# Arguments:
+#   $1 - file or directory path to add
+# Returns:
+#   0 if added successfully, 1 if skipped
+# Example:
+#   add_to_context "/path/to/file.txt"
+#############################
+add_to_context() {
+    local path="$1"
+
+    # Check if path exists
+    if [[ ! -e "$path" ]]; then
+        warn "Path not found: $path"
+        return 1
+    fi
+
+    # If it's a directory, add it directly (size check happens during API call)
+    if [[ -d "$path" ]]; then
+        MODE_UPLOADS+=("$path")
+        return 0
+    fi
+
+    # For files, check size
+    if [[ -f "$path" ]]; then
+        local size
+        size=$(stat -f%z "$path" 2>/dev/null || stat -c%s "$path" 2>/dev/null || echo "0")
+
+        if [[ $size -gt $AIWB_MAX_FILE_SIZE ]]; then
+            local size_kb=$((size / 1024))
+            local limit_kb=$((AIWB_MAX_FILE_SIZE / 1024))
+            warn "File too large (${size_kb}KB > ${limit_kb}KB): $path"
+            warn "Consider splitting the file or using /scanrepo for large files"
+            return 1
+        fi
+
+        MODE_UPLOADS+=("$path")
+        return 0
+    fi
+
+    return 1
+}
+
 # ============================================================================
 # PROMPT BUILDING WITH CONTEXT
 # ============================================================================
@@ -98,11 +146,25 @@ $base_prompt"
                 fi
 
                 if [[ -f "$item" ]]; then
-                    final_prompt="$final_prompt
+                    # Check file size before reading
+                    local file_size
+                    file_size=$(stat -f%z "$item" 2>/dev/null || stat -c%s "$item" 2>/dev/null || echo "0")
+
+                    if [[ $file_size -gt $AIWB_MAX_FILE_SIZE ]]; then
+                        local size_kb=$((file_size / 1024))
+                        local limit_kb=$((AIWB_MAX_FILE_SIZE / 1024))
+                        final_prompt="$final_prompt
+
+--- File: $item (SKIPPED - too large: ${size_kb}KB > ${limit_kb}KB) ---
+[File skipped due to size limit. Consider using /scanrepo or splitting the file]
+"
+                    else
+                        final_prompt="$final_prompt
 
 --- File: $item ---
 $(cat "$item")
 "
+                    fi
                 elif [[ -d "$item" ]]; then
                     final_prompt="$final_prompt
 
@@ -1164,7 +1226,7 @@ mode_run() {
     echo ""
 
     # Check if interrupted
-    if [[ $gen_exit -eq 130 ]]; then
+    if [[ $gen_exit -eq $AIWB_EXIT_SIGINT ]]; then
         echo ""
         return 130
     fi
@@ -1242,7 +1304,7 @@ Provide specific, actionable feedback."
         ui_clear_line
 
         # Check if interrupted
-        if [[ $verify_exit -eq 130 ]]; then
+        if [[ $verify_exit -eq $AIWB_EXIT_SIGINT ]]; then
             echo ""
             return 130
         fi
@@ -1383,7 +1445,7 @@ mode_loop() {
                 mode_run
                 local run_exit=$?
                 # If interrupted, exit mode loop
-                if [[ $run_exit -eq 130 ]]; then
+                if [[ $run_exit -eq $AIWB_EXIT_SIGINT ]]; then
                     return 130
                 fi
                 ;;

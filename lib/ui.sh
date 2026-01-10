@@ -234,14 +234,14 @@ ui_spinner() {
     local message="${1:-Loading...}"
 
     if $GUM_AVAILABLE; then
-        gum spin --spinner dot --title "$message" -- sleep 999999
+        gum spin --spinner dot --title "$message" -- sleep "$AIWB_UI_INFINITE_TIMEOUT"
     else
         local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
         local i=0
         while true; do
             i=$(( (i+1) % ${#spinstr} ))
             printf "\r${CYAN}${spinstr:$i:1}${RESET} %s" "$message"
-            sleep 0.1
+            sleep "$AIWB_UI_SHORT_DELAY"
         done
     fi
 }

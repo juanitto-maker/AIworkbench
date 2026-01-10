@@ -483,7 +483,7 @@ chat_loop() {
 
                 # Log response with truncation for large responses
                 local response_lines=$(echo "$response_output" | wc -l)
-                if [[ $response_lines -gt 100 ]]; then
+                if [[ $response_lines -gt $AIWB_RESPONSE_LINES_THRESHOLD ]]; then
                     # Log only first 50 and last 50 lines for very long responses
                     {
                         echo "$response_output" | head -50
@@ -1187,8 +1187,8 @@ cmd_generate() {
     # Show preview
     echo ""
     echo "${CYAN}${BOLD}Preview:${RESET}"
-    echo "$output" | head -20
-    if [[ $(echo "$output" | wc -l) -gt 20 ]]; then
+    echo "$output" | head -"$AIWB_CONTEXT_FILE_PREVIEW_LINES"
+    if [[ $(echo "$output" | wc -l) -gt $AIWB_CONTEXT_FILE_PREVIEW_LINES ]]; then
         echo "... (truncated, see file for full output)"
     fi
 

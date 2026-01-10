@@ -382,7 +382,7 @@ validate_key_format() {
     case "$provider" in
         gemini)
             # Gemini keys are typically 39 chars
-            [[ ${#key} -ge 30 ]] && [[ "$key" =~ ^[A-Za-z0-9_-]+$ ]]
+            [[ ${#key} -ge $AIWB_MIN_API_KEY_LENGTH ]] && [[ "$key" =~ ^[A-Za-z0-9_-]+$ ]]
             ;;
         claude)
             # Claude keys start with sk-ant-
@@ -402,7 +402,7 @@ validate_key_format() {
             ;;
         github)
             # GitHub PAT tokens start with ghp_ (classic) or github_pat_ (fine-grained)
-            [[ "$key" =~ ^ghp_ ]] || [[ "$key" =~ ^github_pat_ ]] || [[ ${#key} -ge 30 ]]
+            [[ "$key" =~ ^ghp_ ]] || [[ "$key" =~ ^github_pat_ ]] || [[ ${#key} -ge $AIWB_MIN_API_KEY_LENGTH ]]
             ;;
         *)
             return 1
@@ -564,9 +564,9 @@ audit_git_exposure() {
                 err "⚠ Potential API key found in git history!"
                 echo "  Pattern: $pattern"
                 echo "  Matches:"
-                echo "$real_keys" | head -3 | sed 's/^/    /'
-                if [[ $(echo "$real_keys" | wc -l) -gt 3 ]]; then
-                    echo "    ... and $(($(echo "$real_keys" | wc -l) - 3)) more"
+                echo "$real_keys" | head -"$AIWB_KEY_DISPLAY_LIMIT" | sed 's/^/    /'
+                if [[ $(echo "$real_keys" | wc -l) -gt $AIWB_KEY_DISPLAY_LIMIT ]]; then
+                    echo "    ... and $(($(echo "$real_keys" | wc -l) - AIWB_KEY_DISPLAY_LIMIT)) more"
                 fi
                 echo ""
             fi
