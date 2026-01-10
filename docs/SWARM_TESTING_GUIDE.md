@@ -27,38 +27,49 @@ Start AIWB and use the `/swarm` command:
 
 Once in the chat interface, try these commands:
 
-#### Check Swarm Status
-```
-/swarm status
-```
-
-This shows:
-- Current enabled/disabled state
-- Strategy (auto, mapreduce, hierarchical)
-- Number of workers
-- Worker and aggregator models
-- Configuration details
-
-#### Toggle Swarm Mode
+#### Open Swarm Configuration Menu
 ```
 /swarm
 ```
 
-Simply typing `/swarm` toggles it on/off.
+Simply typing `/swarm` opens an interactive menu where you can:
+- **Toggle swarm on/off** - Enable or disable swarm mode
+- **Select strategy** - Choose auto, mapreduce, or hierarchical
+- **Configure worker model** - Select the model for parallel processing
+- **Configure aggregator model** - Select the model for final synthesis
+- **Set worker count** - Choose how many parallel workers (1-20)
 
-#### Enable Swarm Mode
+The menu looks like this:
+```
+🐝 Swarm Mode (✗ DISABLED)
+
+1) Strategy: auto
+2) Worker model: gemini/2.5-flash
+3) Aggregator model: claude/sonnet-4-5-20250929
+4) Worker count: 5
+5) Enable swarm
+6) Back
+```
+
+#### Quick Commands (Alternative)
+
+You can also use direct commands:
+
+**Check Status:**
+```
+/swarm status
+```
+
+**Enable/Disable:**
 ```
 /swarm on
-```
-
-Explicitly enables swarm mode.
-
-#### Disable Swarm Mode
-```
 /swarm off
 ```
 
-Explicitly disables swarm mode.
+**Toggle:**
+```
+/swarm toggle
+```
 
 #### View Help
 ```
@@ -69,7 +80,62 @@ Shows all available commands, including `/swarm`.
 
 ### 3. What You Should See
 
-#### When Disabled (Default)
+#### Opening the Swarm Menu
+```
+/swarm
+```
+
+You'll see an interactive menu:
+```
+🐝 Swarm Mode (✗ DISABLED)
+
+1) Strategy: auto
+2) Worker model: gemini/2.5-flash
+3) Aggregator model: claude/sonnet-4-5-20250929
+4) Worker count: 5
+5) Enable swarm
+6) Back
+
+?
+```
+
+#### Navigating the Menu
+
+**Enable Swarm:**
+- Select option "5) Enable swarm"
+- You'll see: `✓ Swarm mode ENABLED 🐝`
+- The menu updates to show `(✓ ENABLED)` and option 5 changes to "Disable swarm"
+
+**Configure Strategy:**
+- Select option "1) Strategy: auto"
+- Choose from:
+  - `auto - Let AIWB choose (Recommended)`
+  - `mapreduce - Parallel processing`
+  - `hierarchical - Battery-friendly (mobile)`
+
+**Configure Worker Model:**
+- Select option "2) Worker model"
+- Choose from fast/cheap options like:
+  - `gemini/2.5-flash ($0.10/1M) ⭐`
+  - `gemini/2.0-flash-lite ($0.05/1M) ⭐⭐`
+  - `groq/llama-3.3-70b ($0.59/1M)`
+  - `claude/3.5-haiku ($1.00/1M)`
+
+**Configure Aggregator Model:**
+- Select option "3) Aggregator model"
+- Choose from smart models for synthesis:
+  - `claude/sonnet-4.5 ($3.00/1M) ⭐⭐ NEW`
+  - `claude/3.5-sonnet ($3.00/1M) ⭐⭐`
+  - `gemini/2.5-flash ($0.10/1M)`
+
+**Set Worker Count:**
+- Select option "4) Worker count"
+- Enter a number between 1-20
+- More workers = faster but more costly
+
+#### Using Quick Commands
+
+**Check Status:**
 ```
 /swarm status
 
@@ -88,22 +154,11 @@ Aggregator Model: sonnet-4-5-20250929
 Display: OFF
 ```
 
-#### Toggling On
+**Quick Toggle:**
 ```
-/swarm
+/swarm toggle
 
 ✓  Swarm mode ENABLED 🐝
-```
-
-#### When Enabled
-```
-/swarm status
-
-Enabled: true
-Strategy: auto
-Workers: 5
-...
-Display: ON (auto strategy, 5 workers)
 ```
 
 ### 4. Testing with Real Queries
