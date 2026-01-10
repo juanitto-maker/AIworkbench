@@ -1461,6 +1461,9 @@ build_repo_context() {
     local context=""
     local file_count=0
 
+    # Global array to track scanned files (for context persistence)
+    declare -g -a SCANNED_FILES=()
+
     msg "Building $mode context for $(basename "$(pwd)")..."
 
     # Helper function to check if file is binary by extension
@@ -1495,6 +1498,7 @@ build_repo_context() {
                 context+=$'\n'"--- FILE: $file ---"$'\n'
                 context+="$file_content"$'\n'
                 ((file_count++))
+                SCANNED_FILES+=("$(realpath "$file" 2>/dev/null || echo "$file")")
             fi
         done < <(find . -type f \
             -not -path '*/.git/*' \
@@ -1522,6 +1526,7 @@ build_repo_context() {
                     context+=$'\n'"--- FILE: $file ---"$'\n'
                     context+="$file_content"$'\n'
                     ((file_count++))
+                    SCANNED_FILES+=("$(realpath "$file" 2>/dev/null || echo "$file")")
                 fi
             done < <(find . -maxdepth 2 -type f -name "$pattern" \
                 -not -path '*/.git/*' \
@@ -1538,6 +1543,7 @@ build_repo_context() {
                     context+=$'\n'"--- FILE: $file ---"$'\n'
                     context+="$file_content"$'\n'
                     ((file_count++))
+                    SCANNED_FILES+=("$(realpath "$file" 2>/dev/null || echo "$file")")
                 fi
             done < <(find . -maxdepth 2 -type f -name "$pattern" \
                 -not -path '*/.git/*' \
@@ -1555,6 +1561,7 @@ build_repo_context() {
                 local file_content
                 file_content=$(head -c "$max_file_size" "$file" 2>/dev/null || true)
                 if [[ -n "$file_content" ]]; then
+                    SCANNED_FILES+=("$(realpath "$file" 2>/dev/null || echo "$file")")
                     context+=$'\n'"--- FILE: $file ---"$'\n'
                     context+="$file_content"$'\n'
                     ((file_count++))
@@ -1676,7 +1683,16 @@ Please provide:
         local scan_file_count
         scan_file_count=$(echo "$context" | grep -c "^--- FILE:" || echo "0")
         context_state_save_scan "full" "$analysis_file" "$scan_file_count"
-        msg "Context saved for future use (run /contextshow to view)"
+
+        # Also save all scanned source files to context for persistence
+        if type context_state_add_file &>/dev/null && [[ ${#SCANNED_FILES[@]} -gt 0 ]]; then
+            for scanned_file in "${SCANNED_FILES[@]}"; do
+                context_state_add_file "$scanned_file" "scan" 2>/dev/null || true
+            done
+            msg "Context saved: ${#SCANNED_FILES[@]} source files + analysis (run /contextload to reload)"
+        else
+            msg "Context saved for future use (run /contextshow to view)"
+        fi
     fi
 }
 
@@ -1778,7 +1794,16 @@ Please summarize:
         local scan_file_count
         scan_file_count=$(echo "$context" | grep -c "^--- FILE:" || echo "0")
         context_state_save_scan "selective" "$analysis_file" "$scan_file_count"
-        msg "Context saved for future use (run /contextshow to view)"
+
+        # Also save all scanned source files to context for persistence
+        if type context_state_add_file &>/dev/null && [[ ${#SCANNED_FILES[@]} -gt 0 ]]; then
+            for scanned_file in "${SCANNED_FILES[@]}"; do
+                context_state_add_file "$scanned_file" "scan" 2>/dev/null || true
+            done
+            msg "Context saved: ${#SCANNED_FILES[@]} source files + analysis (run /contextload to reload)"
+        else
+            msg "Context saved for future use (run /contextshow to view)"
+        fi
     fi
 }
 
@@ -2170,8 +2195,8 @@ cmd_context() {
         local persistent_count=0
         local has_scan=false
         if type context_state_exists &>/dev/null && context_state_exists; then
-            # Count only manual files, excluding scan output files
-            persistent_count=$(context_state_get "context_files" 2>/dev/null | jq '[.[] | select(.type == "manual")] | length' 2>/dev/null || echo 0)
+            # Count manual AND scan files (all types)
+            persistent_count=$(context_state_get "context_files" 2>/dev/null | jq 'length' 2>/dev/null || echo 0)
             local scan_file
             scan_file=$(context_state_get "last_scan.output_file" 2>/dev/null)
             [[ -n "$scan_file" && -f "$scan_file" ]] && has_scan=true
