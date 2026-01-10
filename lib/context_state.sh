@@ -383,6 +383,9 @@ context_state_load_into_mode() {
         return 1
     fi
 
+    local context_state_file
+    context_state_file=$(get_context_state_file)
+
     local file_count=0
     local -a files_to_load
 
@@ -430,6 +433,9 @@ context_state_save_from_mode() {
     if ! context_state_exists; then
         init_context_state
     fi
+
+    local context_state_file
+    context_state_file=$(get_context_state_file)
 
     # Clear existing context files
     if command -v jq &>/dev/null; then
