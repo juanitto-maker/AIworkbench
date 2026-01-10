@@ -282,8 +282,8 @@ retry_api_call() {
         # Check if it's a retryable error
         if echo "$response" | grep -iq "rate limit\|429"; then
             if ((attempt < max_attempts)); then
-                warn "Rate limit hit. Waiting 60s before retry..."
-                sleep 60
+                warn "Rate limit hit. Waiting ${AIWB_ERROR_RETRY_DELAY}s before retry..."
+                sleep "$AIWB_ERROR_RETRY_DELAY"
             fi
         elif echo "$response" | grep -iq "network\|connection\|timeout"; then
             if ((attempt < max_attempts)); then
@@ -332,6 +332,100 @@ validate_model() {
         return 0
     else
         return 1
+    fi
+}
+
+# ============================================================================
+# STANDARDIZED ERROR HANDLING HELPERS
+# ============================================================================
+
+#############################
+# Require file exists or exit with error
+#
+# Standardized pattern for checking file existence. If file doesn't exist,
+# displays error and exits with E_FILE_NOT_FOUND.
+#
+# Arguments:
+#   $1 - file path to check
+#   $2 - optional custom error message
+# Example:
+#   require_file "$config_file" "Configuration file required"
+#############################
+require_file() {
+    local file="$1"
+    local msg="${2:-File not found: $file}"
+
+    if [[ ! -f "$file" ]]; then
+        err "$msg"
+        exit "$E_FILE_NOT_FOUND"
+    fi
+}
+
+#############################
+# Require directory exists or exit with error
+#
+# Standardized pattern for checking directory existence. If directory doesn't exist,
+# displays error and exits with E_FILE_NOT_FOUND.
+#
+# Arguments:
+#   $1 - directory path to check
+#   $2 - optional custom error message
+# Example:
+#   require_dir "$workspace" "Workspace directory required"
+#############################
+require_dir() {
+    local dir="$1"
+    local msg="${2:-Directory not found: $dir}"
+
+    if [[ ! -d "$dir" ]]; then
+        err "$msg"
+        exit "$E_FILE_NOT_FOUND"
+    fi
+}
+
+#############################
+# Validate non-empty string or exit with error
+#
+# Standardized pattern for validating required input. If input is empty,
+# displays error and exits with E_INVALID_INPUT.
+#
+# Arguments:
+#   $1 - value to validate
+#   $2 - field name for error message
+# Returns:
+#   0 if valid, exits otherwise
+# Example:
+#   validate_nonempty "$username" "username"
+#############################
+validate_nonempty() {
+    local value="$1"
+    local field="${2:-input}"
+
+    if [[ -z "$value" ]]; then
+        err "Invalid $field: cannot be empty"
+        exit "$E_INVALID_INPUT"
+    fi
+}
+
+#############################
+# Execute command and exit on failure
+#
+# Standardized pattern for critical operations. If command fails,
+# displays error message and exits with appropriate code.
+#
+# Arguments:
+#   $1 - command to execute (as string)
+#   $2 - optional error message
+# Example:
+#   try_or_die "git pull origin main" "Failed to pull from remote"
+#############################
+try_or_die() {
+    local cmd="$1"
+    local msg="${2:-Command failed: $cmd}"
+
+    if ! eval "$cmd"; then
+        err "$msg"
+        exit "$E_GENERAL"
     fi
 }
 

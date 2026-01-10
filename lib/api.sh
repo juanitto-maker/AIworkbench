@@ -344,7 +344,7 @@ call_gemini() {
     set -e  # Re-enable exit on error
 
     # Check if interrupted (exit code 130 is SIGINT)
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
@@ -512,7 +512,7 @@ call_gemini_vision() {
     local exit_code=$?
     set -e
 
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
@@ -659,7 +659,7 @@ call_claude() {
     set -e  # Re-enable exit on error
 
     # Check if interrupted (exit code 130 is SIGINT)
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
@@ -794,7 +794,7 @@ call_claude_vision() {
     local exit_code=$?
     set -e
 
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
@@ -913,7 +913,7 @@ call_openai() {
     set -e  # Re-enable exit on error
 
     # Check if interrupted (exit code 130 is SIGINT)
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
@@ -1056,7 +1056,7 @@ call_groq() {
     set -e  # Re-enable exit on error
 
     # Check if interrupted (exit code 130 is SIGINT)
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
@@ -1192,7 +1192,7 @@ call_xai() {
     set -e  # Re-enable exit on error
 
     # Check if interrupted (exit code 130 is SIGINT)
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"
@@ -1324,7 +1324,7 @@ call_ollama() {
     set -e  # Re-enable exit on error
 
     # Check if interrupted (exit code 130 is SIGINT)
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         rm -f "$curl_error" "$curl_output" "$request_file"
         echo "" >&2
         err "Request interrupted by user"

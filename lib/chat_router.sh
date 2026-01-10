@@ -200,7 +200,7 @@ handle_chat_message_routed() {
     fi
 
     # Check if interrupted (exit code 130)
-    if [[ $exit_code -eq 130 ]]; then
+    if [[ $exit_code -eq $AIWB_EXIT_SIGINT ]]; then
         echo ""
         return 130
     fi

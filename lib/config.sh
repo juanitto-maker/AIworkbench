@@ -27,6 +27,27 @@ readonly AIWB_MAX_FILE_SIZE=100000          # Max file size for context in bytes
 
 # UI Configuration
 readonly AIWB_UI_MENU_HEIGHT=15             # Default menu height for gum choose
+readonly AIWB_UI_SHORT_DELAY=0.1            # Short delay for UI updates (seconds)
+readonly AIWB_UI_MEDIUM_DELAY=0.5           # Medium delay for UI updates (seconds)
+readonly AIWB_UI_INFINITE_TIMEOUT=999999    # Infinite timeout for background processes (seconds)
+readonly AIWB_ERROR_RETRY_DELAY=60          # Delay before retrying on errors (seconds)
+
+# Threshold Configuration
+readonly AIWB_RESPONSE_LINES_THRESHOLD=100  # Lines threshold for truncating large responses
+readonly AIWB_EDITOR_PREVIEW_THRESHOLD=30   # Lines threshold for showing more/less in editor
+readonly AIWB_OUTPUT_PREVIEW_THRESHOLD=20   # Lines threshold for output preview
+readonly AIWB_MIN_API_KEY_LENGTH=30         # Minimum length for API key validation
+readonly AIWB_CONTEXT_STATE_MAX_AGE_DAYS=7  # Maximum age for context state before warning (days)
+readonly AIWB_KEY_DISPLAY_LIMIT=3           # Maximum number of keys to display in security audit
+
+# HTTP Configuration
+readonly AIWB_HTTP_ERROR_THRESHOLD=400      # HTTP status code threshold for errors
+
+# Exit Codes
+readonly AIWB_EXIT_SUCCESS=0                # Successful execution
+readonly AIWB_EXIT_ERROR=1                  # General error
+readonly AIWB_EXIT_USAGE=2                  # Usage/syntax error
+readonly AIWB_EXIT_SIGINT=130               # Exit code for SIGINT (Ctrl+C)
 
 # ============================================================================
 # CONFIGURATION PATHS
