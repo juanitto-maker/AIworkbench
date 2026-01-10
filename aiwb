@@ -608,6 +608,9 @@ handle_slash_command() {
         /templates)
             cmd_templates
             ;;
+        /swarm)
+            cmd_swarm "$args"
+            ;;
         /clear)
             clear 2>/dev/null || true
             ui_header "AIWB Interactive Chat"
@@ -688,6 +691,10 @@ MANAGEMENT:
   /history    Show chat history
   /costs      Show cost breakdown
   /costreset  Reset cost counter to $0.00
+  /swarm      Toggle swarm mode (multi-agent processing)
+              /swarm status   Show swarm configuration
+              /swarm on       Enable swarm mode
+              /swarm off      Disable swarm mode
 
 CONFIGURATION:
   /keys       Manage API keys
@@ -1972,6 +1979,55 @@ cmd_contextremove() {
     MODE_UPLOADS=("${new_uploads[@]}")
 
     success "Removed: $file_to_remove"
+}
+
+# Swarm mode command
+cmd_swarm() {
+    local action="${1:-toggle}"
+
+    case "$action" in
+        status)
+            # Show detailed swarm status
+            ui_header "Swarm Mode Status"
+            echo "Enabled: $SWARM_ENABLED"
+            echo "Strategy: $SWARM_STRATEGY"
+            echo "Workers: $SWARM_WORKERS"
+            echo "Worker Provider: $SWARM_WORKER_PROVIDER"
+            echo "Worker Model: $SWARM_WORKER_MODEL"
+            echo "Aggregator Provider: $SWARM_AGGREGATOR_PROVIDER"
+            echo "Aggregator Model: $SWARM_AGGREGATOR_MODEL"
+            echo ""
+            echo "Display: $(get_swarm_display)"
+            ;;
+        on|enable)
+            # Enable swarm mode
+            if [[ "$SWARM_ENABLED" = "true" ]]; then
+                info "Swarm mode is already enabled"
+            else
+                export SWARM_ENABLED="true"
+                config_set "swarm.enabled" "true"
+                success "Swarm mode ENABLED 🐝"
+            fi
+            ;;
+        off|disable)
+            # Disable swarm mode
+            if [[ "$SWARM_ENABLED" = "false" ]]; then
+                info "Swarm mode is already disabled"
+            else
+                export SWARM_ENABLED="false"
+                config_set "swarm.enabled" "false"
+                msg "Swarm mode DISABLED"
+            fi
+            ;;
+        toggle|"")
+            # Toggle swarm mode
+            swarm_toggle
+            ;;
+        *)
+            warn "Unknown swarm action: $action"
+            echo "Usage: /swarm [status|on|off|toggle]"
+            ;;
+    esac
 }
 
 # Overall status overview
