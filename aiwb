@@ -942,12 +942,14 @@ handle_chat_message() {
     if [[ "$SWARM_ENABLED" = "true" ]]; then
         # Estimate tokens to see if swarm is worth it
         local tokens=$(estimate_tokens "$enhanced_message")
+        local min_tokens="${SWARM_MIN_TOKENS:-1000}"
 
-        if (( tokens > 10000 )); then
+        # Force swarm or check if context is large enough
+        if [[ "$SWARM_FORCE" = "true" ]] || (( tokens >= min_tokens )); then
             # Show swarm activation
             echo "" >&2
             echo -e "${CYAN}🐝 Activating Swarm Mode${RESET}" >&2
-            echo -e "${DIM}Strategy: $SWARM_STRATEGY | Workers: $SWARM_WORKERS | Context: ${tokens} tokens${RESET}" >&2
+            echo -e "${DIM}Strategy: $SWARM_STRATEGY | Workers: $SWARM_WORKERS | Context: ${tokens} tokens (min: ${min_tokens})${RESET}" >&2
             echo "" >&2
 
             # Try swarm execution
@@ -974,7 +976,7 @@ handle_chat_message() {
             fi
         else
             # Context too small for swarm
-            echo -e "${DIM}📝 Using standard mode (context: ${tokens} tokens)${RESET}" >&2
+            echo -e "${DIM}📝 Using standard mode (context: ${tokens} tokens, need ${min_tokens}+ for swarm)${RESET}" >&2
             ui_blink "Thinking..."
             response=$(call_api "$enhanced_message" "$provider" "$model")
             exit_code=$?

@@ -18,6 +18,8 @@ SWARM_WORKER_MODEL="2.5-flash"
 SWARM_AGGREGATOR_PROVIDER="claude"
 SWARM_AGGREGATOR_MODEL="sonnet-4-5-20250929"
 SWARM_WORKERS=5
+SWARM_MIN_TOKENS=1000  # Minimum tokens to activate swarm (lowered for easy testing)
+SWARM_FORCE=false      # Force swarm mode regardless of token count
 
 # Initialize swarm from config
 swarm_init() {
@@ -28,12 +30,14 @@ swarm_init() {
     SWARM_AGGREGATOR_PROVIDER=$(config_get "swarm.aggregator_provider" "claude")
     SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "sonnet-4-5-20250929")
     SWARM_WORKERS=$(config_get "swarm.workers" "5")
+    SWARM_MIN_TOKENS=$(config_get "swarm.min_tokens" "1000")
+    SWARM_FORCE=$(config_get "swarm.force" "false")
 
     # Export swarm config so background workers can access it
     export SWARM_ENABLED SWARM_STRATEGY
     export SWARM_WORKER_PROVIDER SWARM_WORKER_MODEL
     export SWARM_AGGREGATOR_PROVIDER SWARM_AGGREGATOR_MODEL
-    export SWARM_WORKERS
+    export SWARM_WORKERS SWARM_MIN_TOKENS SWARM_FORCE
 
     # Load and export API keys for background workers
     local env_file
@@ -71,12 +75,20 @@ menu_swarm() {
             status_display="✗ DISABLED"
         fi
 
+        local force_display
+        if [[ "$SWARM_FORCE" = "true" ]]; then
+            force_display="(FORCED)"
+        else
+            force_display=""
+        fi
+
         local choice
         choice=$(ui_choose "🐝 Swarm Mode ($status_display)" \
             "Strategy: $SWARM_STRATEGY" \
             "Worker model: $SWARM_WORKER_PROVIDER/$SWARM_WORKER_MODEL" \
             "Aggregator model: $SWARM_AGGREGATOR_PROVIDER/$SWARM_AGGREGATOR_MODEL" \
             "Worker count: $SWARM_WORKERS" \
+            "Min tokens: $SWARM_MIN_TOKENS $force_display" \
             "$([ "$SWARM_ENABLED" = "true" ] && echo "Disable" || echo "Enable") swarm" \
             "Back")
 
@@ -92,6 +104,9 @@ menu_swarm() {
                 ;;
             "Worker count:"*)
                 menu_swarm_workers
+                ;;
+            "Min tokens:"*)
+                menu_swarm_min_tokens
                 ;;
             *"swarm")
                 swarm_toggle
@@ -228,6 +243,52 @@ menu_swarm_workers() {
     fi
 }
 
+# Minimum tokens configuration
+menu_swarm_min_tokens() {
+    local choice
+    choice=$(ui_choose "Swarm Activation Threshold" \
+        "100 tokens - Always activate (for testing)" \
+        "1000 tokens - Low threshold ⭐ EASY TESTING" \
+        "5000 tokens - Medium threshold" \
+        "10000 tokens - High threshold (default old)" \
+        "Force swarm mode (ignore token count)" \
+        "Back")
+
+    case "$choice" in
+        "100 tokens"*)
+            SWARM_MIN_TOKENS=100
+            SWARM_FORCE="false"
+            ;;
+        "1000 tokens"*)
+            SWARM_MIN_TOKENS=1000
+            SWARM_FORCE="false"
+            ;;
+        "5000 tokens"*)
+            SWARM_MIN_TOKENS=5000
+            SWARM_FORCE="false"
+            ;;
+        "10000 tokens"*)
+            SWARM_MIN_TOKENS=10000
+            SWARM_FORCE="false"
+            ;;
+        "Force swarm"*)
+            SWARM_FORCE="true"
+            success "Force mode enabled - swarm will activate regardless of token count"
+            ;;
+        "Back"|"")
+            return 0
+            ;;
+    esac
+
+    if [[ "$SWARM_FORCE" != "true" ]]; then
+        config_set "swarm.min_tokens" "$SWARM_MIN_TOKENS"
+        config_set "swarm.force" "false"
+        success "Minimum tokens set to: $SWARM_MIN_TOKENS"
+    else
+        config_set "swarm.force" "true"
+    fi
+}
+
 # Toggle swarm on/off
 swarm_toggle() {
     if [[ "$SWARM_ENABLED" = "true" ]]; then
@@ -294,8 +355,14 @@ swarm_auto_detect() {
     local prompt="$1"
     local tokens=$(estimate_tokens "$prompt")
 
-    # Small context - no swarm needed
-    if (( tokens < 10000 )); then
+    # Force swarm mode if configured
+    if [[ "$SWARM_FORCE" = "true" ]]; then
+        echo "mapreduce"
+        return
+    fi
+
+    # Small context - no swarm needed (use configurable threshold)
+    if (( tokens < SWARM_MIN_TOKENS )); then
         echo "none"
         return
     fi
@@ -316,13 +383,13 @@ swarm_mapreduce() {
     local tokens=$(estimate_tokens "$prompt")
     echo "DEBUG: Estimated tokens: $tokens" >&2
 
-    local chunk_size=2500  # tokens per chunk
+    local chunk_size=500  # tokens per chunk (lowered for easier testing)
     local num_chunks=$(( (tokens + chunk_size - 1) / chunk_size ))
     echo "DEBUG: Calculated $num_chunks chunks (chunk_size=$chunk_size)" >&2
 
-    # If only 1-2 chunks, not worth the overhead
-    if (( num_chunks <= 2 )); then
-        echo "⚠ Prompt small enough for standard mode ($num_chunks chunks)" >&2
+    # If force mode, allow even 1 chunk for testing
+    if [[ "$SWARM_FORCE" != "true" ]] && (( num_chunks < 2 )); then
+        echo "⚠ Prompt too small for swarm mode ($num_chunks chunks)" >&2
         echo "DEBUG: tokens=$tokens, num_chunks=$num_chunks" >&2
         return 1
     fi
