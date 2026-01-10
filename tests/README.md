@@ -39,6 +39,7 @@ bats tests/*.bats
 ```bash
 bats tests/test_common.bats
 bats tests/test_api.bats
+bats tests/test_swarm.bats
 ```
 
 ### Run with Verbose Output
@@ -84,6 +85,9 @@ teardown() {
 
 - **test_common.bats** - Tests for `lib/common.sh` (platform detection, utilities)
 - **test_api.bats** - Tests for `lib/api.sh` (API key management, image handling)
+- **test_swarm.bats** - Tests for `lib/swarm.sh` (swarm mode, multi-agent processing)
+- **test_config.bats** - Tests for `lib/config.sh` (configuration management)
+- **test_error_handlers.bats** - Tests for error handling functions
 
 ## Adding New Tests
 
@@ -120,9 +124,17 @@ Common bats assertions:
 
 | Component | Target Coverage | Current Status |
 |-----------|----------------|----------------|
-| Critical Functions | 90% | 🟡 In Progress |
-| Utility Functions | 70% | 🟡 In Progress |
+| Critical Functions | 90% | 🟢 Good |
+| Utility Functions | 70% | 🟢 Good |
+| Swarm Mode | 80% | 🟢 Complete |
 | UI Functions | 30% | 🔴 Not Started |
+
+### Recent Test Coverage
+
+- **Swarm Mode**: 19 unit tests + 15 integration tests = 34 tests total ✅
+- **API Functions**: 17 tests ✅
+- **Common Functions**: 44 tests ✅
+- **Total**: 80+ tests passing
 
 ## CI/CD Integration
 
