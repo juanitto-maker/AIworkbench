@@ -294,11 +294,14 @@ swarm_toggle() {
     if [[ "$SWARM_ENABLED" = "true" ]]; then
         SWARM_ENABLED="false"
         config_set "swarm.enabled" "false"
-        msg "Swarm mode DISABLED"
+        msg "Multi-agent AI swarm mode DISABLED"
     else
         SWARM_ENABLED="true"
         config_set "swarm.enabled" "true"
-        success "Swarm mode ENABLED 🐝"
+        success "Multi-agent AI swarm mode ENABLED 🐝"
+        echo ""
+        msg "Swarm mode uses multiple AI workers to analyze large codebases in parallel"
+        msg "This is NOT Docker Swarm - it's an AI orchestration feature for code analysis"
     fi
 }
 
@@ -448,7 +451,20 @@ swarm_mapreduce() {
         (
             local chunk_num=$((i + 1))
             local chunk_content=$(cat "$chunk_dir/chunk_$i.txt")
-            local chunk_prompt="Summarize this code chunk ($chunk_num/$total):
+            local chunk_prompt="[MULTI-AGENT AI CODE ANALYSIS - WORKER TASK]
+
+You are one of $total AI workers in a parallel code analysis system (NOT Docker/containers).
+This is a multi-agent AI orchestration system that splits large codebases into chunks for analysis.
+
+YOUR TASK: Analyze and summarize code chunk $chunk_num/$total.
+Your summary will be combined with $((total - 1)) other AI-generated summaries by a synthesis model.
+
+Focus on:
+- Key functionality and purpose
+- Important patterns and structures
+- Notable dependencies or relationships
+
+CODE CHUNK $chunk_num/$total:
 
 $chunk_content"
 
@@ -504,11 +520,20 @@ ${summaries[$i]}"
         echo -e "${DIM}  → Collected chunk $((i + 1))/$num_chunks${RESET}" >&2
     done
 
-    local aggregation_prompt="Based on these code chunk summaries, provide a comprehensive ${mode} response:
+    local aggregation_prompt="[MULTI-AGENT AI CODE ANALYSIS - AGGREGATION PHASE]
 
+You are the synthesis AI in a multi-agent code analysis system (NOT Docker/infrastructure).
+Multiple AI workers have analyzed different chunks of a large codebase in parallel.
+Your role: Synthesize their summaries into a comprehensive, cohesive ${mode} response.
+
+WORKER SUMMARIES FROM PARALLEL ANALYSIS:
 $combined_summaries
 
-Provide the final ${mode} output:"
+YOUR TASK: Provide a comprehensive ${mode} output that:
+- Synthesizes insights from all chunks
+- Identifies patterns across the entire codebase
+- Presents a cohesive, well-organized analysis
+- Avoids redundancy while covering all important points"
 
     echo "" >&2
     echo -e "${YELLOW}🧠 Aggregating with ${SWARM_AGGREGATOR_PROVIDER}...${RESET}" >&2
