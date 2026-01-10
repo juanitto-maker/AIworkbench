@@ -109,10 +109,10 @@ teardown() {
     [ -n "$E_INVALID_INPUT" ]
 }
 
-@test "E_API_ERROR error code is defined" {
-    [ -n "$E_API_ERROR" ]
+@test "E_API_CALL error code is defined" {
+    [ -n "$E_API_CALL" ]
 }
 
-@test "E_AUTH_ERROR error code is defined" {
-    [ -n "$E_AUTH_ERROR" ]
+@test "E_AUTH error code is defined" {
+    [ -n "$E_AUTH" ]
 }
