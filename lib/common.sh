@@ -9,18 +9,74 @@
 # PLATFORM DETECTION
 # ============================================================================
 
+#############################
+# Detect if running on Termux (Android)
+#
+# Checks environment variables to determine if the script is running
+# in the Termux terminal emulator on Android.
+#
+# Arguments:
+#   None
+# Returns:
+#   0 if running on Termux, 1 otherwise
+# Example:
+#   if is_termux; then
+#       echo "Running on Android"
+#   fi
+#############################
 is_termux() {
     [[ "${PREFIX:-}" == *com.termux* ]] || [[ "${OSTYPE:-}" == "linux-android"* ]]
 }
 
+#############################
+# Detect if running on macOS
+#
+# Checks the system type to determine if running on macOS/Darwin.
+#
+# Arguments:
+#   None
+# Returns:
+#   0 if running on macOS, 1 otherwise
+# Example:
+#   if is_macos; then
+#       echo "Running on macOS"
+#   fi
+#############################
 is_macos() {
     [[ "$(uname -s)" == "Darwin" ]]
 }
 
+#############################
+# Detect if running on standard Linux
+#
+# Checks if running on Linux but not Termux.
+#
+# Arguments:
+#   None
+# Returns:
+#   0 if running on Linux (non-Termux), 1 otherwise
+# Example:
+#   if is_linux; then
+#       echo "Running on Linux"
+#   fi
+#############################
 is_linux() {
     [[ "$(uname -s)" == "Linux" ]] && ! is_termux
 }
 
+#############################
+# Get the current platform name
+#
+# Returns a standardized platform identifier string.
+#
+# Arguments:
+#   None
+# Returns:
+#   Platform string: "termux", "macos", "linux", or "unknown"
+# Example:
+#   platform=$(get_platform)
+#   echo "Detected platform: $platform"
+#############################
 get_platform() {
     if is_termux; then echo "termux"
     elif is_macos; then echo "macos"
@@ -33,10 +89,38 @@ get_platform() {
 # COMMAND AVAILABILITY
 # ============================================================================
 
+#############################
+# Check if a command is available
+#
+# Tests whether a command exists in the system PATH.
+#
+# Arguments:
+#   $1 - command name to check
+# Returns:
+#   0 if command exists, 1 otherwise
+# Example:
+#   if have "git"; then
+#       echo "Git is installed"
+#   fi
+#############################
 have() {
     command -v "$1" >/dev/null 2>&1
 }
 
+#############################
+# Require a command to be available
+#
+# Checks if a command exists and exits with error if not found.
+# Useful for enforcing dependencies at script startup.
+#
+# Arguments:
+#   $1 - command name to require
+#   $2 - optional custom error message
+# Returns:
+#   0 if command exists, exits script with error code 1 if not found
+# Example:
+#   require "jq" "jq is required for JSON parsing"
+#############################
 require() {
     local cmd="$1"
     local msg="${2:-Command '$cmd' is required but not found}"
@@ -46,7 +130,21 @@ require() {
     fi
 }
 
-# Check if running with color support
+#############################
+# Check if terminal supports color output
+#
+# Determines if the current terminal supports ANSI color codes.
+# Checks if stdout is a terminal and TERM is not "dumb".
+#
+# Arguments:
+#   None
+# Returns:
+#   0 if color is supported, 1 otherwise
+# Example:
+#   if supports_color; then
+#       echo -e "\033[1;32mGreen text\033[0m"
+#   fi
+#############################
 supports_color() {
     [[ -t 1 ]] && [[ "${TERM:-}" != "dumb" ]]
 }
