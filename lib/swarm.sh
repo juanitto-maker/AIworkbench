@@ -18,7 +18,7 @@ SWARM_WORKER_MODEL="2.5-flash"
 SWARM_AGGREGATOR_PROVIDER="claude"
 SWARM_AGGREGATOR_MODEL="sonnet-4-5-20250929"
 SWARM_WORKERS=5
-SWARM_MIN_TOKENS=1000  # Minimum tokens to activate swarm (lowered for easy testing)
+SWARM_MIN_TOKENS=100   # Minimum tokens to activate swarm (very low for easy testing)
 SWARM_FORCE=false      # Force swarm mode regardless of token count
 
 # Initialize swarm from config
@@ -30,7 +30,7 @@ swarm_init() {
     SWARM_AGGREGATOR_PROVIDER=$(config_get "swarm.aggregator_provider" "claude")
     SWARM_AGGREGATOR_MODEL=$(config_get "swarm.aggregator_model" "sonnet-4-5-20250929")
     SWARM_WORKERS=$(config_get "swarm.workers" "5")
-    SWARM_MIN_TOKENS=$(config_get "swarm.min_tokens" "1000")
+    SWARM_MIN_TOKENS=$(config_get "swarm.min_tokens" "100")
     SWARM_FORCE=$(config_get "swarm.force" "false")
 
     # Export swarm config so background workers can access it
@@ -247,10 +247,10 @@ menu_swarm_workers() {
 menu_swarm_min_tokens() {
     local choice
     choice=$(ui_choose "Swarm Activation Threshold" \
-        "100 tokens - Always activate (for testing)" \
-        "1000 tokens - Low threshold ⭐ EASY TESTING" \
+        "100 tokens - Very low threshold ⭐ RECOMMENDED FOR TESTING" \
+        "1000 tokens - Low threshold" \
         "5000 tokens - Medium threshold" \
-        "10000 tokens - High threshold (default old)" \
+        "10000 tokens - High threshold (production)" \
         "Force swarm mode (ignore token count)" \
         "Back")
 
@@ -317,6 +317,10 @@ swarm_execute() {
     echo "DEBUG: swarm_execute called with mode=$mode" >&2
     echo "DEBUG: Prompt length: ${#prompt} characters" >&2
 
+    # Calculate tokens for messaging
+    local tokens=$(estimate_tokens "$prompt")
+    echo "DEBUG: Estimated tokens: $tokens" >&2
+
     # Auto-detect strategy if set to auto
     local strategy="$SWARM_STRATEGY"
     echo "DEBUG: Current SWARM_STRATEGY=$SWARM_STRATEGY" >&2
@@ -339,7 +343,8 @@ swarm_execute() {
             swarm_hierarchical "$prompt" "$mode"
             ;;
         none)
-            echo "⚠ Context too small for swarm, using standard mode" >&2
+            echo "⚠ Prompt too small for swarm mode (estimated $tokens tokens < $SWARM_MIN_TOKENS threshold)" >&2
+            echo "💡 Tip: Use '/swarm' menu to enable Force mode or lower the threshold" >&2
             echo "DEBUG: Returning 1 to fall back to standard execution" >&2
             return 1  # Fall back to standard execution
             ;;
