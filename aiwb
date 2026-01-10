@@ -691,10 +691,13 @@ MANAGEMENT:
   /history    Show chat history
   /costs      Show cost breakdown
   /costreset  Reset cost counter to $0.00
-  /swarm      Toggle swarm mode (multi-agent processing)
-              /swarm status   Show swarm configuration
-              /swarm on       Enable swarm mode
-              /swarm off      Disable swarm mode
+  /swarm      Configure swarm mode (multi-agent processing)
+              Interactive menu to:
+              - Toggle swarm on/off
+              - Select strategy (auto/mapreduce/hierarchical)
+              - Configure worker models
+              - Configure aggregator models
+              - Set worker count
 
 CONFIGURATION:
   /keys       Manage API keys
@@ -1983,9 +1986,13 @@ cmd_contextremove() {
 
 # Swarm mode command
 cmd_swarm() {
-    local action="${1:-toggle}"
+    local action="${1:-menu}"
 
     case "$action" in
+        menu|"")
+            # Interactive menu (default)
+            menu_swarm
+            ;;
         status)
             # Show detailed swarm status
             ui_header "Swarm Mode Status"
@@ -2019,13 +2026,13 @@ cmd_swarm() {
                 msg "Swarm mode DISABLED"
             fi
             ;;
-        toggle|"")
+        toggle)
             # Toggle swarm mode
             swarm_toggle
             ;;
         *)
             warn "Unknown swarm action: $action"
-            echo "Usage: /swarm [status|on|off|toggle]"
+            echo "Usage: /swarm [menu|status|on|off|toggle]"
             ;;
     esac
 }
