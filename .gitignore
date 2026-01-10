@@ -38,6 +38,9 @@ snapshots/
 # Test artifacts
 tests/tmp/
 test-output/
+*_test_*.log
+*_test_*.txt
+*_summary_*.txt
 
 # Encrypted keys
 *.age
