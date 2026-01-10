@@ -8,7 +8,23 @@
 # ERROR DISPLAY HELPERS
 # ============================================================================
 
+#############################
 # Display complete API error with all details
+#
+# Shows formatted error information including provider details, error message,
+# full API response (if available), and troubleshooting suggestions.
+#
+# Arguments:
+#   $1 - provider name (gemini|claude|openai|groq|xai|ollama)
+#   $2 - error message string
+#   $3 - optional full API response (for debugging)
+#   $4 - optional model name
+#   $5 - optional HTTP status code
+# Returns:
+#   None (outputs to stderr)
+# Example:
+#   display_api_error "gemini" "Invalid API key" "$response" "gemini-pro" "401"
+#############################
 display_api_error() {
     local provider="$1"
     local error_msg="$2"
@@ -62,7 +78,20 @@ display_api_error() {
     echo "" >&2
 }
 
-# Helper to get API endpoint for provider (for debug info)
+#############################
+# Get API endpoint URL for a given provider
+#
+# Returns the base API endpoint URL for the specified AI provider.
+# Used primarily for debugging and error reporting.
+#
+# Arguments:
+#   $1 - provider name (gemini|claude|openai|groq|xai|ollama)
+# Returns:
+#   API endpoint URL string, or "Unknown" if provider not recognized
+# Example:
+#   endpoint=$(get_api_endpoint_for_provider "claude")
+#   # Returns: https://api.anthropic.com/v1/messages
+#############################
 get_api_endpoint_for_provider() {
     local provider="$1"
     case "$provider" in
@@ -80,7 +109,24 @@ get_api_endpoint_for_provider() {
 # API KEY MANAGEMENT
 # ============================================================================
 
-# Get API key for provider
+#############################
+# Get API key for the specified provider
+#
+# Retrieves the API key from either the .aiwb.env file or environment variables.
+# The .aiwb.env file takes precedence if it exists. Supports multiple AI providers.
+#
+# Arguments:
+#   $1 - provider name (gemini|claude|openai|groq|xai)
+# Returns:
+#   API key string, or empty string if not set
+# Environment:
+#   GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, XAI_API_KEY
+# Example:
+#   key=$(get_api_key "gemini")
+#   if [[ -z "$key" ]]; then
+#       echo "No API key found"
+#   fi
+#############################
 get_api_key() {
     local provider="$1"
     local env_file key
@@ -116,7 +162,23 @@ get_api_key() {
     echo "$key"
 }
 
-# Check if API key is set
+#############################
+# Check if API key is configured for a provider
+#
+# Verifies whether an API key has been set for the specified provider.
+# Returns success (0) if key exists and is non-empty.
+#
+# Arguments:
+#   $1 - provider name (gemini|claude|openai|groq|xai)
+# Returns:
+#   0 if API key is set, 1 if not set or empty
+# Example:
+#   if has_api_key "claude"; then
+#       echo "Claude API key is configured"
+#   else
+#       echo "Please set up Claude API key"
+#   fi
+#############################
 has_api_key() {
     local provider="$1"
     local key
@@ -128,7 +190,21 @@ has_api_key() {
 # IMAGE HANDLING
 # ============================================================================
 
-# Check if file is an image
+#############################
+# Check if a file is an image based on extension
+#
+# Determines whether the given file is an image by checking its extension
+# against a list of supported image formats.
+#
+# Arguments:
+#   $1 - file path or name
+# Returns:
+#   0 if file is an image (jpg, jpeg, png, gif, webp, bmp), 1 otherwise
+# Example:
+#   if is_image_file "photo.jpg"; then
+#       echo "This is an image file"
+#   fi
+#############################
 is_image_file() {
     local file="$1"
     local ext="${file##*.}"
@@ -144,7 +220,20 @@ is_image_file() {
     esac
 }
 
-# Get MIME type for image
+#############################
+# Get MIME type for an image file
+#
+# Returns the appropriate MIME type based on the image file extension.
+# Falls back to "image/jpeg" for unknown extensions.
+#
+# Arguments:
+#   $1 - image file path or name
+# Returns:
+#   MIME type string (e.g., "image/png", "image/jpeg")
+# Example:
+#   mime=$(get_image_mime_type "photo.png")
+#   # Returns: image/png
+#############################
 get_image_mime_type() {
     local file="$1"
     local ext="${file##*.}"

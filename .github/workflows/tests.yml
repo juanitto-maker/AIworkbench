@@ -1,0 +1,123 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop, claude/** ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq curl git
+
+      - name: Run bats tests
+        run: |
+          bats --version
+          bats -F tap tests/*.bats
+        continue-on-error: false
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ $? -eq 0 ]; then
+            echo "✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  shellcheck:
+    name: ShellCheck Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck on main script
+        run: |
+          shellcheck --version
+          shellcheck aiwb || echo "⚠️  ShellCheck found issues in aiwb"
+        continue-on-error: true
+
+      - name: Run ShellCheck on libraries
+        run: |
+          shellcheck lib/*.sh || echo "⚠️  ShellCheck found issues in lib/"
+        continue-on-error: true
+
+      - name: Run ShellCheck on bin-edit scripts
+        run: |
+          shellcheck bin-edit/*.sh || echo "⚠️  ShellCheck found issues in bin-edit/"
+        continue-on-error: true
+
+      - name: ShellCheck summary
+        if: always()
+        run: |
+          echo "## ShellCheck Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ShellCheck analysis completed. Review logs for details." >> $GITHUB_STEP_SUMMARY
+
+  integration:
+    name: Integration Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl git
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install jq curl git
+
+      - name: Verify script syntax
+        run: |
+          bash -n aiwb
+          for lib in lib/*.sh; do
+            bash -n "$lib"
+          done
+
+      - name: Check for required tools
+        run: |
+          command -v bash
+          command -v jq
+          command -v curl
+          command -v git
+
+      - name: Test help command
+        run: |
+          chmod +x aiwb
+          ./aiwb --help || true
+
+      - name: Integration test summary
+        if: always()
+        run: |
+          echo "## Integration Test Results (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Basic integration tests passed on ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY

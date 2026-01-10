@@ -1,0 +1,34 @@
+# ShellCheck Configuration for AIWB
+# =================================
+
+# Disable warning about source not following (SC1090, SC1091)
+# This is expected for dynamically sourced libraries
+disable=SC1090,SC1091
+
+# Disable warning about unused variables (SC2034)
+# Many variables are used across sourced files
+disable=SC2034
+
+# Disable warning about arrays being implicitly declared (SC2206)
+# Intentional usage for command arrays
+disable=SC2206
+
+# Disable warning about arithmetic expressions (SC2004)
+# Using $(( )) is preferred but not always necessary
+# disable=SC2004
+
+# Disable warning about cd without checking return value (SC2164)
+# Some cd commands are intentionally unchecked in controlled contexts
+# disable=SC2164
+
+# Enable all optional checks
+# enable=all
+
+# Set shell directive
+shell=bash
+
+# External sources that should be checked
+# source-path=lib
+
+# Exclude certain patterns or directories
+# exclude=SC2059
