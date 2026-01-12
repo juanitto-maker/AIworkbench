@@ -395,31 +395,12 @@ ui_select_context_files() {
     workspace="$(config_get workspace 2>/dev/null || pwd)"
 
     for file in "${file_paths[@]}"; do
-        # Get file age for display
-        local age_display=""
-        if [[ -f "$file" ]]; then
-            local file_time now_time age_days
-            file_time=$(stat -c%Y "$file" 2>/dev/null || stat -f%m "$file" 2>/dev/null || echo "0")
-            now_time=$(date +%s)
-            age_days=$(( (now_time - file_time) / 86400 ))
-
-            if [[ $age_days -eq 0 ]]; then
-                age_display=" (today)"
-            elif [[ $age_days -eq 1 ]]; then
-                age_display=" (yesterday)"
-            elif [[ $age_days -lt 7 ]]; then
-                age_display=" (${age_days}d ago)"
-            else
-                age_display=" ($(( age_days / 7 ))w ago)"
-            fi
-        fi
-
         # Try to make path relative to workspace for cleaner display
         if [[ "$file" == "$workspace"* ]]; then
             local rel_path="${file#$workspace/}"
-            display_options+=("📄 $rel_path$age_display")
+            display_options+=("📄 $rel_path")
         else
-            display_options+=("📄 $file$age_display")
+            display_options+=("📄 $file")
         fi
         full_paths+=("$file")
     done
