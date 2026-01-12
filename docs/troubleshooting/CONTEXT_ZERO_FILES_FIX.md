@@ -262,7 +262,7 @@ If inside shows numbers but outside shows 0 → **subshell issue!**
 
 1. **Reinstall aiwb with the fix:**
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/claude/debug-aiwb-regression-fOyHd/install-termux.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/install-termux.sh | bash
    ```
 
 2. **Navigate to any directory with files:**
@@ -383,6 +383,9 @@ The pattern `command | while read` is a common pitfall that catches even experie
 ## 🔗 Related Issues
 
 - **TERMUX_SILENT_EXIT_FIX.md** - The `-e` flag issue (first major debugging session)
+- **../CRITICAL_FIXES.md** - Subsequent context persistence fixes (January 10, 2026)
+  - Context files not saving to state after scan
+  - Undefined variable in context load/save functions
 - **GitHub Issue:** [Link if created]
 - **Bash Manual:** [Pipelines](https://www.gnu.org/software/bash/manual/html_node/Pipelines.html)
 - **ShellCheck Wiki:** [SC2031](https://www.shellcheck.net/wiki/SC2031)
@@ -410,7 +413,7 @@ Should show: **"Context built: X files scanned"** where **X > 0**
 
 ---
 
-**Last Updated:** 2025-12-31
+**Last Updated:** 2026-01-12
 **Fix Version:** Commit `4aba1ea`
 **Tested On:** Termux (Android)
 **Status:** ✅ RESOLVED
