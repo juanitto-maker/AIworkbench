@@ -1689,7 +1689,14 @@ Please provide:
             for scanned_file in "${SCANNED_FILES[@]}"; do
                 context_state_add_file "$scanned_file" "scan" 2>/dev/null || true
             done
-            msg "Context saved: ${#SCANNED_FILES[@]} source files + analysis (run /contextload to reload)"
+
+            # Auto-load context into current session (no need for manual /contextload)
+            if type context_state_load_into_mode &>/dev/null; then
+                echo ""
+                context_state_load_into_mode
+            else
+                msg "Context saved: ${#SCANNED_FILES[@]} source files + analysis (run /contextload to reload)"
+            fi
         else
             msg "Context saved for future use (run /contextshow to view)"
         fi
@@ -1800,7 +1807,14 @@ Please summarize:
             for scanned_file in "${SCANNED_FILES[@]}"; do
                 context_state_add_file "$scanned_file" "scan" 2>/dev/null || true
             done
-            msg "Context saved: ${#SCANNED_FILES[@]} source files + analysis (run /contextload to reload)"
+
+            # Auto-load context into current session (no need for manual /contextload)
+            if type context_state_load_into_mode &>/dev/null; then
+                echo ""
+                context_state_load_into_mode
+            else
+                msg "Context saved: ${#SCANNED_FILES[@]} source files + analysis (run /contextload to reload)"
+            fi
         else
             msg "Context saved for future use (run /contextshow to view)"
         fi
