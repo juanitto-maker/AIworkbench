@@ -318,37 +318,72 @@ cmd_chat() {
 
             echo ""
             warn "Found context from previous session ($age_msg)"
+            echo ""
+            echo "This context includes saved files from /scanrepo, /smartscan, or manual adds."
 
-            if ui_confirm "Resume with previous context?" "yes"; then
-                # Get list of available context files
-                local -a available_files
-                mapfile -t available_files < <(context_state_list_files)
+            # Offer three options: resume, clear and start fresh, or skip
+            echo ""
+            echo "What would you like to do?"
+            echo "  1) Resume - Load previous context files"
+            echo "  2) Clear - Delete old context and start fresh"
+            echo "  3) Skip - Start with empty context (keep old context for later)"
+            echo ""
+            echo -n "Choose [1/2/3] (default: 3): "
 
-                if [[ ${#available_files[@]} -gt 0 ]]; then
-                    echo ""
-                    echo "Select which context files to load:"
-                    echo ""
-
-                    # Show file selection UI
-                    local -a selected_files
-                    mapfile -t selected_files < <(ui_select_context_files "${available_files[@]}")
-
-                    # Load selected files
-                    if [[ ${#selected_files[@]} -gt 0 ]]; then
-                        context_state_load_into_mode "${selected_files[@]}"
-                        echo ""
-                        context_state_show
-                    else
-                        echo "No files selected, starting with empty context"
-                    fi
-
-                    # Suggest /context command (dimmed)
-                    echo ""
-                    echo -e "\033[2m💡 Tip: Use /context command to add more files later\033[0m"
-                else
-                    echo "No context files found in previous session"
-                fi
+            local choice
+            if ! safe_read choice; then
+                choice="3"
             fi
+            choice="${choice:-3}"
+
+            case "$choice" in
+                1)
+                    # Get list of available context files
+                    local -a available_files
+                    mapfile -t available_files < <(context_state_list_files)
+
+                    if [[ ${#available_files[@]} -gt 0 ]]; then
+                        echo ""
+                        echo "Select which context files to load:"
+                        echo -e "\033[2mNote: Files show their age to help you decide\033[0m"
+                        echo ""
+
+                        # Show file selection UI
+                        local -a selected_files
+                        mapfile -t selected_files < <(ui_select_context_files "${available_files[@]}")
+
+                        # Load selected files
+                        if [[ ${#selected_files[@]} -gt 0 ]]; then
+                            context_state_load_into_mode "${selected_files[@]}"
+                            echo ""
+                            context_state_show
+                        else
+                            echo "No files selected, starting with empty context"
+                        fi
+
+                        # Suggest /context command (dimmed)
+                        echo ""
+                        echo -e "\033[2m💡 Tip: Use /context command to add more files later\033[0m"
+                    else
+                        echo "No context files found in previous session"
+                    fi
+                    ;;
+                2)
+                    # Clear old context
+                    if type context_state_clear &>/dev/null; then
+                        context_state_clear
+                        success "Old context cleared successfully"
+                        echo ""
+                        echo -e "\033[2m💡 Tip: Use /scanrepo or /smartscan to build new context\033[0m"
+                    fi
+                    ;;
+                3|*)
+                    # Skip - start with empty context but keep old context file
+                    echo "Starting with empty context"
+                    echo ""
+                    echo -e "\033[2m💡 Tip: Use /contextload to load the saved context later, or /contextclear to delete it\033[0m"
+                    ;;
+            esac
             echo ""
         fi
     fi
