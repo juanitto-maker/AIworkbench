@@ -3162,6 +3162,107 @@ cmd_doctor() {
     success "Health check complete"
 }
 
+# Headless (non-interactive) command handler for bot/CI use
+cmd_headless() {
+    local mode="" prompt="" instruct="" model="" provider="" model_name=""
+    local verifier="" check_instruct="" context="" output=""
+
+    # Parse flags
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --mode)       mode="$2";          shift 2 ;;
+            --prompt)     prompt="$2";        shift 2 ;;
+            --instruct)   instruct="$2";      shift 2 ;;
+            --model)      model="$2";         shift 2 ;;
+            --provider)   provider="$2";      shift 2 ;;
+            --model-name) model_name="$2";    shift 2 ;;
+            --verifier)   verifier="$2";      shift 2 ;;
+            --check-instruct) check_instruct="$2"; shift 2 ;;
+            --context)    context="$2";       shift 2 ;;
+            --output)     output="$2";        shift 2 ;;
+            *) err "Unknown headless flag: $1"; return 1 ;;
+        esac
+    done
+
+    # Validate required args
+    if [[ -z "$mode" ]]; then
+        err "headless: --mode is required (make|tweak|debug)"
+        return 1
+    fi
+    if [[ -z "$prompt" && -z "$instruct" ]]; then
+        err "headless: --prompt or --instruct is required"
+        return 1
+    fi
+
+    # Set MODE_* state variables
+    export AIWB_HEADLESS=1
+
+    MODE_CURRENT=""
+    MODE_PROMPT=""
+    MODE_INSTRUCT_FILE=""
+    MODE_MODEL_PROVIDER=""
+    MODE_MODEL_NAME=""
+    MODE_UPLOADS=()
+    MODE_CHECK_PROVIDER=""
+    MODE_CHECK_MODEL=""
+    MODE_CHECK_INSTRUCT=""
+
+    [[ -n "$provider" ]]       && MODE_MODEL_PROVIDER="$provider"
+    [[ -n "$model_name" ]]     && MODE_MODEL_NAME="$model_name"
+    # --model is shorthand for provider/name in "provider:name" form
+    if [[ -n "$model" && "$model" == *:* ]]; then
+        MODE_MODEL_PROVIDER="${model%%:*}"
+        MODE_MODEL_NAME="${model##*:}"
+    elif [[ -n "$model" ]]; then
+        MODE_MODEL_NAME="$model"
+    fi
+
+    if [[ -n "$prompt" ]]; then
+        MODE_PROMPT="$prompt"
+    elif [[ -n "$instruct" ]]; then
+        if [[ ! -f "$instruct" ]]; then
+            err "headless: instruct file not found: $instruct"
+            return 1
+        fi
+        MODE_INSTRUCT_FILE="$instruct"
+    fi
+
+    [[ -n "$check_instruct" ]] && MODE_CHECK_INSTRUCT="$check_instruct"
+    if [[ -n "$verifier" && "$verifier" == *:* ]]; then
+        MODE_CHECK_PROVIDER="${verifier%%:*}"
+        MODE_CHECK_MODEL="${verifier##*:}"
+    fi
+
+    # Add context file/dir to uploads if provided
+    if [[ -n "$context" ]]; then
+        if [[ -e "$context" ]]; then
+            mode_add_file "$context"
+        else
+            err "headless: context path not found: $context"
+            return 1
+        fi
+    fi
+
+    # Run
+    init_mode "$mode"
+    mode_run
+
+    # Copy output to --output path if requested
+    if [[ -n "$output" ]]; then
+        local workspace output_dir latest
+        workspace="$(get_workspace)"
+        output_dir="$workspace/outputs"
+        latest=$(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r | head -1)
+        if [[ -n "$latest" ]]; then
+            cp "$latest" "$output"
+            msg "Output copied to: $output"
+        else
+            err "headless: no output file found to copy"
+            return 1
+        fi
+    fi
+}
+
 # GitHub command handler
 cmd_github() {
     local subcmd="${1:-}"
@@ -3437,6 +3538,9 @@ main() {
             ;;
         make|m)
             cmd_make "$@"
+            ;;
+        headless)
+            cmd_headless "$@"
             ;;
         improve|imp)
             cmd_improve "$@"
