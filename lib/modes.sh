@@ -1149,9 +1149,12 @@ mode_run() {
     echo "Total estimated cost: \$${total_cost}"
     echo ""
 
-    if ! ui_confirm "Proceed with execution?" "yes"; then
-        msg "Cancelled"
-        return 0
+    # In headless mode skip the interactive confirmation
+    if [[ "${AIWB_HEADLESS:-0}" != "1" ]]; then
+        if ! ui_confirm "Proceed with execution?" "yes"; then
+            msg "Cancelled"
+            return 0
+        fi
     fi
 
     # Execute generation
@@ -1340,6 +1343,11 @@ Provide specific, actionable feedback."
 
     success "Done!"
     echo ""
+
+    # In headless mode skip the interactive "what's next?" menu entirely
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        return 0
+    fi
 
     # What's next menu
     while true; do
