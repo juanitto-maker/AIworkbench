@@ -26,7 +26,7 @@ DEST_BIN_FALLBACK="${HOME}/bin"
 # Note: awk is provided by 'gawk' in Termux, handled separately
 # python3 is needed for JSON escaping in runner scripts
 NEEDED_CMDS=(bash jq curl git fzf sed tar python3)
-OPT_CMDS=(gum age)
+OPT_CMDS=(age)
 
 # Pin a known-good gum if we must fetch manually (used as last resort)
 GUM_VERSION="${AIWB_GUM_VERSION:-0.13.0}"
@@ -189,14 +189,16 @@ if ! have python3 && ! have python; then
   fi
 fi
 
+# Required: gum (TUI — must be installed for AIWB to function)
+msg "Installing gum (required for TUI)…"
+if ! have gum; then
+  fetch_gum_to "$PM" "$DEST_BIN" || { err "gum installation failed. Please install gum manually: https://github.com/charmbracelet/gum"; exit 1; }
+fi
+msg "gum OK ($(command -v gum))"
+
 # Optional deps (age for encrypted key vault)
 msg "Ensuring optional dependencies: ${OPT_CMDS[*]}"
 install_pkgs "$PM" "${OPT_CMDS[@]}" || true
-
-# Special handling for gum (some distros lack it)
-if ! have gum; then
-  fetch_gum_to "$PM" "$DEST_BIN" || warn "gum not installed; TUI will be simplified until you install gum."
-fi
 
 # Create workspace
 msg "Preparing AIWB workspace at ${AIWB_HOME}"
@@ -295,4 +297,3 @@ echo " Workspace:  ${WORKSPACE_DIR}"
 echo " Binaries:   ${DEST_BIN} (ensure your shell has it in PATH)"
 echo
 echo "Try:   aiwb"
-echo "If gum wasn't available, install it later for the full TUI experience."
