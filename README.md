@@ -67,6 +67,31 @@ curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/ins
 aiwb
 ```
 
+### Purge (Complete Removal)
+```bash
+# Linux/macOS: remove all AIWB files, binaries, and workspace data
+rm -f ~/.local/bin/aiwb ~/.local/bin/aiwb_headless
+rm -rf ~/.local/bin/lib/
+rm -rf ~/.aiwb/
+sed -i '/# AIworkbench installer/d' ~/.bashrc 2>/dev/null || true
+sed -i '/export PATH=.*\.local\/bin/d' ~/.bashrc 2>/dev/null || true
+source ~/.bashrc
+
+# Or use the uninstall script (interactive — will prompt for confirmation)
+curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/uninstall.sh | bash
+```
+
+### Purged Reinstall (Clean Slate)
+```bash
+# Linux/macOS: purge then reinstall in one sequence
+rm -f ~/.local/bin/aiwb ~/.local/bin/aiwb_headless && \
+rm -rf ~/.local/bin/lib/ ~/.aiwb/ && \
+curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/install.sh | bash
+
+# Termux: the Termux installer includes a full nuclear cleanup automatically
+curl -fsSL https://raw.githubusercontent.com/juanitto-maker/AIworkbench/main/install-termux.sh | bash
+```
+
 ### 2\. Add to PATH
 Ensure `~/.local/bin` is on your PATH:
 ```bash
