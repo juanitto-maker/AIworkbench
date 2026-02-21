@@ -321,6 +321,18 @@ ui_header() {
     fi
 }
 
+# Display AIWB ASCII art logo
+ui_logo() {
+    local version="v2.0.0"
+    echo ""
+    printf "${BOLD}${CYAN}  _      _    __      __   ___ ${RESET}\n"
+    printf "${BOLD}${CYAN} /_\\    | |   \\ \\    / /  | _ )${RESET}\n"
+    printf "${BOLD}${CYAN}/ _ \\   | |    \\ \\/\\/ /   | _ \\${RESET}\n"
+    printf "${BOLD}${CYAN}/_/ \\_\\ |_|     \\_/\\_/    |___/ ${RESET}\n"
+    printf "${DIM}  AI Workbench ${version}  ·  Generator → Verifier Loop${RESET}\n"
+    echo ""
+}
+
 # Display info box
 ui_info_box() {
     local text="$1"

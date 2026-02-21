@@ -284,7 +284,7 @@ EOF
 # Main interactive chat interface
 cmd_chat() {
     clear 2>/dev/null || true  # Don't fail if TERM not set
-    ui_header "AIWB Interactive Chat"
+    ui_logo
 
     # Show status
     ui_show_status
@@ -620,7 +620,7 @@ handle_slash_command() {
             ;;
         /clear)
             clear 2>/dev/null || true
-            ui_header "AIWB Interactive Chat"
+            ui_logo
             ;;
         /exit|/quit)
             # Require explicit confirmation to exit
