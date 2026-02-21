@@ -306,19 +306,28 @@ ui_clear_line() {
 # Display styled header
 ui_header() {
     local text="$1"
-    local width="${2:-60}"
+    local max_width="${2:-58}"
 
+    # Adapt to terminal width; cap so desktop doesn't get 200-char rulers
+    local tw
+    tw=$(tput cols 2>/dev/null)
+    tw=${tw:-40}
+    local width=$(( tw - 1 < max_width ? tw - 1 : max_width ))
+    (( width < 12 )) && width=12
+
+    # Build: ── Title ──────────────
+    local fill=$(( width - ${#text} - 4 ))
+    (( fill < 1 )) && fill=1
+    local rule
+    rule="$(printf '─%.0s' $(seq 1 "$fill"))"
+
+    echo ""
     if $GUM_AVAILABLE; then
-        gum style --border double --width "$width" --padding "1 2" --bold "$text"
+        gum style --bold --foreground 6 "── ${text} ${rule}"
     else
-        local line
-        line="$(printf '═%.0s' $(seq 1 $width))"
-        echo ""
-        echo "${BOLD}${CYAN}╔${line}╗${RESET}"
-        printf "${BOLD}${CYAN}║${RESET} ${BOLD}%-$((width))s${RESET} ${BOLD}${CYAN}║${RESET}\n" "$text"
-        echo "${BOLD}${CYAN}╚${line}╝${RESET}"
-        echo ""
+        printf "${BOLD}${CYAN}── ${text} ${rule}${RESET}\n"
     fi
+    echo ""
 }
 
 # Display AIWB ASCII art logo
