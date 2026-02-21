@@ -83,6 +83,13 @@ for path in "$LIB_DIR" "$AIWB_LIB_DIR" "$HOME/.local/bin/lib"; do
 done
 unset seen_paths abs_path
 
+# Safety: clear AIWB_HEADLESS unless this invocation is actually 'aiwb headless'.
+# Prevents a leaked AIWB_HEADLESS=1 in the caller's environment from silently
+# disabling the TUI for interactive sessions.
+if [[ "${1:-}" != "headless" ]]; then
+    unset AIWB_HEADLESS
+fi
+
 
 
 # ============================================================================

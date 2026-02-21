@@ -238,6 +238,13 @@ if [[ -f "${AIWB_REPO_DIR}/aiwb" ]]; then
   cp -f "${AIWB_REPO_DIR}/aiwb" "${DEST_BIN}/aiwb"
   chmod +x "${DEST_BIN}/aiwb"
 
+  # Install aiwb_headless convenience wrapper
+  if [[ -f "${AIWB_REPO_DIR}/aiwb_headless" ]]; then
+    msg "Installing aiwb_headless wrapper → ${DEST_BIN}/aiwb_headless"
+    cp -f "${AIWB_REPO_DIR}/aiwb_headless" "${DEST_BIN}/aiwb_headless"
+    chmod +x "${DEST_BIN}/aiwb_headless"
+  fi
+
   # Copy lib directory (required for aiwb to work)
   if [[ -d "${AIWB_REPO_DIR}/lib" ]]; then
     msg "Installing libraries → ${DEST_BIN}/lib/"

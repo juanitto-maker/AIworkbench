@@ -23,6 +23,12 @@ ui_input() {
     local default="${2:-}"
     local placeholder="${3:-$prompt}"
 
+    # In headless/bot mode, return default immediately without prompting
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        echo "${default:-}"
+        return 0
+    fi
+
     # Only use gum if stdin is a terminal (not piped)
     if [[ -t 0 ]] && [[ "${AIWB_TEST_MODE:-0}" != "1" ]] && $GUM_AVAILABLE; then
         gum input --placeholder "$placeholder" ${default:+--value "$default"}
@@ -46,6 +52,11 @@ ui_input() {
 ui_password() {
     local prompt="$1"
 
+    # In headless/bot mode, passwords must come from the environment or files
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        return 1
+    fi
+
     if $GUM_AVAILABLE; then
         gum input --password --placeholder "$prompt"
     else
@@ -65,6 +76,12 @@ ui_write() {
     local prompt="${1:-Enter text (Ctrl+D when done):}"
     local height="${2:-10}"
 
+    # In headless/bot mode, read from stdin without a prompt
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        cat
+        return 0
+    fi
+
     if $GUM_AVAILABLE; then
         gum write --placeholder "$prompt" --height "$height"
     else
@@ -82,6 +99,12 @@ ui_choose() {
     local header="${1:-Choose:}"
     shift
     local options=("$@")
+
+    # In headless/bot mode, return the first option without prompting
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        [[ ${#options[@]} -gt 0 ]] && echo "${options[0]}"
+        return 0
+    fi
 
     if $GUM_AVAILABLE; then
         printf '%s\n' "${options[@]}" | gum choose --header "$header" --height "$AIWB_UI_MENU_HEIGHT"
@@ -108,6 +131,11 @@ ui_choose_multi() {
     local header="${1:-Choose (space to select, enter to confirm):}"
     shift
     local options=("$@")
+
+    # In headless/bot mode, return no selections (caller should use defaults)
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        return 0
+    fi
 
     if $GUM_AVAILABLE; then
         printf '%s\n' "${options[@]}" | gum choose --no-limit --header "$header"
@@ -139,6 +167,12 @@ ui_filter() {
     shift
     local options=("$@")
 
+    # In headless/bot mode, return the first option without prompting
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        [[ ${#options[@]} -gt 0 ]] && echo "${options[0]}"
+        return 0
+    fi
+
     if $GUM_AVAILABLE; then
         printf '%s\n' "${options[@]}" | gum filter --placeholder "$placeholder" --height "$AIWB_UI_MENU_HEIGHT"
     else
@@ -166,6 +200,11 @@ ui_confirm() {
     local prompt="${1:-Are you sure?}"
     local default="${2:-no}"  # yes or no
 
+    # In headless/bot mode, auto-answer with the default
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        [[ "$default" == "yes" ]] && return 0 || return 1
+    fi
+
     if $GUM_AVAILABLE; then
         if [[ "$default" == "yes" ]]; then
             gum confirm --default=true "$prompt"
@@ -181,17 +220,17 @@ ui_confirm() {
 ui_pause() {
     local prompt="${1:-Press enter to continue...}"
 
-    if [[ -t 0 ]] && [[ "${AIWB_TEST_MODE:-0}" != "1" ]]; then
-        if $GUM_AVAILABLE; then
-            # Use gum input with no value needed, just press enter
-            echo "$prompt"
-            read -r </dev/tty
-        else
-            read -rp "$prompt " </dev/tty
-        fi
-    else
-        # In non-interactive mode, just return
+    # In headless/bot mode or non-interactive mode, skip the pause
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]] || [[ ! -t 0 ]] || [[ "${AIWB_TEST_MODE:-0}" == "1" ]]; then
         return 0
+    fi
+
+    if $GUM_AVAILABLE; then
+        # Use gum input with no value needed, just press enter
+        echo "$prompt"
+        read -r </dev/tty
+    else
+        read -rp "$prompt " </dev/tty
     fi
 }
 
@@ -386,6 +425,12 @@ ui_select_context_files() {
     if [[ ${#file_paths[@]} -eq 0 ]]; then
         echo "No context files available" >&2
         return 1
+    fi
+
+    # In headless/bot mode, auto-select all context files
+    if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+        printf '%s\n' "${file_paths[@]}"
+        return 0
     fi
 
     # Format file paths for display (show relative paths if possible)
