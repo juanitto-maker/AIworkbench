@@ -16,13 +16,15 @@ echo ""
 
 # Step 2: Backup config and keys
 echo "2️⃣  Backing up config and keys..."
+AIWB_TMP="${TMPDIR:-/tmp}"
+mkdir -p "$AIWB_TMP" 2>/dev/null || true
 if [ -f ~/.aiwb/config.json ]; then
-    cp ~/.aiwb/config.json /tmp/aiwb-config-backup.json
-    echo "   ✓ Backed up config to /tmp/aiwb-config-backup.json"
+    cp ~/.aiwb/config.json "$AIWB_TMP/aiwb-config-backup.json"
+    echo "   ✓ Backed up config to $AIWB_TMP/aiwb-config-backup.json"
 fi
 if [ -f ~/.aiwb/keys.env ]; then
-    cp ~/.aiwb/keys.env /tmp/aiwb-keys-backup.env
-    echo "   ✓ Backed up keys to /tmp/aiwb-keys-backup.env"
+    cp ~/.aiwb/keys.env "$AIWB_TMP/aiwb-keys-backup.env"
+    echo "   ✓ Backed up keys to $AIWB_TMP/aiwb-keys-backup.env"
 fi
 echo "   ✓ Backup complete"
 echo ""
@@ -58,12 +60,12 @@ echo ""
 
 # Step 7: Restore backups if they exist
 echo "7️⃣  Restoring config and keys..."
-if [ -f /tmp/aiwb-config-backup.json ]; then
-    cp /tmp/aiwb-config-backup.json ~/.aiwb/config.json
+if [ -f "$AIWB_TMP/aiwb-config-backup.json" ]; then
+    cp "$AIWB_TMP/aiwb-config-backup.json" ~/.aiwb/config.json
     echo "   ✓ Restored config from backup"
 fi
-if [ -f /tmp/aiwb-keys-backup.env ]; then
-    cp /tmp/aiwb-keys-backup.env ~/.aiwb/keys.env
+if [ -f "$AIWB_TMP/aiwb-keys-backup.env" ]; then
+    cp "$AIWB_TMP/aiwb-keys-backup.env" ~/.aiwb/keys.env
     echo "   ✓ Restored keys from backup"
 fi
 echo ""

@@ -21,17 +21,18 @@ AIWB_REPO_ENABLED=false
 # Detect if we're in a git repository OR any directory
 detect_repo() {
     # Default to current directory - ANY folder can be contextualized
+    # Use safe_cwd to handle missing CWD on Termux
     AIWB_REPO_ENABLED=true
-    AIWB_REPO_PATH="$(pwd)"
-    AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH")"
+    AIWB_REPO_PATH="$(safe_cwd)"
+    AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || echo "workspace")"
     AIWB_REPO_BRANCH="local"
     AIWB_REPO_REMOTE=""
 
     # Check if git is available and if we're in a git repo
     if have git && git rev-parse --git-dir >/dev/null 2>&1; then
         # Override with git info if available
-        AIWB_REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-        AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || basename "$(pwd)")"
+        AIWB_REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null || safe_cwd)"
+        AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || echo "workspace")"
         AIWB_REPO_BRANCH="$(git branch --show-current 2>/dev/null || echo "local")"
         AIWB_REPO_REMOTE="$(git remote get-url origin 2>/dev/null || echo "")"
     fi
@@ -85,7 +86,7 @@ read_file() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     if [[ ! -f "$full_path" ]]; then
@@ -108,7 +109,7 @@ write_file() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     # Create directory if needed
@@ -131,7 +132,7 @@ list_files() {
     if is_repo_mode; then
         base_path="$AIWB_REPO_PATH/$path"
     else
-        base_path="$(pwd)/$path"
+        base_path="$(safe_cwd)/$path"
     fi
 
     find "$base_path" -name "$pattern" -type f 2>/dev/null | head -50
@@ -145,7 +146,7 @@ find_files() {
     if is_repo_mode; then
         base_path="$AIWB_REPO_PATH"
     else
-        base_path="$(pwd)"
+        base_path="$(safe_cwd)"
     fi
 
     # Use git ls-files if in repo (respects .gitignore)
@@ -171,12 +172,12 @@ show_diff() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     # Create temp file with new content
     local tmp_new
-    tmp_new=$(mktemp)
+    tmp_new=$(aiwb_mktemp)
     echo "$new_content" > "$tmp_new"
 
     echo ""
@@ -345,7 +346,7 @@ create_file_with_ai() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     if [[ -f "$full_path" ]]; then
@@ -543,7 +544,7 @@ EOF
         if is_repo_mode; then
             full_path="$AIWB_REPO_PATH/$first_word"
         else
-            full_path="$(pwd)/$first_word"
+            full_path="$(safe_cwd)/$first_word"
         fi
 
         if [[ -f "$full_path" ]]; then

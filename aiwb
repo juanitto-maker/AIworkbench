@@ -7,6 +7,15 @@
 set -o pipefail
 
 # ============================================================================
+# CWD SAFETY (Termux/Android)
+# ============================================================================
+# When spawned from a bot or after an Android app switch the original CWD may
+# no longer exist, causing pwd/getcwd to fail.  Fix it early.
+if ! pwd >/dev/null 2>&1; then
+    cd "${HOME}" 2>/dev/null || cd / 2>/dev/null || true
+fi
+
+# ============================================================================
 # INTERRUPT HANDLING
 # ============================================================================
 
@@ -33,8 +42,8 @@ cleanup_on_interrupt() {
     # Also try pkill as backup for any orphaned curl processes
     pkill -P $$ curl 2>/dev/null || true
 
-    # Clean up temp files
-    rm -f /tmp/aiwb_curl_* 2>/dev/null || true
+    # Clean up temp files (respect $TMPDIR for Termux)
+    rm -f "${TMPDIR:-/tmp}"/aiwb_curl_* 2>/dev/null || true
 
     echo "Goodbye!"
     exit 130  # Standard exit code for SIGINT
@@ -3169,10 +3178,31 @@ cmd_doctor() {
     success "Health check complete"
 }
 
+# Helper: copy the latest output file to the --output destination.
+# Called both on success and on failure/timeout so partial output is preserved.
+_headless_copy_output() {
+    local output="$1"
+    [[ -z "$output" ]] && return 0
+
+    local workspace output_dir latest
+    workspace="$(get_workspace)"
+    output_dir="$workspace/outputs"
+    latest=$(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r | head -1)
+    if [[ -n "$latest" ]]; then
+        cp "$latest" "$output"
+        msg "Output copied to: $output"
+        return 0
+    else
+        err "headless: no output file found to copy"
+        return 1
+    fi
+}
+
 # Headless (non-interactive) command handler for bot/CI use
 cmd_headless() {
     local mode="" prompt="" instruct="" model="" provider="" model_name=""
     local verifier="" check_instruct="" context="" output=""
+    local timeout_secs="${AIWB_HEADLESS_TIMEOUT}"
 
     # Parse flags
     while [[ $# -gt 0 ]]; do
@@ -3187,6 +3217,7 @@ cmd_headless() {
             --check-instruct) check_instruct="$2"; shift 2 ;;
             --context)    context="$2";       shift 2 ;;
             --output)     output="$2";        shift 2 ;;
+            --timeout)    timeout_secs="$2";  shift 2 ;;
             *) err "Unknown headless flag: $1"; return 1 ;;
         esac
     done
@@ -3250,24 +3281,47 @@ cmd_headless() {
         fi
     fi
 
+    # --- Start watchdog timer for headless timeout ---
+    local _watchdog_pid=""
+    if [[ -n "$timeout_secs" ]] && [[ "$timeout_secs" -gt 0 ]] 2>/dev/null; then
+        debug "headless: pipeline timeout set to ${timeout_secs}s"
+        (
+            sleep "$timeout_secs" 2>/dev/null
+            # Time's up — try to save whatever output exists, then signal parent
+            warn "headless: pipeline timed out after ${timeout_secs}s"
+            kill -USR1 $$ 2>/dev/null || true
+        ) &
+        _watchdog_pid=$!
+        # Trap USR1: on timeout, copy partial output then exit
+        trap '
+            warn "headless: timed out — saving partial output"
+            _headless_copy_output "'"$output"'" 2>/dev/null || true
+            kill '"$_watchdog_pid"' 2>/dev/null || true
+            exit 124
+        ' USR1
+    fi
+
     # Run
     init_mode "$mode"
-    mode_run
+    local run_exit=0
+    mode_run || run_exit=$?
 
-    # Copy output to --output path if requested
+    # Cancel watchdog if still running
+    if [[ -n "$_watchdog_pid" ]]; then
+        kill "$_watchdog_pid" 2>/dev/null || true
+        wait "$_watchdog_pid" 2>/dev/null || true
+    fi
+
+    # Copy output to --output path if requested.
+    # Always attempt this — even if mode_run failed (e.g. verifier timed out),
+    # the generator output may already be saved. Partial success > no output.
     if [[ -n "$output" ]]; then
-        local workspace output_dir latest
-        workspace="$(get_workspace)"
-        output_dir="$workspace/outputs"
-        latest=$(find "$output_dir" -name "*.md" ! -name "*.feedback.md" -type f 2>/dev/null | sort -r | head -1)
-        if [[ -n "$latest" ]]; then
-            cp "$latest" "$output"
-            msg "Output copied to: $output"
-        else
-            err "headless: no output file found to copy"
-            return 1
+        if ! _headless_copy_output "$output"; then
+            [[ $run_exit -eq 0 ]] && run_exit=1
         fi
     fi
+
+    return $run_exit
 }
 
 # GitHub command handler

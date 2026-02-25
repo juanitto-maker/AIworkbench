@@ -300,7 +300,7 @@ call_gemini() {
 
     # Handle large prompts by using a temp file instead of command-line args
     local request_body
-    local prompt_file=$(mktemp)
+    local prompt_file=$(aiwb_mktemp)
     echo -n "$prompt" > "$prompt_file"
 
     request_body=$(jq -n \
@@ -318,9 +318,9 @@ call_gemini() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"
@@ -489,9 +489,9 @@ call_gemini_vision() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"
@@ -613,7 +613,7 @@ call_claude() {
     local url="https://api.anthropic.com/v1/messages"
 
     # Handle large prompts by using a temp file
-    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    local prompt_file=$(aiwb_mktemp -t aiwb_prompt_XXXXXX)
     echo -n "$prompt" > "$prompt_file"
 
     local request_body
@@ -632,9 +632,9 @@ call_claude() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"
@@ -770,9 +770,9 @@ call_claude_vision() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"
@@ -868,7 +868,7 @@ call_openai() {
     local url="https://api.openai.com/v1/chat/completions"
 
     # Handle large prompts by using a temp file
-    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    local prompt_file=$(aiwb_mktemp -t aiwb_prompt_XXXXXX)
     echo -n "$prompt" > "$prompt_file"
 
     local request_body
@@ -887,9 +887,9 @@ call_openai() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"
@@ -1011,7 +1011,7 @@ call_groq() {
     local url="https://api.groq.com/openai/v1/chat/completions"
 
     # Handle large prompts by using a temp file
-    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    local prompt_file=$(aiwb_mktemp -t aiwb_prompt_XXXXXX)
     echo -n "$prompt" > "$prompt_file"
 
     local request_body
@@ -1030,9 +1030,9 @@ call_groq() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"
@@ -1147,7 +1147,7 @@ call_xai() {
     local url="https://api.x.ai/v1/chat/completions"
 
     # Handle large prompts by using a temp file
-    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    local prompt_file=$(aiwb_mktemp -t aiwb_prompt_XXXXXX)
     echo -n "$prompt" > "$prompt_file"
 
     local request_body
@@ -1166,9 +1166,9 @@ call_xai() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"
@@ -1283,7 +1283,7 @@ call_ollama() {
     local url="$endpoint/api/generate"
 
     # Handle large prompts by using a temp file
-    local prompt_file=$(mktemp -t aiwb_prompt_XXXXXX)
+    local prompt_file=$(aiwb_mktemp -t aiwb_prompt_XXXXXX)
     echo -n "$prompt" > "$prompt_file"
 
     local request_body
@@ -1299,9 +1299,9 @@ call_ollama() {
 
     local response
     local curl_error curl_output request_file
-    curl_error=$(mktemp -t aiwb_curl_err_XXXXXX)
-    curl_output=$(mktemp -t aiwb_curl_out_XXXXXX)
-    request_file=$(mktemp -t aiwb_curl_req_XXXXXX)
+    curl_error=$(aiwb_mktemp -t aiwb_curl_err_XXXXXX)
+    curl_output=$(aiwb_mktemp -t aiwb_curl_out_XXXXXX)
+    request_file=$(aiwb_mktemp -t aiwb_curl_req_XXXXXX)
 
     # Write request body to file to avoid ARG_MAX limits
     echo "$request_body" > "$request_file"

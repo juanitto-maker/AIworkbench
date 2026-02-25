@@ -303,8 +303,9 @@ rotate_keys() {
         return 1
     fi
 
-    # Decrypt to temp file
-    local temp_env="/tmp/aiwb_rotate_$$"
+    # Decrypt to temp file (use TMPDIR for Termux compatibility)
+    local temp_env
+    temp_env="$(aiwb_mktemp -t aiwb_rotate_XXXXXX)"
     age -d "$keys_file" <<< "$old_passphrase" > "$temp_env" 2>/dev/null
 
     if [[ $? -ne 0 ]]; then
@@ -543,7 +544,8 @@ audit_git_exposure() {
     )
 
     local found=false
-    local temp_results="/tmp/aiwb_git_audit_$$"
+    local temp_results
+    temp_results="$(aiwb_mktemp -t aiwb_git_audit_XXXXXX)"
 
     for pattern in "${key_patterns[@]}"; do
         # Search git history for the pattern

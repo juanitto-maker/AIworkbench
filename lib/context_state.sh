@@ -74,7 +74,7 @@ context_state_touch() {
 
     if command -v jq &>/dev/null; then
         local tmp_file
-        tmp_file=$(mktemp)
+        tmp_file=$(aiwb_mktemp)
         jq --arg ts "$(date -Iseconds)" '.updated_at = $ts' "$context_state_file" > "$tmp_file"
         mv "$tmp_file" "$context_state_file"
         chmod 600 "$context_state_file"
@@ -117,7 +117,7 @@ context_state_add_file() {
 
     if command -v jq &>/dev/null; then
         local tmp_file
-        tmp_file=$(mktemp)
+        tmp_file=$(aiwb_mktemp)
         jq --arg path "$file_path" \
            --arg type "$context_type" \
            --arg ts "$(date -Iseconds)" \
@@ -148,7 +148,7 @@ context_state_remove_file() {
 
     if command -v jq &>/dev/null; then
         local tmp_file
-        tmp_file=$(mktemp)
+        tmp_file=$(aiwb_mktemp)
         jq --arg path "$file_path" \
            --arg ts "$(date -Iseconds)" \
            '.context_files = [.context_files[] | select(.path != $path)] | .updated_at = $ts' \
@@ -194,7 +194,7 @@ context_state_save_scan() {
 
     if command -v jq &>/dev/null; then
         local tmp_file
-        tmp_file=$(mktemp)
+        tmp_file=$(aiwb_mktemp)
         jq --arg type "$scan_type" \
            --arg file "$output_file" \
            --arg count "$file_count" \
@@ -227,7 +227,7 @@ context_state_add_message() {
 
     if command -v jq &>/dev/null; then
         local tmp_file
-        tmp_file=$(mktemp)
+        tmp_file=$(aiwb_mktemp)
 
         # Escape content for JSON
         local escaped_content
@@ -440,7 +440,7 @@ context_state_save_from_mode() {
     # Clear existing context files
     if command -v jq &>/dev/null; then
         local tmp_file
-        tmp_file=$(mktemp)
+        tmp_file=$(aiwb_mktemp)
         jq '.context_files = []' "$context_state_file" > "$tmp_file"
         mv "$tmp_file" "$context_state_file"
         chmod 600 "$context_state_file"

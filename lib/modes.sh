@@ -605,7 +605,7 @@ menu_uploads() {
         case "$choice" in
             "Current repo/folder")
                 # Add current directory to uploads
-                local current_dir="$(pwd)"
+                local current_dir="$(safe_cwd)"
                 MODE_UPLOADS+=("$current_dir")
                 success "Added current directory: $current_dir"
                 ;;
@@ -1306,10 +1306,16 @@ Provide specific, actionable feedback."
         # Clear blinking cursor
         ui_clear_line
 
-        # Check if interrupted
+        # Check if interrupted or failed
         if [[ $verify_exit -eq $AIWB_EXIT_SIGINT ]]; then
             echo ""
-            return 130
+            # In headless mode, verifier failure is non-fatal — generator output
+            # is already saved, so the caller can still retrieve it.
+            if [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+                warn "Verification interrupted — generator output preserved"
+            else
+                return 130
+            fi
         fi
 
         if [[ $verify_exit -eq 0 ]]; then
@@ -1329,6 +1335,8 @@ Provide specific, actionable feedback."
             local check_output=$(estimate_tokens "$feedback")
             actual_check_cost=$(calculate_cost "$check_provider" "$check_model" "$check_input" "$check_output")
             track_usage "$check_provider" "$check_model" "$check_prompt" "$feedback"
+        elif [[ "${AIWB_HEADLESS:-0}" == "1" ]]; then
+            warn "Verification failed (exit $verify_exit) — generator output preserved"
         fi
     fi
 
