@@ -21,17 +21,18 @@ AIWB_REPO_ENABLED=false
 # Detect if we're in a git repository OR any directory
 detect_repo() {
     # Default to current directory - ANY folder can be contextualized
+    # Use safe_cwd to handle missing CWD on Termux
     AIWB_REPO_ENABLED=true
-    AIWB_REPO_PATH="$(pwd)"
-    AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH")"
+    AIWB_REPO_PATH="$(safe_cwd)"
+    AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || echo "workspace")"
     AIWB_REPO_BRANCH="local"
     AIWB_REPO_REMOTE=""
 
     # Check if git is available and if we're in a git repo
     if have git && git rev-parse --git-dir >/dev/null 2>&1; then
         # Override with git info if available
-        AIWB_REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-        AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || basename "$(pwd)")"
+        AIWB_REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null || safe_cwd)"
+        AIWB_REPO_NAME="$(basename "$AIWB_REPO_PATH" 2>/dev/null || echo "workspace")"
         AIWB_REPO_BRANCH="$(git branch --show-current 2>/dev/null || echo "local")"
         AIWB_REPO_REMOTE="$(git remote get-url origin 2>/dev/null || echo "")"
     fi
@@ -176,7 +177,7 @@ show_diff() {
 
     # Create temp file with new content
     local tmp_new
-    tmp_new=$(mktemp)
+    tmp_new=$(aiwb_mktemp)
     echo "$new_content" > "$tmp_new"
 
     echo ""

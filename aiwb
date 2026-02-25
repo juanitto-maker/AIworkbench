@@ -7,6 +7,15 @@
 set -o pipefail
 
 # ============================================================================
+# CWD SAFETY (Termux/Android)
+# ============================================================================
+# When spawned from a bot or after an Android app switch the original CWD may
+# no longer exist, causing pwd/getcwd to fail.  Fix it early.
+if ! pwd >/dev/null 2>&1; then
+    cd "${HOME}" 2>/dev/null || cd / 2>/dev/null || true
+fi
+
+# ============================================================================
 # INTERRUPT HANDLING
 # ============================================================================
 
@@ -33,8 +42,8 @@ cleanup_on_interrupt() {
     # Also try pkill as backup for any orphaned curl processes
     pkill -P $$ curl 2>/dev/null || true
 
-    # Clean up temp files
-    rm -f /tmp/aiwb_curl_* 2>/dev/null || true
+    # Clean up temp files (respect $TMPDIR for Termux)
+    rm -f "${TMPDIR:-/tmp}"/aiwb_curl_* 2>/dev/null || true
 
     echo "Goodbye!"
     exit 130  # Standard exit code for SIGINT

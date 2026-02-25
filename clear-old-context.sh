@@ -18,8 +18,8 @@ if [[ -f "$HISTORY_FILE" ]]; then
     rm -f "$HISTORY_FILE"
 fi
 
-# Also clear any temp context files
-find /tmp -name "aiwb_git_audit_*" -delete 2>/dev/null
+# Also clear any temp context files (respect $TMPDIR for Termux)
+find "${TMPDIR:-/tmp}" -name "aiwb_git_audit_*" -delete 2>/dev/null
 
 echo "✅ Old context cleared!"
 echo ""

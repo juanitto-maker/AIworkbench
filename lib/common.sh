@@ -271,6 +271,32 @@ spinner() {
 }
 
 # ============================================================================
+# TEMP FILE UTILITIES (Termux-safe: respects $TMPDIR)
+# ============================================================================
+
+# Termux-safe mktemp wrapper.  On Termux /tmp is read-only, so callers
+# must honour $TMPDIR (which Clide sets to $HOME/.clide/tmp).
+# Usage mirrors mktemp:
+#   aiwb_mktemp            -> creates a temp file
+#   aiwb_mktemp -d         -> creates a temp directory
+#   aiwb_mktemp -t NAME    -> creates a temp file with template NAME.XXXXXX
+aiwb_mktemp() {
+    # Ensure TMPDIR directory exists (Clide may set it before the dir is created)
+    if [[ -n "${TMPDIR:-}" ]] && [[ ! -d "$TMPDIR" ]]; then
+        mkdir -p "$TMPDIR" 2>/dev/null || true
+    fi
+    # mktemp honours TMPDIR automatically on all platforms
+    mktemp "$@"
+}
+
+# Get the platform-appropriate temp directory path
+get_tmp_dir() {
+    local tmp="${TMPDIR:-/tmp}"
+    [[ ! -d "$tmp" ]] && mkdir -p "$tmp" 2>/dev/null || true
+    echo "$tmp"
+}
+
+# ============================================================================
 # PATH UTILITIES
 # ============================================================================
 
@@ -295,6 +321,23 @@ get_workspace() {
         echo "$HOME/storage/shared/aiwb"
     else
         echo "${aiwb_home}/workspace"
+    fi
+}
+
+# Get the current working directory safely.
+# On Termux, the CWD may have been deleted (e.g. after an app switch).
+# Falls back to the workspace directory or $HOME.
+safe_cwd() {
+    local cwd
+    cwd="$(pwd 2>/dev/null)" && [[ -d "$cwd" ]] && { echo "$cwd"; return 0; }
+    # CWD is gone — try reasonable fallbacks
+    local fallback="${AIWB_WORKSPACE:-${HOME}}"
+    if [[ -d "$fallback" ]]; then
+        cd "$fallback" 2>/dev/null || true
+        echo "$fallback"
+    else
+        cd "$HOME" 2>/dev/null || true
+        echo "$HOME"
     fi
 }
 
@@ -331,7 +374,7 @@ json_set() {
     local value="$3"
 
     local tmp
-    tmp="$(mktemp)"
+    tmp="$(aiwb_mktemp)"
     jq --arg k "$key" --arg v "$value" '.[$k] = $v' "$file" > "$tmp" && mv "$tmp" "$file"
 }
 

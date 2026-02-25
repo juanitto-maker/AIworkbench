@@ -408,7 +408,7 @@ swarm_mapreduce() {
     local -a chunks=()
     local lines_per_chunk=$(( $(echo "$prompt" | wc -l) / num_chunks ))
 
-    local temp_file=$(mktemp)
+    local temp_file=$(aiwb_mktemp)
     echo "$prompt" > "$temp_file"
 
     for (( i=0; i<num_chunks; i++ )); do
@@ -436,7 +436,7 @@ swarm_mapreduce() {
     local total=$num_chunks
 
     # Write chunks to temp files first (avoid ARG_MAX issues)
-    local chunk_dir=$(mktemp -d)
+    local chunk_dir=$(aiwb_mktemp -d)
     for (( i=0; i<num_chunks; i++ )); do
         echo "${chunks[$i]}" > "$chunk_dir/chunk_$i.txt"
     done

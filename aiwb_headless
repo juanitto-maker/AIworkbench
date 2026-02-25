@@ -23,6 +23,11 @@
 
 export AIWB_HEADLESS=1
 
+# Ensure CWD exists (Termux may have a stale CWD after app switches)
+if ! pwd >/dev/null 2>&1; then
+    cd "${HOME}" 2>/dev/null || cd / 2>/dev/null || true
+fi
+
 # Resolve real path to aiwb sibling script
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 

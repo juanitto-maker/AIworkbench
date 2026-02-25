@@ -120,7 +120,7 @@ github_api() {
     fi
 
     local response http_code
-    local tmp_file=$(mktemp)
+    local tmp_file=$(aiwb_mktemp)
 
     http_code=$(curl "${curl_args[@]}" -w "%{http_code}" -o "$tmp_file" "$url")
     response=$(cat "$tmp_file")
