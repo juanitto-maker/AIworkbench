@@ -458,7 +458,7 @@ ui_select_context_files() {
     local -a display_options=()
     local -a full_paths=()
     local workspace
-    workspace="$(config_get workspace 2>/dev/null || pwd)"
+    workspace="$(config_get workspace 2>/dev/null || safe_cwd)"
 
     for file in "${file_paths[@]}"; do
         # Try to make path relative to workspace for cleaner display

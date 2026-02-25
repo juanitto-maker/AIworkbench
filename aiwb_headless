@@ -20,6 +20,11 @@
 #   --check-instruct  path to check instruction file
 #   --context     path to context file or directory
 #   --output      copy output to this file path
+#   --timeout     pipeline timeout in seconds (default: $AIWB_HEADLESS_TIMEOUT or 300)
+#
+# Environment variables:
+#   TMPDIR                 temp directory (Termux: set to writable path, e.g. $HOME/.clide/tmp)
+#   AIWB_HEADLESS_TIMEOUT  default timeout for the full headless pipeline (seconds)
 
 export AIWB_HEADLESS=1
 

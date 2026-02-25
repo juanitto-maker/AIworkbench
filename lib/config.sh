@@ -15,6 +15,7 @@ readonly AIWB_MAX_TOKENS_DEFAULT=16000      # Default max tokens for API calls
 readonly AIWB_TEMPERATURE_DEFAULT=0.2       # Default temperature (0.0-1.0, lower = more focused)
 readonly AIWB_API_TIMEOUT=300               # API call timeout in seconds (5 minutes)
 readonly AIWB_API_CONNECT_TIMEOUT=10        # Connection timeout in seconds
+readonly AIWB_HEADLESS_TIMEOUT="${AIWB_HEADLESS_TIMEOUT:-300}"  # Headless pipeline timeout (seconds)
 
 # Logging Configuration
 readonly AIWB_LOG_RETENTION=10              # Number of log files to keep

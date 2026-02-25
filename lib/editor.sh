@@ -86,7 +86,7 @@ read_file() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     if [[ ! -f "$full_path" ]]; then
@@ -109,7 +109,7 @@ write_file() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     # Create directory if needed
@@ -132,7 +132,7 @@ list_files() {
     if is_repo_mode; then
         base_path="$AIWB_REPO_PATH/$path"
     else
-        base_path="$(pwd)/$path"
+        base_path="$(safe_cwd)/$path"
     fi
 
     find "$base_path" -name "$pattern" -type f 2>/dev/null | head -50
@@ -146,7 +146,7 @@ find_files() {
     if is_repo_mode; then
         base_path="$AIWB_REPO_PATH"
     else
-        base_path="$(pwd)"
+        base_path="$(safe_cwd)"
     fi
 
     # Use git ls-files if in repo (respects .gitignore)
@@ -172,7 +172,7 @@ show_diff() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     # Create temp file with new content
@@ -346,7 +346,7 @@ create_file_with_ai() {
     elif is_repo_mode; then
         full_path="$AIWB_REPO_PATH/$file_path"
     else
-        full_path="$(pwd)/$file_path"
+        full_path="$(safe_cwd)/$file_path"
     fi
 
     if [[ -f "$full_path" ]]; then
@@ -544,7 +544,7 @@ EOF
         if is_repo_mode; then
             full_path="$AIWB_REPO_PATH/$first_word"
         else
-            full_path="$(pwd)/$first_word"
+            full_path="$(safe_cwd)/$first_word"
         fi
 
         if [[ -f "$full_path" ]]; then
